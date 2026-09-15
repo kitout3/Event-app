@@ -2,7 +2,8 @@
   const STORAGE_KEY = 'wedding-media-selection-v2';
   const MAX_ITEMS = 200;
   const PHOTOS_PER_ZIP = 15;
-  const DOWNLOAD_URL_LIFETIME_MS = 5 * 60 * 1000;
+  const DOWNLOAD_WORKER_VERSION = '20260915-1';
+  let downloadWorkerPromise = null;
 
   const translations = {
     fr: {
@@ -120,21 +121,59 @@
     bar.querySelector('[data-download]').disabled = busy || !selected.size;
   }
 
-  function downloadBlob(blob, name) {
-    const href = URL.createObjectURL(blob), anchor = document.createElement('a');
-    anchor.href = href;
-    anchor.download = cleanName(name, 'souvenirs');
+  async function getDownloadWorker() {
+    if (!('serviceWorker' in navigator)) throw new Error('Service Worker indisponible');
+    if (downloadWorkerPromise) return downloadWorkerPromise;
+
+    downloadWorkerPromise = (async () => {
+      const workerUrl = new URL(`./download-worker.js?v=${DOWNLOAD_WORKER_VERSION}`, window.location.href);
+      const scope = new URL('./__download__/', window.location.href).pathname;
+      const registration = await navigator.serviceWorker.register(workerUrl, { scope });
+      await registration.update();
+      if (registration.active) return registration.active;
+
+      const worker = registration.installing || registration.waiting;
+      if (!worker) throw new Error('Service Worker non initialisé');
+      if (worker.state === 'activated') return worker;
+      await new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => reject(new Error('Activation du téléchargement trop longue')), 10000);
+        worker.addEventListener('statechange', () => {
+          if (worker.state === 'activated') { clearTimeout(timeout); resolve(); }
+          if (worker.state === 'redundant') { clearTimeout(timeout); reject(new Error('Activation du téléchargement refusée')); }
+        });
+      });
+      if (!registration.active) throw new Error('Service Worker non actif');
+      return registration.active;
+    })().catch(error => {
+      downloadWorkerPromise = null;
+      throw error;
+    });
+
+    return downloadWorkerPromise;
+  }
+
+  async function downloadBlob(blob, name) {
+    const worker = await getDownloadWorker();
+    const id = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const safeName = cleanName(name, 'souvenirs');
+
+    await new Promise((resolve, reject) => {
+      const channel = new MessageChannel();
+      const timeout = setTimeout(() => reject(new Error('Préparation du téléchargement trop longue')), 10000);
+      channel.port1.onmessage = event => {
+        clearTimeout(timeout);
+        event.data?.ok ? resolve() : reject(new Error('Téléchargement refusé'));
+      };
+      worker.postMessage({ type: 'PREPARE_MEDIA_DOWNLOAD', id, name: safeName, blob }, [channel.port2]);
+    });
+
+    const anchor = document.createElement('a');
+    anchor.href = new URL(`./__download__/${encodeURIComponent(id)}`, window.location.href).href;
+    anchor.download = safeName;
     anchor.style.display = 'none';
     document.body.appendChild(anchor);
-
-    // Chrome peut différer la lecture du blob (confirmation de téléchargement,
-    // antivirus ou choix du dossier). Conserver l'URL et l'ancre évite alors
-    // l'erreur « Fichier non disponible sur le site ».
     anchor.click();
-    setTimeout(() => {
-      anchor.remove();
-      URL.revokeObjectURL(href);
-    }, DOWNLOAD_URL_LIFETIME_MS);
+    setTimeout(() => anchor.remove(), 60000);
   }
 
   async function fetchMedia(item) {
@@ -180,7 +219,7 @@
   async function downloadDirect(item, index) {
     try {
       const bytes = await fetchMedia(item);
-      downloadBlob(new Blob([bytes]), item.name || `souvenir-${index + 1}`);
+      await downloadBlob(new Blob([bytes]), item.name || `souvenir-${index + 1}`);
       return true;
     } catch (error) {
       console.error('Direct media download:', error);
@@ -200,7 +239,7 @@
         const item = groups[groupIndex][index]; files.push({ name: item.name, bytes: await fetchMedia(item) });
       }
       const suffix = groups.length > 1 ? `-partie-${groupIndex + 1}` : '';
-      downloadBlob(zipArchive(files), `mariage-huyen-quentin-photos${suffix}.zip`);
+      await downloadBlob(zipArchive(files), `mariage-huyen-quentin-photos${suffix}.zip`);
     }
     return true;
   }
