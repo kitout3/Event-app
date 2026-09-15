@@ -12,19 +12,22 @@
       empty: 'Sélectionnez au moins une photo ou une vidéo.', limit: 'La sélection est limitée à 200 fichiers.',
       preparing: 'Préparation', downloading: 'Téléchargement', complete: 'Téléchargement terminé.',
       partial: 'Certains fichiers n’ont pas pu être téléchargés.', error: 'Impossible de télécharger. La configuration Firebase Storage doit être actualisée.',
+      cancelled: 'Téléchargement annulé.', chooseFolder: 'Choisissez le dossier de destination.',
       videoNotice: 'Vidéos séparées pour conserver la qualité originale.'
     },
     en: {
       select: 'Select', selected: 'Selected', items: 'selected', downloadSelection: 'Download my selection', downloadAll: 'Download all', clear: 'Clear',
       empty: 'Select at least one photo or video.', limit: 'Selection is limited to 200 files.', preparing: 'Preparing',
       downloading: 'Downloading', complete: 'Download complete.', partial: 'Some files must be opened individually.',
-      error: 'Unable to download this selection.', videoNotice: 'Videos downloaded separately to preserve original quality.'
+      error: 'Unable to download this selection.', cancelled: 'Download cancelled.', chooseFolder: 'Choose the destination folder.',
+      videoNotice: 'Videos downloaded separately to preserve original quality.'
     },
     vi: {
       select: 'Chọn', selected: 'Đã chọn', items: 'đã chọn', downloadSelection: 'Tải lựa chọn', downloadAll: 'Tải tất cả', clear: 'Xóa',
       empty: 'Chọn ít nhất một ảnh hoặc video.', limit: 'Tối đa 200 tệp.', preparing: 'Đang chuẩn bị',
       downloading: 'Đang tải', complete: 'Đã tải xong.', partial: 'Một số tệp phải được mở riêng.',
-      error: 'Không thể tải lựa chọn.', videoNotice: 'Video được tải riêng để giữ nguyên chất lượng.'
+      error: 'Không thể tải lựa chọn.', cancelled: 'Đã hủy tải xuống.', chooseFolder: 'Chọn thư mục đích.',
+      videoNotice: 'Video được tải riêng để giữ nguyên chất lượng.'
     }
   };
 
@@ -109,7 +112,7 @@
       bar = document.createElement('div'); bar.id = 'media-selection-bar'; bar.className = 'ms-bar';
       bar.innerHTML = `<div class="ms-bar__info"><strong data-count></strong><span class="ms-status" data-status aria-live="polite"></span></div><button class="ms-button ms-secondary" data-clear></button><button class="ms-button ms-secondary" data-all></button><button class="ms-button ms-primary" data-download></button>`;
       bar.querySelector('[data-clear]').onclick = () => { if (busy) return; selected.clear(); save(); render(); };
-      bar.querySelector('[data-all]').onclick = event => downloadItems(visibleItems(), event.currentTarget, false);
+      bar.querySelector('[data-all]').onclick = event => downloadItems(visibleItems(), event.currentTarget, false, true);
       bar.querySelector('[data-download]').onclick = event => downloadSelection(event.currentTarget);
       document.body.appendChild(bar);
     }
@@ -182,6 +185,44 @@
     return new Uint8Array(await response.arrayBuffer());
   }
 
+  async function downloadToDirectory(items, status) {
+    setText(status, t('chooseFolder'));
+    const selectedDirectory = await window.showDirectoryPicker({ mode: 'readwrite' });
+    const directory = await selectedDirectory.getDirectoryHandle('Mariage Huyen et Quentin', { create: true });
+    const usedNames = new Set();
+
+    for (let index = 0; index < items.length; index++) {
+      const item = items[index];
+      const baseName = cleanName(item.name, `souvenir-${index + 1}`);
+      let filename = baseName;
+      let duplicate = 2;
+      while (usedNames.has(filename.toLocaleLowerCase())) {
+        const dot = baseName.lastIndexOf('.');
+        const stem = dot > 0 ? baseName.slice(0, dot) : baseName;
+        const extension = dot > 0 ? baseName.slice(dot) : '';
+        filename = `${stem}-${duplicate++}${extension}`;
+      }
+      usedNames.add(filename.toLocaleLowerCase());
+
+      setText(status, `${t('downloading')} ${index + 1}/${items.length}`);
+      const response = await fetch(item.url);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const fileHandle = await directory.getFileHandle(filename, { create: true });
+      const writable = await fileHandle.createWritable();
+      try {
+        if (response.body?.pipeTo) await response.body.pipeTo(writable);
+        else {
+          await writable.write(await response.arrayBuffer());
+          await writable.close();
+        }
+      } catch (error) {
+        try { await writable.abort(); } catch { /* écriture déjà fermée */ }
+        throw error;
+      }
+    }
+    return true;
+  }
+
   const crcTable = Array.from({ length: 256 }, (_, value) => {
     let crc = value;
     for (let bit = 0; bit < 8; bit++) crc = (crc & 1) ? (0xedb88320 ^ (crc >>> 1)) : (crc >>> 1);
@@ -244,7 +285,7 @@
     return true;
   }
 
-  async function downloadItems(items, button, clearSelection) {
+  async function downloadItems(items, button, clearSelection, preferDirectory = false) {
     if (busy || !items.length) return;
     busy = true; button.disabled = true;
     const bar = document.getElementById('media-selection-bar'), status = bar?.querySelector('[data-status]');
@@ -252,15 +293,20 @@
     const photos = items.filter(item => item.kind === 'photo'), videos = items.filter(item => item.kind === 'video');
     let success = true;
     try {
-      if (photos.length) success = await downloadPhotoGroups(photos, status) && success;
-      for (let index = 0; index < videos.length; index++) {
-        setText(status, `${t('downloading')} ${index + 1}/${videos.length} · ${t('videoNotice')}`);
-        success = await downloadDirect(videos[index], index) && success;
+      if (preferDirectory && typeof window.showDirectoryPicker === 'function') {
+        success = await downloadToDirectory(items, status);
+      } else {
+        if (photos.length) success = await downloadPhotoGroups(photos, status) && success;
+        for (let index = 0; index < videos.length; index++) {
+          setText(status, `${t('downloading')} ${index + 1}/${videos.length} · ${t('videoNotice')}`);
+          success = await downloadDirect(videos[index], index) && success;
+        }
       }
       setText(status, success ? t('complete') : t('partial'));
       if (success && clearSelection) { selected.clear(); save(); setTimeout(render, 1800); }
     } catch (error) {
-      console.error('Selection download:', error); setText(status, t('error'));
+      if (error?.name === 'AbortError') setText(status, t('cancelled'));
+      else { console.error('Selection download:', error); setText(status, t('error')); }
     } finally {
       busy = false; render();
     }
