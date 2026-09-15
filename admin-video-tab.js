@@ -163,7 +163,7 @@
             <div class="av-actions">
               <button class="av-action av-ok" data-approve>✓ Valider</button>
               <button class="av-action av-no" data-reject>✕ Refuser</button>
-              <a class="av-action av-download" href="${escapeHtml(video.url)}" target="_blank" rel="noopener">⬇ Télécharger</a>
+              <button type="button" class="av-action av-download" data-download>⬇ Télécharger</button>
               <button class="av-action av-del" data-delete>🗑 Supprimer</button>
             </div>
           </div>`;
@@ -174,6 +174,34 @@
         card.querySelector("[data-reject]").onclick = async () => {
           await updateVideo(video.id, { status: "rejected", selectedForTv: false });
           await renderVideos(panel);
+        };
+        card.querySelector("[data-download]").onclick = async event => {
+          event.preventDefault();
+          event.stopPropagation();
+          const button = event.currentTarget;
+          const originalLabel = button.textContent;
+          const extension = (video.mimeType || "").includes("quicktime") ? "mov"
+            : (video.mimeType || "").includes("webm") ? "webm"
+              : ((video.path || "").split(".").pop() || "mp4");
+          button.disabled = true;
+          button.textContent = "Préparation…";
+          try {
+            if (typeof window.weddingDownloadMedia !== "function") throw new Error("Module de téléchargement indisponible");
+            await window.weddingDownloadMedia({
+              kind: "video",
+              id: video.id,
+              url: video.url,
+              name: `video-${video.id}.${extension}`,
+            });
+          } catch (error) {
+            if (error?.name !== "AbortError") {
+              console.error("Téléchargement vidéo :", error);
+              alert("La vidéo n’a pas pu être téléchargée.");
+            }
+          } finally {
+            button.disabled = false;
+            button.textContent = originalLabel;
+          }
         };
         card.querySelector("[data-delete]").onclick = async () => {
           if (!confirm("Supprimer définitivement cette vidéo ?")) return;
