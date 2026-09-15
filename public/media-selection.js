@@ -185,6 +185,26 @@
     return new Uint8Array(await response.arrayBuffer());
   }
 
+  async function hasNativeDownload(item) {
+    try {
+      const response = await fetch(item.url, { method: 'HEAD', cache: 'no-store' });
+      return response.ok && /^attachment(?:;|$)/i.test(response.headers.get('content-disposition') || '');
+    } catch {
+      return false;
+    }
+  }
+
+  function downloadNative(item, index) {
+    const anchor = document.createElement('a');
+    anchor.href = item.url;
+    anchor.download = cleanName(item.name, `souvenir-${index + 1}`);
+    anchor.rel = 'noopener';
+    anchor.style.display = 'none';
+    document.body.appendChild(anchor);
+    anchor.click();
+    setTimeout(() => anchor.remove(), 60000);
+  }
+
   async function downloadToDirectory(items, status) {
     setText(status, t('chooseFolder'));
     const selectedDirectory = await window.showDirectoryPicker({ mode: 'readwrite' });
@@ -259,6 +279,10 @@
 
   async function downloadDirect(item, index) {
     try {
+      if (await hasNativeDownload(item)) {
+        downloadNative(item, index);
+        return true;
+      }
       const bytes = await fetchMedia(item);
       await downloadBlob(new Blob([bytes]), item.name || `souvenir-${index + 1}`);
       return true;
@@ -270,6 +294,14 @@
 
   async function downloadPhotoGroups(photos, status) {
     if (photos.length === 1) return downloadDirect(photos[0], 0);
+    if (await hasNativeDownload(photos[0])) {
+      for (let index = 0; index < photos.length; index++) {
+        setText(status, `${t('downloading')} ${index + 1}/${photos.length}`);
+        downloadNative(photos[index], index);
+        await new Promise(resolve => setTimeout(resolve, 350));
+      }
+      return true;
+    }
     const groups = [];
     for (let index = 0; index < photos.length; index += PHOTOS_PER_ZIP) groups.push(photos.slice(index, index + PHOTOS_PER_ZIP));
     for (let groupIndex = 0; groupIndex < groups.length; groupIndex++) {
