@@ -93,6 +93,7 @@ const DB = {
       const originalRef = ref(_storage, originalPath);
       await uploadBytes(originalRef, p.originalFile, {
         contentType: p.originalFile.type || "application/octet-stream",
+        contentDisposition: `attachment; filename="${p.originalFile.name.replace(/["\\]/g, "-")}"`,
         customMetadata: { eventId: p.eventId, originalName: p.originalFile.name },
       });
       originalUrl = await getDownloadURL(originalRef);

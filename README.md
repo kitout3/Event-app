@@ -102,6 +102,13 @@ Les nouvelles photos conservent à la fois un aperçu optimisé pour la galerie 
 fichier original destiné au téléchargement. Les anciens médias ne sont ni modifiés
 ni supprimés.
 
+Le navigateur doit pouvoir lire les fichiers Firebase Storage pour produire les
+archives ZIP. Appliquer une fois la configuration CORS fournie dans `cors.json` :
+
+```bash
+gsutil cors set cors.json gs://mariage-hq.firebasestorage.app
+```
+
 ---
 
 ## 🔒 Sécurité

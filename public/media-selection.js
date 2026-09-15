@@ -6,20 +6,20 @@
   const translations = {
     fr: {
       select: 'Sélectionner', selected: 'Sélectionné', items: 'sélectionné(s)',
-      downloadSelection: 'Télécharger ma sélection', clear: 'Tout effacer',
+      downloadSelection: 'Télécharger ma sélection', downloadAll: 'Tout télécharger', clear: 'Effacer',
       empty: 'Sélectionnez au moins une photo ou une vidéo.', limit: 'La sélection est limitée à 200 fichiers.',
       preparing: 'Préparation', downloading: 'Téléchargement', complete: 'Téléchargement terminé.',
-      partial: 'Certains fichiers doivent être ouverts individuellement.', error: 'Impossible de télécharger cette sélection.',
+      partial: 'Certains fichiers n’ont pas pu être téléchargés.', error: 'Impossible de télécharger. La configuration Firebase Storage doit être actualisée.',
       videoNotice: 'Vidéos séparées pour conserver la qualité originale.'
     },
     en: {
-      select: 'Select', selected: 'Selected', items: 'selected', downloadSelection: 'Download my selection', clear: 'Clear all',
+      select: 'Select', selected: 'Selected', items: 'selected', downloadSelection: 'Download my selection', downloadAll: 'Download all', clear: 'Clear',
       empty: 'Select at least one photo or video.', limit: 'Selection is limited to 200 files.', preparing: 'Preparing',
       downloading: 'Downloading', complete: 'Download complete.', partial: 'Some files must be opened individually.',
       error: 'Unable to download this selection.', videoNotice: 'Videos downloaded separately to preserve original quality.'
     },
     vi: {
-      select: 'Chọn', selected: 'Đã chọn', items: 'đã chọn', downloadSelection: 'Tải lựa chọn', clear: 'Xóa tất cả',
+      select: 'Chọn', selected: 'Đã chọn', items: 'đã chọn', downloadSelection: 'Tải lựa chọn', downloadAll: 'Tải tất cả', clear: 'Xóa',
       empty: 'Chọn ít nhất một ảnh hoặc video.', limit: 'Tối đa 200 tệp.', preparing: 'Đang chuẩn bị',
       downloading: 'Đang tải', complete: 'Đã tải xong.', partial: 'Một số tệp phải được mở riêng.',
       error: 'Không thể tải lựa chọn.', videoNotice: 'Video được tải riêng để giữ nguyên chất lượng.'
@@ -59,10 +59,10 @@
     [data-media-kind][data-media-id]{position:relative!important}
     .ms-select{position:absolute;z-index:20;top:9px;right:9px;border:1px solid rgba(255,255,255,.8);border-radius:999px;padding:7px 11px;background:rgba(25,18,14,.68);color:#fff;backdrop-filter:blur(10px);font:600 12px Jost,Arial,sans-serif;box-shadow:0 2px 10px rgba(0,0,0,.2);cursor:pointer}
     .ms-select[aria-pressed="true"]{background:#5c2a1e;border-color:#f5ddd4}
-    .ms-bar{position:fixed;z-index:2147483600;left:50%;bottom:18px;transform:translateX(-50%);width:min(94vw,690px);background:#fffdf9;border:1px solid #f5ddd4;border-radius:18px;padding:10px 12px;display:flex;align-items:center;gap:9px;box-shadow:0 8px 35px rgba(61,32,16,.3);font:14px Jost,Arial,sans-serif}
+    .ms-bar{position:fixed;z-index:2147483600;left:50%;bottom:18px;transform:translateX(-50%);width:min(96vw,780px);background:#fffdf9;border:1px solid #f5ddd4;border-radius:18px;padding:10px 12px;display:flex;align-items:center;gap:9px;box-shadow:0 8px 35px rgba(61,32,16,.3);font:14px Jost,Arial,sans-serif}
     .ms-bar__info{flex:1;min-width:0}.ms-bar strong{display:block;color:#5c2a1e}.ms-status{display:block;color:#9e7060;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
     .ms-button{border:0;border-radius:999px;padding:10px 15px;font:600 13px Jost,Arial,sans-serif;cursor:pointer}.ms-button:disabled{opacity:.55;cursor:wait}.ms-primary{background:#5c2a1e;color:#fff}.ms-secondary{background:#f5ddd4;color:#5c2a1e}
-    @media(max-width:560px){.ms-select{padding:7px;width:36px;height:36px;font-size:0}.ms-select::before{content:'+';font-size:20px}.ms-select[aria-pressed="true"]::before{content:'✓';font-size:18px}.ms-bar{bottom:10px;align-items:flex-end}.ms-bar .ms-secondary{display:none}.ms-primary{max-width:58%;padding:10px 12px}.ms-status{max-width:34vw}}
+    @media(max-width:650px){.ms-select{padding:7px;width:36px;height:36px;font-size:0}.ms-select::before{content:'+';font-size:20px}.ms-select[aria-pressed="true"]::before{content:'✓';font-size:18px}.ms-bar{bottom:8px;display:grid;grid-template-columns:1fr 1fr;padding:9px}.ms-bar__info{grid-column:1/-1}.ms-button{padding:10px 8px;font-size:12px}.ms-bar [data-clear]{display:none}.ms-status{white-space:normal}.ms-bar strong{font-size:12px}}
   `;
   document.head.appendChild(styles);
 
@@ -91,19 +91,32 @@
 
   function setText(element, value) { if (element && element.textContent !== value) element.textContent = value; }
 
+  function visibleItems() {
+    const items = new Map();
+    document.querySelectorAll('[data-media-kind][data-media-id][data-media-url]').forEach(element => {
+      const item = itemFromElement(element); items.set(itemKey(item), item);
+    });
+    return [...items.values()].slice(0, MAX_ITEMS);
+  }
+
   function renderBar() {
     let bar = document.getElementById('media-selection-bar');
-    if (!selected.size) { bar?.remove(); return; }
+    const available = visibleItems();
+    if (!available.length && !selected.size) { bar?.remove(); return; }
     if (!bar) {
       bar = document.createElement('div'); bar.id = 'media-selection-bar'; bar.className = 'ms-bar';
-      bar.innerHTML = `<div class="ms-bar__info"><strong data-count></strong><span class="ms-status" data-status aria-live="polite"></span></div><button class="ms-button ms-secondary" data-clear></button><button class="ms-button ms-primary" data-download></button>`;
+      bar.innerHTML = `<div class="ms-bar__info"><strong data-count></strong><span class="ms-status" data-status aria-live="polite"></span></div><button class="ms-button ms-secondary" data-clear></button><button class="ms-button ms-secondary" data-all></button><button class="ms-button ms-primary" data-download></button>`;
       bar.querySelector('[data-clear]').onclick = () => { if (busy) return; selected.clear(); save(); render(); };
+      bar.querySelector('[data-all]').onclick = event => downloadItems(visibleItems(), event.currentTarget, false);
       bar.querySelector('[data-download]').onclick = event => downloadSelection(event.currentTarget);
       document.body.appendChild(bar);
     }
-    setText(bar.querySelector('[data-count]'), `${selected.size} ${t('items')}`);
+    setText(bar.querySelector('[data-count]'), selected.size ? `${selected.size} ${t('items')}` : `${available.length} média(s)`);
     setText(bar.querySelector('[data-clear]'), t('clear'));
+    setText(bar.querySelector('[data-all]'), t('downloadAll'));
     setText(bar.querySelector('[data-download]'), t('downloadSelection'));
+    bar.querySelector('[data-clear]').disabled = busy || !selected.size;
+    bar.querySelector('[data-download]').disabled = busy || !selected.size;
   }
 
   function downloadBlob(blob, name) {
@@ -159,7 +172,6 @@
       return true;
     } catch (error) {
       console.error('Direct media download:', error);
-      window.open(item.url, '_blank', 'noopener');
       return false;
     }
   }
@@ -181,11 +193,12 @@
     return true;
   }
 
-  async function downloadSelection(button) {
-    if (busy || !selected.size) return;
+  async function downloadItems(items, button, clearSelection) {
+    if (busy || !items.length) return;
     busy = true; button.disabled = true;
     const bar = document.getElementById('media-selection-bar'), status = bar?.querySelector('[data-status]');
-    const items = [...selected.values()], photos = items.filter(item => item.kind === 'photo'), videos = items.filter(item => item.kind === 'video');
+    bar?.querySelectorAll('button').forEach(item => { item.disabled = true; });
+    const photos = items.filter(item => item.kind === 'photo'), videos = items.filter(item => item.kind === 'video');
     let success = true;
     try {
       if (photos.length) success = await downloadPhotoGroups(photos, status) && success;
@@ -194,12 +207,16 @@
         success = await downloadDirect(videos[index], index) && success;
       }
       setText(status, success ? t('complete') : t('partial'));
-      if (success) { selected.clear(); save(); setTimeout(render, 1800); }
+      if (success && clearSelection) { selected.clear(); save(); setTimeout(render, 1800); }
     } catch (error) {
       console.error('Selection download:', error); setText(status, t('error'));
     } finally {
-      busy = false; button.disabled = false;
+      busy = false; render();
     }
+  }
+
+  function downloadSelection(button) {
+    return downloadItems([...selected.values()], button, true);
   }
 
   function render() { refreshButtons(); renderBar(); }

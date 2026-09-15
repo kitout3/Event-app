@@ -101,7 +101,8 @@
     const id=`${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
     const ext=(file.name.split(".").pop()||"webm").replace(/[^a-z0-9]/gi,"").toLowerCase();
     const path=`events/${EVENT_ID}/videos/${id}.${ext}`;
-    const task=st.uploadBytesResumable(st.ref(storage,path),file,{contentType:file.type,customMetadata:{eventId:EVENT_ID}});
+    const safeName=file.name.replace(/["\\]/g,"-");
+    const task=st.uploadBytesResumable(st.ref(storage,path),file,{contentType:file.type,contentDisposition:`attachment; filename="${safeName}"`,customMetadata:{eventId:EVENT_ID}});
     const snap=await new Promise((resolve,reject)=>task.on("state_changed",s=>onProgress(Math.round(s.bytesTransferred/s.totalBytes*100)),reject,()=>resolve(task.snapshot)));
     const url=await st.getDownloadURL(snap.ref);
     const duration=Math.round(await getDuration(file));
