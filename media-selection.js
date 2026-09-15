@@ -2,6 +2,7 @@
   const STORAGE_KEY = 'wedding-media-selection-v2';
   const MAX_ITEMS = 200;
   const PHOTOS_PER_ZIP = 15;
+  const DOWNLOAD_URL_LIFETIME_MS = 5 * 60 * 1000;
 
   const translations = {
     fr: {
@@ -121,8 +122,19 @@
 
   function downloadBlob(blob, name) {
     const href = URL.createObjectURL(blob), anchor = document.createElement('a');
-    anchor.href = href; anchor.download = cleanName(name, 'souvenirs'); document.body.appendChild(anchor); anchor.click(); anchor.remove();
-    setTimeout(() => URL.revokeObjectURL(href), 60000);
+    anchor.href = href;
+    anchor.download = cleanName(name, 'souvenirs');
+    anchor.style.display = 'none';
+    document.body.appendChild(anchor);
+
+    // Chrome peut différer la lecture du blob (confirmation de téléchargement,
+    // antivirus ou choix du dossier). Conserver l'URL et l'ancre évite alors
+    // l'erreur « Fichier non disponible sur le site ».
+    anchor.click();
+    setTimeout(() => {
+      anchor.remove();
+      URL.revokeObjectURL(href);
+    }, DOWNLOAD_URL_LIFETIME_MS);
   }
 
   async function fetchMedia(item) {
