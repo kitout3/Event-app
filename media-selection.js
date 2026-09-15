@@ -243,6 +243,26 @@
     return true;
   }
 
+  async function downloadWithFilePicker(item, index = 0) {
+    if (typeof window.showSaveFilePicker !== 'function') return downloadDirect(item, index);
+    const filename = cleanName(item.name, `souvenir-${index + 1}`);
+    const fileHandle = await window.showSaveFilePicker({ suggestedName: filename });
+    const response = await fetch(item.url);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const writable = await fileHandle.createWritable();
+    try {
+      if (response.body?.pipeTo) await response.body.pipeTo(writable);
+      else {
+        await writable.write(await response.arrayBuffer());
+        await writable.close();
+      }
+    } catch (error) {
+      try { await writable.abort(); } catch { /* écriture déjà fermée */ }
+      throw error;
+    }
+    return true;
+  }
+
   const crcTable = Array.from({ length: 256 }, (_, value) => {
     let crc = value;
     for (let bit = 0; bit < 8; bit++) crc = (crc & 1) ? (0xedb88320 ^ (crc >>> 1)) : (crc >>> 1);
@@ -325,7 +345,9 @@
     const photos = items.filter(item => item.kind === 'photo'), videos = items.filter(item => item.kind === 'video');
     let success = true;
     try {
-      if (preferDirectory && typeof window.showDirectoryPicker === 'function') {
+      if (items.length === 1 && typeof window.showSaveFilePicker === 'function') {
+        success = await downloadWithFilePicker(items[0], 0);
+      } else if ((preferDirectory || items.length > 1) && typeof window.showDirectoryPicker === 'function') {
         success = await downloadToDirectory(items, status);
       } else {
         if (photos.length) success = await downloadPhotoGroups(photos, status) && success;
@@ -347,6 +369,13 @@
   function downloadSelection(button) {
     return downloadItems([...selected.values()], button, true);
   }
+
+  window.weddingDownloadMedia = item => downloadWithFilePicker({
+    kind: item?.kind || 'video',
+    id: String(item?.id || 'media'),
+    url: String(item?.url || ''),
+    name: cleanName(item?.name, 'souvenir'),
+  });
 
   function render() { refreshButtons(); renderBar(); }
   const observer = new MutationObserver(() => requestAnimationFrame(render));
