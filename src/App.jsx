@@ -18,7 +18,7 @@ let _firebaseApp = null, _db = null, _storage = null, _firebaseReady = false;
 async function initFirebase() {
   if (!isRealConfig || _firebaseReady) return _firebaseReady;
   try {
-    const [{ initializeApp }, { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy, serverTimestamp }, { getStorage, ref, uploadString, getDownloadURL }] =
+    const [{ initializeApp }, { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy, serverTimestamp }, { getStorage, ref, uploadString, uploadBytes, getDownloadURL }] =
       await Promise.all([
         import("https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js"),
         import("https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js"),
@@ -27,7 +27,7 @@ async function initFirebase() {
     _firebaseApp = initializeApp(FIREBASE_CONFIG);
     _db = getFirestore(_firebaseApp);
     _storage = getStorage(_firebaseApp);
-    window.__fb = { collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy, serverTimestamp, ref, uploadString, getDownloadURL };
+    window.__fb = { collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy, serverTimestamp, ref, uploadString, uploadBytes, getDownloadURL };
     _firebaseReady = true;
     return true;
   } catch (e) { console.error("Firebase:", e); return false; }
@@ -77,12 +77,39 @@ const MockDB = {
 const DB = {
   addPhoto: async (p) => {
     if (!_firebaseReady) return MockDB.addPhoto(p);
-    const { collection, addDoc, serverTimestamp, ref, uploadString, getDownloadURL } = window.__fb;
-    const sRef = ref(_storage, `events/${p.eventId}/photos/${makeUniqueId("photo")}.jpg`);
-    await uploadString(sRef, p.url, "data_url");
-    const url = await getDownloadURL(sRef);
-    const d = await addDoc(collection(_db, "photos"), { ...p, url, thumbnail: url, status: mockEvent.moderationMode === "moderated" ? "pending" : "approved", likes: 0, createdAt: serverTimestamp() });
-    return { id: d.id, ...p, url };
+    const { collection, addDoc, serverTimestamp, ref, uploadString, uploadBytes, getDownloadURL } = window.__fb;
+    const mediaId = makeUniqueId("photo");
+    const thumbnailRef = ref(_storage, `events/${p.eventId}/photos/${mediaId}_preview.jpg`);
+    await uploadString(thumbnailRef, p.url, "data_url");
+    const url = await getDownloadURL(thumbnailRef);
+
+    // L'aperçu reste léger, mais l'original est conservé sans recompression
+    // pour les futurs téléchargements en pleine qualité.
+    let originalUrl = url;
+    let originalPath = null;
+    if (p.originalFile) {
+      const extension = (p.originalFile.name.split(".").pop() || "jpg").replace(/[^a-z0-9]/gi, "").toLowerCase() || "jpg";
+      originalPath = `events/${p.eventId}/photos/originals/${mediaId}.${extension}`;
+      const originalRef = ref(_storage, originalPath);
+      await uploadBytes(originalRef, p.originalFile, {
+        contentType: p.originalFile.type || "application/octet-stream",
+        customMetadata: { eventId: p.eventId, originalName: p.originalFile.name },
+      });
+      originalUrl = await getDownloadURL(originalRef);
+    }
+
+    const { originalFile, ...record } = p;
+    const metadata = originalFile ? {
+      originalName: originalFile.name,
+      mimeType: originalFile.type || null,
+      size: originalFile.size,
+    } : {};
+    const d = await addDoc(collection(_db, "photos"), {
+      ...record, url, thumbnail: url, originalUrl, originalPath, ...metadata,
+      status: mockEvent.moderationMode === "moderated" ? "pending" : "approved",
+      likes: 0, createdAt: serverTimestamp(),
+    });
+    return { id: d.id, ...record, url, originalUrl };
   },
   updatePhoto: async (id, u) => {
     if (!_firebaseReady) return MockDB.updatePhoto(id, u);
@@ -479,6 +506,7 @@ function UploadPage({ setView }) {
         await DB.addPhoto({
           url: compressed,
           thumbnail: compressed,
+          originalFile: item.file,
           author: firstName.trim() || null,
           message: message.trim() || null,
           eventId: event.id,
@@ -793,7 +821,7 @@ function GalleryPage({ setView }) {
           {sorted.map((photo, i) => {
             const isTop = photo.id === topLiked?.id && getLikeCount(topLiked?.likes) > 0;
             return (
-              <div key={photo.id} className="photo-in" style={{
+              <div key={photo.id} className="photo-in" data-media-kind="photo" data-media-id={photo.id} style={{
                 breakInside: "avoid", marginBottom: 8, borderRadius: 14, overflow: "hidden",
                 background: "var(--white)", boxShadow: isTop ? "0 4px 20px rgba(200,80,80,.2)" : "0 2px 12px var(--shadow)",
                 border: isTop ? "1.5px solid rgba(200,80,80,.25)" : "none",
