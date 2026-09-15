@@ -91,24 +91,16 @@ TONPSEUDO.github.io
 | `/#live` | Affichage TV plein écran |
 | `/#admin` | Administration (mot de passe : `admin123`) |
 
-## 📩 Envoi des sélections par e-mail
+## ⬇️ Téléchargement des sélections
 
-Le parcours invité ne demande aucun compte : l'invité sélectionne ses photos et
-vidéos, saisit son e-mail, puis reçoit un lien temporaire valable 14 jours. Les
-photos ajoutées depuis cette version conservent à la fois un aperçu optimisé et le
-fichier original. Les anciens médias ne sont ni modifiés ni supprimés.
+L'invité sélectionne ses photos et vidéos puis les télécharge directement sur son
+appareil, sans compte et sans adresse e-mail. Plusieurs photos sont regroupées dans
+des archives ZIP sans recompression. Les vidéos sont téléchargées individuellement
+afin de ne pas saturer la mémoire des appareils mobiles.
 
-Le backend utilise les fonctions Firebase `createMediaSelection` et
-`getMediaSelection`. L'envoi est confié à l'extension officielle **Trigger Email** :
-
-1. Installer `firebase/firestore-send-email` sur le projet `mariage-hq`.
-2. Choisir `mail` comme collection de documents e-mail.
-3. Renseigner le serveur SMTP et l'adresse expéditrice dans l'extension.
-4. Déployer les fonctions avec `firebase deploy --only functions`.
-
-Les sélections sont limitées à 200 fichiers. Le serveur vérifie que chaque média
-existe et est validé avant de créer le lien ; les URL envoyées par le navigateur ne
-sont jamais acceptées directement.
+Les nouvelles photos conservent à la fois un aperçu optimisé pour la galerie et le
+fichier original destiné au téléchargement. Les anciens médias ne sont ni modifiés
+ni supprimés.
 
 ---
 

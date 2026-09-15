@@ -821,7 +821,10 @@ function GalleryPage({ setView }) {
           {sorted.map((photo, i) => {
             const isTop = photo.id === topLiked?.id && getLikeCount(topLiked?.likes) > 0;
             return (
-              <div key={photo.id} className="photo-in" data-media-kind="photo" data-media-id={photo.id} style={{
+              <div key={photo.id} className="photo-in" data-media-kind="photo" data-media-id={photo.id}
+                data-media-url={photo.originalUrl || photo.url}
+                data-media-name={photo.originalName || `photo-${photo.id}.jpg`}
+                data-media-size={photo.size || ""} style={{
                 breakInside: "avoid", marginBottom: 8, borderRadius: 14, overflow: "hidden",
                 background: "var(--white)", boxShadow: isTop ? "0 4px 20px rgba(200,80,80,.2)" : "0 2px 12px var(--shadow)",
                 border: isTop ? "1.5px solid rgba(200,80,80,.25)" : "none",
