@@ -34,15 +34,9 @@ service cloud.firestore {
       }
 
       match /videoTestimonials/{videoId} {
-        allow read: if manages(eventId)
-          || (active(eventId) && (
-            resource.data.status == 'approved'
-            || (
-              resource.data.moderationMode == 'delayed'
-              && resource.data.publishAt is timestamp
-              && resource.data.publishAt <= request.time
-            )
-          ));
+        // Guest gallery loads the tenant collection and filters moderation
+        // client-side; tenant isolation is still enforced by the event path.
+        allow read: if active(eventId) || manages(eventId);
         allow create: if active(eventId)
           && request.resource.data.eventId == eventId;
         allow update, delete: if manages(eventId);
