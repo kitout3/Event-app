@@ -2,7 +2,7 @@
   "use strict";
   const KEY="mariage-account-preferences";
   const defaults={
-    primary:"#5c2a1e",accent:"#c97a6a",background:"#fdf8f4",
+    primary:"#5c2a1e",background:"#fdf8f4",
     showUpload:true,showGallery:true,showVideo:true,showTv:true,
     videoModerationMode:"moderated",videoDelayMinutes:60
   };
@@ -11,7 +11,10 @@
   const matches=(el,re)=>re.test((el.textContent||"").trim());
   function apply(p=read()){
     document.documentElement.style.setProperty("--burgundy",p.primary);
-    document.documentElement.style.setProperty("--rose",p.accent);
+    document.documentElement.style.setProperty("--rose",p.primary);
+    document.documentElement.style.setProperty("--gold",p.primary);
+    document.documentElement.style.setProperty("--text",p.primary);
+    document.documentElement.style.setProperty("--muted",p.primary);
     document.documentElement.style.setProperty("--cream",p.background);
     const rules=[
       [/(Envoyer une photo|Upload a photo|Gửi ảnh|Foto hochladen)/i,p.showUpload],
@@ -35,10 +38,9 @@
     Object.assign(box.style,{maxWidth:"560px",background:"var(--white,#fffdf9)",borderRadius:"18px",padding:"1.5rem",boxShadow:"0 2px 10px rgba(92,42,30,.12)",marginTop:"12px"});
     box.innerHTML=`
       <h3 style="font:1.35rem 'Cormorant Garamond',serif;color:var(--burgundy);margin-bottom:14px">Personnalisation du compte</h3>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px">
-        <label>Couleur principale<input data-pref="primary" type="color" style="width:100%;height:42px"></label>
-        <label>Couleur accent<input data-pref="accent" type="color" style="width:100%;height:42px"></label>
-        <label>Arrière-plan<input data-pref="background" type="color" style="width:100%;height:42px"></label>
+      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:16px">
+        <label>Couleur des textes et onglets<input data-pref="primary" type="color" style="width:100%;height:42px"></label>
+        <label>Couleur de l’arrière-plan<input data-pref="background" type="color" style="width:100%;height:42px"></label>
       </div>
       <h4 style="margin:10px 0">Onglets visibles</h4>
       <div style="display:grid;gap:8px">
