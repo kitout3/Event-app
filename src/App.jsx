@@ -396,17 +396,17 @@ function HomePage({ setView }) {
       {/* Cards navigation */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 10, width: "100%", maxWidth: 680 }}>
         {[
-          { icon: "", title: "Envoyer une photo", desc: "Partager un souvenir", v: VIEWS.UPLOAD, accent: "var(--rose)", delay: ".15s" },
-          { icon: "", title: "Galerie & réactions", desc: "Voir toutes les photos", v: VIEWS.GALLERY, accent: "var(--gold)", delay: ".22s" },
-          { icon: "", title: "Affichage TV", desc: "Diaporama plein écran", v: VIEWS.LIVE, accent: "#6a8a5a", delay: ".29s" },
-          { icon: "", title: "Administration", desc: "Modérer & exporter", v: VIEWS.ADMIN, accent: "var(--burgundy)", delay: ".36s" },
+          { icon: "", title: "Envoyer une photo", desc: "Partager un souvenir", v: VIEWS.UPLOAD, delay: ".15s" },
+          { icon: "", title: "Galerie & réactions", desc: "Voir toutes les photos", v: VIEWS.GALLERY, delay: ".22s" },
+          { icon: "", title: "Affichage TV", desc: "Diaporama plein écran", v: VIEWS.LIVE, delay: ".29s" },
+          { icon: "", title: "Administration", desc: "Modérer & exporter", v: VIEWS.ADMIN, delay: ".36s" },
         ].map(c => (
           <button key={c.v} onClick={() => setView(c.v)} className="btn" style={{
             background: "var(--white)", border: "1.5px solid var(--blush)", borderRadius: 18,
             padding: "1.5rem 1.25rem", textAlign: "left",
             boxShadow: "0 3px 16px var(--shadow)", animation: `fadeUp .55s ${c.delay} ease both`,
           }}>
-            <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: "1.25rem", color: c.accent, marginBottom: 2 }}>{c.title}</div>
+            <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: "1.25rem", color: "var(--burgundy)", marginBottom: 2 }}>{c.title}</div>
             <div style={{ color: "var(--muted)", fontSize: ".82rem" }}>{c.desc}</div>
           </button>
         ))}
