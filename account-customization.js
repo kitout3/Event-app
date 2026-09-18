@@ -3,7 +3,7 @@
   const KEY="mariage-account-preferences";
   const defaults={
     primary:"#5c2a1e",accent:"#c97a6a",background:"#fdf8f4",
-    showUpload:true,showGallery:true,showVideo:true,showAdmin:true,showTv:true,
+    showUpload:true,showGallery:true,showVideo:true,showTv:true,
     videoModerationMode:"moderated",videoDelayMinutes:60
   };
   const read=()=>{try{return {...defaults,...JSON.parse(localStorage.getItem(KEY)||"{}")}}catch{return {...defaults}}};
@@ -18,7 +18,6 @@
       [/(Galerie & réactions|Gallery & reactions|Thư viện ảnh|Galerie & Reaktionen)/i,p.showGallery],
       [/(Laisser un témoignage vidéo|Leave a video message|Gửi lời chúc bằng video|Videobotschaft hinterlassen)/i,p.showVideo],
       [/(Galerie vidéos|Video gallery|Thư viện video|Videogalerie)/i,p.showVideo],
-      [/(Administration|Quản trị)/i,p.showAdmin],
       [/(Affichage TV|TV display|Màn hình trình chiếu|TV-Anzeige)/i,p.showTv],
       [/(Regarder le live|Watch live|Xem trực tiếp|Live ansehen)/i,false]
     ];
@@ -47,7 +46,6 @@
         <label><input data-pref="showGallery" type="checkbox"> Galerie photos</label>
         <label><input data-pref="showVideo" type="checkbox"> Vidéos et témoignages</label>
         <label><input data-pref="showTv" type="checkbox"> Affichage TV</label>
-        <label><input data-pref="showAdmin" type="checkbox"> Administration</label>
       </div>
       <h4 style="margin:18px 0 8px">Modération des vidéos</h4>
       <select data-pref="videoModerationMode" style="width:100%;padding:10px;border-radius:10px;border:1px solid #ddd">
