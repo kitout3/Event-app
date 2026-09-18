@@ -1,0 +1,21 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    function signedIn() { return request.auth != null; }
+    function owns(eventId) {
+      return signedIn()
+        && firestore.get(/databases/(default)/documents/events/$(eventId)).data.ownerUid == request.auth.uid;
+    }
+    function active(eventId) {
+      return firestore.get(/databases/(default)/documents/events/$(eventId)).data.active == true;
+    }
+
+    match /events/{eventId}/{allPaths=**} {
+      allow read: if active(eventId) || owns(eventId);
+      allow create: if active(eventId)
+        && request.resource.size < 500 * 1024 * 1024;
+      allow update, delete: if owns(eventId);
+    }
+  }
+}
