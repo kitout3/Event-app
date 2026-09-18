@@ -22,12 +22,11 @@
       [/(Laisser un témoignage vidéo|Leave a video message|Gửi lời chúc bằng video|Videobotschaft hinterlassen)/i,p.showVideo],
       [/(Galerie vidéos|Video gallery|Thư viện video|Videogalerie)/i,p.showVideo],
       [/(Affichage TV|TV display|Màn hình trình chiếu|TV-Anzeige)/i,p.showTv],
-      [/(Regarder le live|Watch live|Xem trực tiếp|Live ansehen)/i,false]
+      [/(Regarder le live|Watch live|Xem trực tiếp|Live ansehen)/i,true]
     ];
     document.querySelectorAll("button").forEach(b=>{
       for(const [re,on] of rules) if(matches(b,re)){b.style.display=on?"":"none";break}
     });
-    document.querySelectorAll("#wedding-live-card,#wedding-live-panel").forEach(el=>el.remove());
   }
   function panel(){
     const settings=[...document.querySelectorAll("button")].find(b=>/Paramètres|Settings|Cài đặt|Einstellungen/i.test(b.textContent||""));
