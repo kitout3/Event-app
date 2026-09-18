@@ -239,14 +239,14 @@
     document.body.appendChild(panel);
   }
 
-  function addLiveCard() { return;
+  function addLiveCard() {
     if (document.getElementById("wedding-live-card")) return;
     const adminButton = [...document.querySelectorAll("button")].find(button => /Administration|Quản trị/.test(button.textContent));
     const grid = adminButton?.parentElement;
     if (!grid || getComputedStyle(grid).display !== "grid") return;
     const card = document.createElement("button");
     card.id = "wedding-live-card"; card.type = "button"; card.className = "btn";
-    card.innerHTML = '<div style="font-size:28px;margin-bottom:8px">🎥</div><div style="font-family:\'Cormorant Garamond\',serif;font-size:1.25rem;color:#b83232;margin-bottom:2px">Regarder le live</div><div style="color:#9e7060;font-size:.82rem">Suivre la cérémonie en direct</div>';
+    card.innerHTML = '<div style="font-family:\'Cormorant Garamond\',serif;font-size:1.25rem;color:var(--burgundy);margin-bottom:2px">Regarder le live</div><div style="color:var(--muted);font-size:.82rem">Suivre la cérémonie en direct</div>';
     Object.assign(card.style, { background:"#fffdf9", border:"1.5px solid #f5ddd4", borderRadius:"18px", padding:"1.5rem 1.25rem", textAlign:"left", boxShadow:"0 3px 16px rgba(92,42,30,.12)", cursor:"pointer" });
     card.onclick = openLivePanel;
     grid.insertBefore(card, adminButton);
