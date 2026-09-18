@@ -13,24 +13,88 @@ const FIREBASE_CONFIG = {
 };
 
 const isRealConfig = !!import.meta.env.VITE_FIREBASE_API_KEY;
-let _firebaseApp = null, _db = null, _storage = null, _firebaseReady = false;
+const TENANT = window.__WEDDING_TENANT__ || (() => {
+  const url = new URL(window.location.href);
+  const raw = (url.searchParams.get("w") || "quentin-huyen-2026").toLowerCase();
+  const eventId = /^[a-z0-9][a-z0-9-]{2,80}$/.test(raw) ? raw : "quentin-huyen-2026";
+  const base = `${window.location.origin}${window.location.pathname}`;
+  return {
+    eventId,
+    baseUrl: `${base}?w=${encodeURIComponent(eventId)}`,
+    urlFor: view => `${base}?w=${encodeURIComponent(eventId)}${view ? `#${view}` : ""}`
+  };
+})();
+const EVENT_ID = TENANT.eventId;
+const PLATFORM_OWNER_UID = "beQK5FNoVla9lnvnzSfqasK93QR2";
+const DEFAULT_EVENT = {
+  id: EVENT_ID,
+  slug: EVENT_ID,
+  name: EVENT_ID === "quentin-huyen-2026" ? "Huyen & Quentin" : "Votre mariage",
+  date: EVENT_ID === "quentin-huyen-2026" ? "12 – 13 Septembre 2026" : "",
+  ownerUid: EVENT_ID === "quentin-huyen-2026" ? PLATFORM_OWNER_UID : null,
+  moderationMode: "immediate",
+  displayMode: "mixed",
+  active: true,
+  coverMessage: "Partagez vos plus beaux souvenirs",
+  settings: {
+    primary: "#5c2a1e",
+    background: "#fdf8f4",
+    showUpload: true,
+    showGallery: true,
+    showVideo: true,
+    showTv: true,
+    showLive: true,
+    videoModerationMode: "moderated",
+    videoDelayMinutes: 60,
+  },
+};
+
+let _firebaseApp = null, _db = null, _storage = null, _auth = null, _functions = null, _firebaseReady = false, _eventExists = false;
+let currentEvent = { ...DEFAULT_EVENT };
 
 async function initFirebase() {
   if (!isRealConfig || _firebaseReady) return _firebaseReady;
   try {
-    const [{ initializeApp }, { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy, serverTimestamp }, { getStorage, ref, uploadString, uploadBytes, getDownloadURL }] =
-      await Promise.all([
-        import("https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js"),
-        import("https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js"),
-        import("https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js"),
-      ]);
+    const [
+      { initializeApp },
+      { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy, serverTimestamp, getDoc, setDoc },
+      { getStorage, ref, uploadString, uploadBytes, getDownloadURL },
+      { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut },
+      { getFunctions, httpsCallable }
+    ] = await Promise.all([
+      import("https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js"),
+      import("https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js"),
+      import("https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js"),
+      import("https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js"),
+      import("https://www.gstatic.com/firebasejs/10.7.1/firebase-functions.js"),
+    ]);
     _firebaseApp = initializeApp(FIREBASE_CONFIG);
     _db = getFirestore(_firebaseApp);
     _storage = getStorage(_firebaseApp);
-    window.__fb = { collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy, serverTimestamp, ref, uploadString, uploadBytes, getDownloadURL };
+    _auth = getAuth(_firebaseApp);
+    _functions = getFunctions(_firebaseApp, "europe-west1");
+
+    const eventSnap = await getDoc(doc(_db, "events", EVENT_ID));
+    if (eventSnap.exists()) {
+      currentEvent = { ...DEFAULT_EVENT, ...eventSnap.data(), id: EVENT_ID, slug: eventSnap.data().slug || EVENT_ID };
+      _eventExists = true;
+    } else {
+      currentEvent = { ...DEFAULT_EVENT };
+      _eventExists = false;
+    }
+    window.__WEDDING_EVENT__ = currentEvent;
+    window.__WEDDING_EVENT_EXISTS__ = _eventExists;
+    window.__fb = {
+      collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy, serverTimestamp, getDoc, setDoc,
+      ref, uploadString, uploadBytes, getDownloadURL,
+      onAuthStateChanged, signInWithEmailAndPassword, signOut, httpsCallable
+    };
     _firebaseReady = true;
     return true;
-  } catch (e) { console.error("Firebase:", e); return false; }
+  } catch (e) {
+    console.error("Firebase:", e);
+    return false;
+  }
 }
 
 // ============================================================
@@ -53,11 +117,7 @@ function getLikeCount(value) {
   const count = Number(value);
   return Number.isFinite(count) && count > 0 ? Math.floor(count) : 0;
 }
-let mockEvent = {
-  id: "mariage-2025", name: "Marie & Thomas", date: "21 Juin 2025", slug: "marie-thomas-2025",
-  moderationMode: "immediate", displayMode: "mixed", active: true,
-  adminPassword: "admin123", coverMessage: "Partagez vos plus beaux souvenirs",
-};
+let mockEvent = { ...DEFAULT_EVENT };
 
 const MockDB = {
   addPhoto: (p) => {
@@ -79,22 +139,21 @@ const DB = {
     if (!_firebaseReady) return MockDB.addPhoto(p);
     const { collection, addDoc, serverTimestamp, ref, uploadString, uploadBytes, getDownloadURL } = window.__fb;
     const mediaId = makeUniqueId("photo");
-    const thumbnailRef = ref(_storage, `events/${p.eventId}/photos/${mediaId}_preview.jpg`);
+    const eventId = p.eventId || EVENT_ID;
+    const thumbnailRef = ref(_storage, `events/${eventId}/photos/${mediaId}_preview.jpg`);
     await uploadString(thumbnailRef, p.url, "data_url");
     const url = await getDownloadURL(thumbnailRef);
 
-    // L'aperçu reste léger, mais l'original est conservé sans recompression
-    // pour les futurs téléchargements en pleine qualité.
     let originalUrl = url;
     let originalPath = null;
     if (p.originalFile) {
       const extension = (p.originalFile.name.split(".").pop() || "jpg").replace(/[^a-z0-9]/gi, "").toLowerCase() || "jpg";
-      originalPath = `events/${p.eventId}/photos/originals/${mediaId}.${extension}`;
+      originalPath = `events/${eventId}/photos/originals/${mediaId}.${extension}`;
       const originalRef = ref(_storage, originalPath);
       await uploadBytes(originalRef, p.originalFile, {
         contentType: p.originalFile.type || "application/octet-stream",
         contentDisposition: `attachment; filename="${p.originalFile.name.replace(/["\\]/g, "-")}"`,
-        customMetadata: { eventId: p.eventId, originalName: p.originalFile.name },
+        customMetadata: { eventId, originalName: p.originalFile.name },
       });
       originalUrl = await getDownloadURL(originalRef);
     }
@@ -105,28 +164,30 @@ const DB = {
       mimeType: originalFile.type || null,
       size: originalFile.size,
     } : {};
-    const d = await addDoc(collection(_db, "photos"), {
-      ...record, url, thumbnail: url, originalUrl, originalPath, ...metadata,
-      status: mockEvent.moderationMode === "moderated" ? "pending" : "approved",
+    const d = await addDoc(collection(_db, "events", eventId, "photos"), {
+      ...record, eventId, url, thumbnail: url, originalUrl, originalPath, ...metadata,
+      status: currentEvent.moderationMode === "moderated" ? "pending" : "approved",
       likes: 0, createdAt: serverTimestamp(),
     });
-    return { id: d.id, ...record, url, originalUrl };
+    return { id: d.id, ...record, eventId, url, originalUrl };
   },
   updatePhoto: async (id, u) => {
     if (!_firebaseReady) return MockDB.updatePhoto(id, u);
-    const { doc, updateDoc } = window.__fb; await updateDoc(doc(_db, "photos", id), u);
+    const { doc, updateDoc } = window.__fb;
+    await updateDoc(doc(_db, "events", EVENT_ID, "photos", id), u);
   },
   deletePhoto: async (id) => {
     if (!_firebaseReady) return MockDB.deletePhoto(id);
-    const { doc, deleteDoc } = window.__fb; await deleteDoc(doc(_db, "photos", id));
+    const { doc, deleteDoc } = window.__fb;
+    await deleteDoc(doc(_db, "events", EVENT_ID, "photos", id));
   },
   likePhoto: async (id) => {
     if (!_firebaseReady) return MockDB.likePhoto(id);
     const { collection, addDoc, serverTimestamp } = window.__fb;
-    await addDoc(collection(_db, "photos"), {
+    await addDoc(collection(_db, "events", EVENT_ID, "photos"), {
       type: "photoLike",
       photoId: id,
-      eventId: "mariage-2026",
+      eventId: EVENT_ID,
       status: "like",
       likes: 0,
       createdAt: serverTimestamp(),
@@ -135,7 +196,7 @@ const DB = {
   onPhotos: (cb) => {
     if (!_firebaseReady) return MockDB.onPhotos(cb);
     const { collection, query, orderBy, onSnapshot } = window.__fb;
-    const q = query(collection(_db, "photos"), orderBy("createdAt", "desc"));
+    const q = query(collection(_db, "events", EVENT_ID, "photos"), orderBy("createdAt", "desc"));
     return onSnapshot(q, snap => {
       const records = snap.docs.map(d => {
         const data = d.data();
@@ -157,8 +218,37 @@ const DB = {
       })));
     });
   },
-  getEvent: () => MockDB.getEvent(),
-  updateEvent: (u) => MockDB.updateEvent(u),
+  getEvent: () => _firebaseReady ? ({ ...currentEvent }) : MockDB.getEvent(),
+  updateEvent: async (u) => {
+    if (!_firebaseReady) {
+      MockDB.updateEvent(u);
+      return MockDB.getEvent();
+    }
+    const { doc, updateDoc } = window.__fb;
+    await updateDoc(doc(_db, "events", EVENT_ID), u);
+    currentEvent = { ...currentEvent, ...u };
+    window.__WEDDING_EVENT__ = currentEvent;
+    window.dispatchEvent(new CustomEvent("wedding:event-updated", { detail: currentEvent }));
+    return { ...currentEvent };
+  },
+  bootstrapEvent: async () => {
+    if (!_firebaseReady || _eventExists) return { ...currentEvent };
+    const { doc, setDoc, serverTimestamp } = window.__fb;
+    const payload = {
+      ...DEFAULT_EVENT,
+      id: EVENT_ID,
+      slug: EVENT_ID,
+      ownerUid: PLATFORM_OWNER_UID,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    };
+    await setDoc(doc(_db, "events", EVENT_ID), payload);
+    currentEvent = { ...DEFAULT_EVENT, ...payload };
+    _eventExists = true;
+    window.__WEDDING_EVENT__ = currentEvent;
+    window.__WEDDING_EVENT_EXISTS__ = true;
+    return { ...currentEvent };
+  },
 };
 
 // ============================================================
@@ -185,7 +275,7 @@ const compressImage = (file, maxWidth = 1400, quality = 0.85) =>
   });
 
 // URL réelle de la page (sans hash) — QR codes pointent vers ici
-const APP_URL = window.location.href.split("#")[0].replace(/\/$/, "");
+const APP_URL = TENANT.baseUrl || `${window.location.origin}${window.location.pathname}?w=${encodeURIComponent(EVENT_ID)}`;
 
 const QRCode = ({ value, size = 160 }) => (
   <img
@@ -295,19 +385,38 @@ const VIEWS = { HOME: "home", UPLOAD: "upload", GALLERY: "gallery", LIVE: "live"
 export default function App() {
   const [view, setView] = useState(VIEWS.HOME);
   const [adminAuth, setAdminAuth] = useState(false);
+  const [adminUser, setAdminUser] = useState(null);
   const [fbReady, setFbReady] = useState(!isRealConfig);
+  const [eventExists, setEventExists] = useState(!isRealConfig || true);
+  const [firebaseError, setFirebaseError] = useState("");
 
-  // Routing par hash — les QR codes pointent vers /#upload, /#gallery, /#live
   const navigate = useCallback((v) => {
     setView(v);
     window.history.replaceState(null, "", v === VIEWS.HOME ? APP_URL : `${APP_URL}#${v}`);
   }, []);
 
   useEffect(() => {
+    let unsubscribeAuth = null;
     const hash = window.location.hash.slice(1).toLowerCase();
     const map = { upload: VIEWS.UPLOAD, gallery: VIEWS.GALLERY, live: VIEWS.LIVE, admin: VIEWS.ADMIN };
     if (map[hash]) setView(map[hash]);
-    if (isRealConfig) initFirebase().then(ok => setFbReady(ok));
+
+    if (isRealConfig) {
+      initFirebase().then(ok => {
+        setFbReady(ok);
+        setEventExists(_eventExists);
+        if (!ok) {
+          setFirebaseError("Impossible de se connecter à Firebase.");
+          return;
+        }
+        unsubscribeAuth = window.__fb.onAuthStateChanged(_auth, user => {
+          setAdminUser(user || null);
+          const authorized = !!user && (user.uid === currentEvent.ownerUid || user.uid === PLATFORM_OWNER_UID);
+          setAdminAuth(authorized);
+        });
+      });
+    }
+    return () => unsubscribeAuth?.();
   }, []);
 
   if (!fbReady && isRealConfig) return (
@@ -319,12 +428,31 @@ export default function App() {
     </>
   );
 
+  if (firebaseError) return (
+    <><GlobalStyles /><div style={{ minHeight: "100vh", display: "grid", placeItems: "center", padding: 24, background: "var(--cream)" }}>
+      <div style={{ maxWidth: 520, textAlign: "center", background: "var(--white)", padding: 28, borderRadius: 20 }}>
+        <h1 style={{ color: "var(--burgundy)" }}>Connexion impossible</h1>
+        <p style={{ marginTop: 10, color: "var(--muted)" }}>{firebaseError}</p>
+      </div>
+    </div></>
+  );
+
   const setView2 = (v) => navigate(v);
 
-  if (view === VIEWS.LIVE)    return <><GlobalStyles /><LiveTV   setView={setView2} /></>;
-  if (view === VIEWS.UPLOAD)  return <><GlobalStyles /><UploadPage  setView={setView2} /></>;
+  if (isRealConfig && !eventExists && view !== VIEWS.ADMIN) return (
+    <><GlobalStyles /><div style={{ minHeight: "100vh", display: "grid", placeItems: "center", padding: 24, background: "var(--cream)" }}>
+      <div style={{ maxWidth: 560, textAlign: "center", background: "var(--white)", padding: 30, borderRadius: 22, boxShadow: "0 6px 30px var(--shadow)" }}>
+        <h1 style={{ color: "var(--burgundy)", fontSize: "2rem" }}>Mariage non configuré</h1>
+        <p style={{ marginTop: 10, color: "var(--muted)" }}>L’espace <strong>{EVENT_ID}</strong> n’existe pas encore.</p>
+        <button onClick={() => navigate(VIEWS.ADMIN)} className="btn" style={{ marginTop: 18, padding: "11px 18px", borderRadius: 50, background: "var(--burgundy)", color: "white" }}>Administration</button>
+      </div>
+    </div></>
+  );
+
+  if (view === VIEWS.LIVE)    return <><GlobalStyles /><LiveTV setView={setView2} /></>;
+  if (view === VIEWS.UPLOAD)  return <><GlobalStyles /><UploadPage setView={setView2} /></>;
   if (view === VIEWS.GALLERY) return <><GlobalStyles /><GalleryPage setView={setView2} /></>;
-  if (view === VIEWS.ADMIN)   return <><GlobalStyles /><AdminPage   auth={adminAuth} setAuth={setAdminAuth} setView={setView2} /></>;
+  if (view === VIEWS.ADMIN)   return <><GlobalStyles /><AdminPage auth={adminAuth} user={adminUser} setAuth={setAdminAuth} setEventExists={setEventExists} setView={setView2} /></>;
   return <><GlobalStyles /><HomePage setView={setView2} /></>;
 }
 
@@ -1223,35 +1351,80 @@ function MixedMode({ photos }) {
 // ============================================================
 // ADMIN PAGE
 // ============================================================
-function AdminPage({ auth, setAuth, setView }) {
+function AdminPage({ auth, user, setAuth, setEventExists, setView }) {
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError]       = useState("");
-  const [photos, setPhotos]     = useState([]);
-  const [tab, setTab]           = useState("photos");
-  const [event, setEvent]       = useState(DB.getEvent());
-  const [toast, showToast]      = useToast();
+  const [error, setError] = useState("");
+  const [photos, setPhotos] = useState([]);
+  const [tab, setTab] = useState("photos");
+  const [event, setEvent] = useState(DB.getEvent());
+  const [toast, showToast] = useToast();
 
   useEffect(() => { if (!auth) return; return DB.onPhotos(setPhotos); }, [auth]);
 
-  const login = () => { if (password === event.adminPassword) { setAuth(true); setError(""); } else setError("Mot de passe incorrect"); };
-  const updateEvent = u => { DB.updateEvent(u); setEvent(DB.getEvent()); showToast("Paramètres sauvegardés"); };
+  const login = async () => {
+    setError("");
+    try {
+      if (!_auth || !window.__fb?.signInWithEmailAndPassword) throw new Error("Firebase Authentication indisponible");
+      const credential = await window.__fb.signInWithEmailAndPassword(_auth, email.trim(), password);
+      const signedUser = credential.user;
+      if (!_eventExists) {
+        if (signedUser.uid !== PLATFORM_OWNER_UID) {
+          await window.__fb.signOut(_auth);
+          throw new Error("Cet espace mariage n’existe pas encore.");
+        }
+        const created = await DB.bootstrapEvent();
+        setEvent(created);
+        setEventExists(true);
+      }
+      const refreshed = DB.getEvent();
+      if (signedUser.uid !== refreshed.ownerUid && signedUser.uid !== PLATFORM_OWNER_UID) {
+        await window.__fb.signOut(_auth);
+        throw new Error("Ce compte n’est pas administrateur de ce mariage.");
+      }
+      setEvent(refreshed);
+      setAuth(true);
+    } catch (e) {
+      console.error("Admin login:", e);
+      const code = e?.code || "";
+      if (code.includes("invalid-credential") || code.includes("wrong-password") || code.includes("user-not-found")) {
+        setError("Email ou mot de passe incorrect.");
+      } else {
+        setError(e?.message || "Connexion impossible.");
+      }
+    }
+  };
+
+  const logout = async () => {
+    try { if (_auth) await window.__fb.signOut(_auth); } catch {}
+    setAuth(false);
+    setPhotos([]);
+  };
+
+  const updateEvent = async u => {
+    const updated = await DB.updateEvent({ ...u, updatedAt: window.__fb?.serverTimestamp?.() || new Date().toISOString() });
+    setEvent(updated);
+    showToast("Paramètres sauvegardés");
+  };
   const pending = photos.filter(p => p.status === "pending").length;
+  const isPlatformOwner = user?.uid === PLATFORM_OWNER_UID;
 
   if (!auth) return (
     <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "linear-gradient(145deg, #1a1008, #3d2010)", padding: "2rem" }}>
-      <div className="fade-up" style={{ background: "var(--white)", borderRadius: 24, padding: "2.5rem", width: "100%", maxWidth: 340, boxShadow: "0 20px 60px rgba(0,0,0,.45)" }}>
+      <div className="fade-up" style={{ background: "var(--white)", borderRadius: 24, padding: "2.5rem", width: "100%", maxWidth: 380, boxShadow: "0 20px 60px rgba(0,0,0,.45)" }}>
         <div style={{ textAlign: "center", marginBottom: 28 }}>
-          <div style={{ fontSize: 42, marginBottom: 10 }}>🔑</div>
           <h2 style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: "2rem", color: "var(--burgundy)" }}>Administration</h2>
           <p style={{ color: "var(--muted)", fontSize: ".88rem", marginTop: 3 }}>{event.name}</p>
+          <p style={{ color: "var(--muted)", fontSize: ".72rem", marginTop: 5 }}>Espace : {EVENT_ID}</p>
         </div>
-        <input type="password" placeholder="Mot de passe" value={password} onChange={e => setPassword(e.target.value)} onKeyDown={e => e.key === "Enter" && login()}
+        <input type="email" autoComplete="username" placeholder="Email administrateur" value={email} onChange={e => setEmail(e.target.value)}
+          style={{ width: "100%", padding: "13px 15px", borderRadius: 12, marginBottom: 10, border: "1.5px solid var(--blush)", background: "var(--cream)", fontSize: "1rem" }} />
+        <input type="password" autoComplete="current-password" placeholder="Mot de passe" value={password} onChange={e => setPassword(e.target.value)} onKeyDown={e => e.key === "Enter" && login()}
           style={{ width: "100%", padding: "13px 15px", borderRadius: 12, marginBottom: 10, border: `1.5px solid ${error ? "#e74c3c" : "var(--blush)"}`, background: "var(--cream)", fontSize: "1rem" }} />
         {error && <p style={{ color: "#c0392b", fontSize: ".83rem", marginBottom: 10 }}>{error}</p>}
         <button onClick={login} className="btn" style={{ width: "100%", padding: "13px", borderRadius: 50, background: "linear-gradient(135deg, var(--rose), var(--burgundy))", color: "white", fontSize: "1rem" }}>
           Se connecter
         </button>
-        <p style={{ textAlign: "center", color: "var(--muted)", fontSize: ".7rem", marginTop: 12, opacity: .5 }}>Démo : admin123</p>
       </div>
       <HomeButton setView={setView} />
     </div>
@@ -1261,23 +1434,24 @@ function AdminPage({ auth, setAuth, setView }) {
     <div style={{ minHeight: "100vh", background: "var(--cream)" }}>
       <Toast msg={toast?.msg} type={toast?.type} />
 
-      {/* Top bar */}
       <div style={{ background: "var(--white)", borderBottom: "1px solid var(--blush)", padding: ".9rem 1.25rem", display: "flex", alignItems: "center", gap: 10, position: "sticky", top: 0, zIndex: 50, flexWrap: "wrap" }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <h1 style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: "1.5rem", color: "var(--burgundy)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{event.name}</h1>
-          <p style={{ color: "var(--muted)", fontSize: ".75rem" }}>{event.date}</p>
+          <p style={{ color: "var(--muted)", fontSize: ".75rem" }}>{event.date} · {EVENT_ID}</p>
         </div>
         <div style={{ display: "flex", gap: 7, alignItems: "center", flexWrap: "wrap" }}>
           <span style={{ background: "#eafaf1", color: "#1e8449", borderRadius: 9, padding: "4px 12px", fontSize: ".78rem" }}>✓ {photos.filter(p => p.status === "approved").length}</span>
           {pending > 0 && <span style={{ background: "#fef9e7", color: "#b7950b", borderRadius: 9, padding: "4px 12px", fontSize: ".78rem", animation: "pulse 2s ease infinite" }}>⏳ {pending}</span>}
-          <button onClick={() => setView(VIEWS.HOME)} className="btn" style={{ background: "var(--burgundy)", color: "white", fontSize: ".78rem", padding: "6px 14px", borderRadius: 50 }}>🏠 Accueil</button>
-          <button onClick={() => setAuth(false)} style={{ background: "none", color: "var(--muted)", fontSize: ".78rem", padding: "6px 12px", borderRadius: 8, border: "1px solid var(--blush)" }}>Déco.</button>
+          <button onClick={() => setView(VIEWS.HOME)} className="btn" style={{ background: "var(--burgundy)", color: "white", fontSize: ".78rem", padding: "6px 14px", borderRadius: 50 }}>Accueil</button>
+          <button onClick={logout} style={{ background: "none", color: "var(--muted)", fontSize: ".78rem", padding: "6px 12px", borderRadius: 8, border: "1px solid var(--blush)" }}>Déconnexion</button>
         </div>
       </div>
 
-      {/* Tabs */}
       <div style={{ padding: "1rem 1.25rem 0", display: "flex", gap: 7, overflowX: "auto" }}>
-        {[["photos","📷 Photos"],["stats","📊 Stats"],["settings","⚙️ Paramètres"],["export","📦 Export"]].map(([k, l]) => (
+        {[
+          ["photos","Photos"],["stats","Stats"],["settings","Paramètres"],["export","Export"],
+          ...(isPlatformOwner ? [["create","Créer un mariage"]] : [])
+        ].map(([k, l]) => (
           <button key={k} onClick={() => setTab(k)} className="btn" style={{
             padding: "7px 18px", borderRadius: 50, fontSize: ".85rem", whiteSpace: "nowrap",
             background: tab === k ? "var(--burgundy)" : "var(--white)",
@@ -1288,10 +1462,11 @@ function AdminPage({ auth, setAuth, setView }) {
       </div>
 
       <div style={{ padding: "1.25rem" }}>
-        {tab === "photos"   && <AdminPhotos   photos={photos} onUpdate={async (id, u) => { await DB.updatePhoto(id, u); showToast("Photo mise à jour"); }} onDelete={async id => { await DB.deletePhoto(id); showToast("Supprimée"); }} />}
-        {tab === "stats"    && <AdminStats    photos={photos} />}
+        {tab === "photos" && <AdminPhotos photos={photos} onUpdate={async (id, u) => { await DB.updatePhoto(id, u); showToast("Photo mise à jour"); }} onDelete={async id => { await DB.deletePhoto(id); showToast("Supprimée"); }} />}
+        {tab === "stats" && <AdminStats photos={photos} />}
         {tab === "settings" && <AdminSettings event={event} onUpdate={updateEvent} />}
-        {tab === "export"   && <AdminExport   photos={photos} event={event} />}
+        {tab === "export" && <AdminExport photos={photos} event={event} />}
+        {tab === "create" && isPlatformOwner && <PlatformWeddingCreator showToast={showToast} />}
       </div>
 
       <HomeButton setView={setView} />
@@ -1299,7 +1474,70 @@ function AdminPage({ auth, setAuth, setView }) {
   );
 }
 
-function AdminPhotos({ photos, onUpdate, onDelete }) {
+function PlatformWeddingCreator({ showToast }) {
+  const [name, setName] = useState("");
+  const [date, setDate] = useState("");
+  const [slug, setSlug] = useState("");
+  const [adminEmail, setAdminEmail] = useState("");
+  const [adminPassword, setAdminPassword] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [result, setResult] = useState(null);
+  const normalizeSlug = value => value.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80);
+
+  const createWedding = async () => {
+    setCreating(true);
+    setResult(null);
+    try {
+      if (!_functions || !window.__fb?.httpsCallable) throw new Error("Fonction Firebase indisponible");
+      const callable = window.__fb.httpsCallable(_functions, "createWedding");
+      const response = await callable({
+        name: name.trim(),
+        date: date.trim(),
+        slug: normalizeSlug(slug || name),
+        adminEmail: adminEmail.trim(),
+        adminPassword
+      });
+      setResult(response.data);
+      showToast("Mariage créé");
+      setAdminPassword("");
+    } catch (e) {
+      console.error("Create wedding:", e);
+      showToast(e?.message || "Création impossible", "error");
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  return (
+    <div style={{ maxWidth: 620, display: "grid", gap: 12 }}>
+      <div style={{ background: "var(--white)", borderRadius: 18, padding: "1.5rem", boxShadow: "0 2px 10px var(--shadow)" }}>
+        <h3 style={{ fontSize: "1.4rem", color: "var(--burgundy)", marginBottom: 6 }}>Créer un nouveau mariage</h3>
+        <p style={{ color: "var(--muted)", fontSize: ".82rem", marginBottom: 16 }}>Un espace, un lien et un compte administrateur indépendants seront créés.</p>
+        <div style={{ display: "grid", gap: 10 }}>
+          <input value={name} onChange={e => { setName(e.target.value); if (!slug) setSlug(normalizeSlug(e.target.value)); }} placeholder="Nom, ex. Julie & Paul" style={{ padding: 11, borderRadius: 10, border: "1.5px solid var(--blush)", background: "var(--cream)" }} />
+          <input value={date} onChange={e => setDate(e.target.value)} placeholder="Date, ex. 12 Juin 2027" style={{ padding: 11, borderRadius: 10, border: "1.5px solid var(--blush)", background: "var(--cream)" }} />
+          <input value={slug} onChange={e => setSlug(normalizeSlug(e.target.value))} placeholder="Lien unique, ex. julie-paul-2027" style={{ padding: 11, borderRadius: 10, border: "1.5px solid var(--blush)", background: "var(--cream)" }} />
+          <input type="email" value={adminEmail} onChange={e => setAdminEmail(e.target.value)} placeholder="Email de l’administrateur" style={{ padding: 11, borderRadius: 10, border: "1.5px solid var(--blush)", background: "var(--cream)" }} />
+          <input type="password" value={adminPassword} onChange={e => setAdminPassword(e.target.value)} placeholder="Mot de passe temporaire (8 caractères min.)" style={{ padding: 11, borderRadius: 10, border: "1.5px solid var(--blush)", background: "var(--cream)" }} />
+          <button disabled={creating || !name.trim() || !slug || !adminEmail.trim() || adminPassword.length < 8} onClick={createWedding} className="btn" style={{ padding: 12, borderRadius: 50, background: "var(--burgundy)", color: "white", opacity: creating ? .6 : 1 }}>
+            {creating ? "Création…" : "Créer le mariage"}
+          </button>
+        </div>
+      </div>
+      {result && (
+        <div style={{ background: "var(--white)", borderRadius: 18, padding: "1.5rem", boxShadow: "0 2px 10px var(--shadow)", display: "grid", gap: 8 }}>
+          <h3 style={{ color: "var(--burgundy)" }}>Espace créé</h3>
+          <p style={{ fontSize: ".82rem", color: "var(--muted)" }}>Lien invités</p>
+          <div style={{ display: "flex", gap: 8 }}><input readOnly value={result.guestUrl || ""} style={{ flex: 1, padding: 9, borderRadius: 9, border: "1px solid var(--blush)" }} /><button onClick={() => navigator.clipboard?.writeText(result.guestUrl)} style={{ padding: "8px 12px", borderRadius: 50, background: "var(--blush)" }}>Copier</button></div>
+          <p style={{ fontSize: ".82rem", color: "var(--muted)", marginTop: 5 }}>Lien administration</p>
+          <div style={{ display: "flex", gap: 8 }}><input readOnly value={result.adminUrl || ""} style={{ flex: 1, padding: 9, borderRadius: 9, border: "1px solid var(--blush)" }} /><button onClick={() => navigator.clipboard?.writeText(result.adminUrl)} style={{ padding: "8px 12px", borderRadius: 50, background: "var(--blush)" }}>Copier</button></div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AdminPhotos({ photos, onUpdate, onDelete }) {function AdminPhotos({ photos, onUpdate, onDelete }) {
   const [filter, setFilter] = useState("all");
   const [selected, setSelected] = useState(new Set());
   const [lb, setLb] = useState(null);
@@ -1425,27 +1663,28 @@ function AdminStats({ photos }) {
 function AdminSettings({ event, onUpdate }) {
   const [name, setName] = useState(event.name);
   const [date, setDate] = useState(event.date);
-  const [mm,   setMm]   = useState(event.moderationMode);
-  const [dm,   setDm]   = useState(event.displayMode);
-  const [pw,   setPw]   = useState(event.adminPassword);
-  const [msg,  setMsg]  = useState(event.coverMessage || "");
+  const [mm, setMm] = useState(event.moderationMode);
+  const [dm, setDm] = useState(event.displayMode);
+  const [msg, setMsg] = useState(event.coverMessage || "");
 
   return (
     <div style={{ maxWidth: 560, display: "grid", gap: 12 }}>
-      {/* Événement */}
       <div style={{ background: "var(--white)", borderRadius: 18, padding: "1.5rem", boxShadow: "0 2px 10px var(--shadow)" }}>
         <h3 style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: "1.3rem", color: "var(--burgundy)", marginBottom: 14 }}>Événement</h3>
         <div style={{ display: "grid", gap: 9 }}>
-          {[["Nom des mariés", name, setName],["Date", date, setDate],["Message d'accueil", msg, setMsg],["Mot de passe admin", pw, setPw, "password"]].map(([l,v,s,t="text"]) => (
+          {[["Nom des mariés", name, setName],["Date", date, setDate],["Message d'accueil", msg, setMsg]].map(([l,v,s]) => (
             <div key={l}>
               <label style={{ fontSize: ".75rem", color: "var(--muted)", display: "block", marginBottom: 3 }}>{l}</label>
-              <input type={t} value={v} onChange={e => s(e.target.value)} style={{ width: "100%", padding: "10px 13px", borderRadius: 10, border: "1.5px solid var(--blush)", background: "var(--cream)", fontSize: ".93rem" }} />
+              <input type="text" value={v} onChange={e => s(e.target.value)} style={{ width: "100%", padding: "10px 13px", borderRadius: 10, border: "1.5px solid var(--blush)", background: "var(--cream)", fontSize: ".93rem" }} />
             </div>
           ))}
+          <div>
+            <label style={{ fontSize: ".75rem", color: "var(--muted)", display: "block", marginBottom: 3 }}>Identifiant du mariage</label>
+            <input readOnly value={EVENT_ID} style={{ width: "100%", padding: "10px 13px", borderRadius: 10, border: "1.5px solid var(--blush)", background: "#f3eee9", color: "var(--muted)", fontSize: ".93rem" }} />
+          </div>
         </div>
       </div>
 
-      {/* Modération */}
       <div style={{ background: "var(--white)", borderRadius: 18, padding: "1.5rem", boxShadow: "0 2px 10px var(--shadow)" }}>
         <h3 style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: "1.3rem", color: "var(--burgundy)", marginBottom: 12 }}>Modération</h3>
         <div style={{ display: "grid", gap: 7 }}>
@@ -1458,49 +1697,41 @@ function AdminSettings({ event, onUpdate }) {
         </div>
       </div>
 
-      {/* Mode TV */}
       <div style={{ background: "var(--white)", borderRadius: 18, padding: "1.5rem", boxShadow: "0 2px 10px var(--shadow)" }}>
         <h3 style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: "1.3rem", color: "var(--burgundy)", marginBottom: 12 }}>Affichage TV</h3>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8 }}>
-          {[["wall","🧱 Mur"],["slideshow","🎞 Diapo"],["mixed","⊞ Mixte"]].map(([v,l]) => (
+          {[["wall","Mur"],["slideshow","Diapo"],["mixed","Mixte"]].map(([v,l]) => (
             <button key={v} onClick={() => setDm(v)} style={{ padding: "13px", borderRadius: 11, textAlign: "center", border: `2px solid ${dm === v ? "var(--rose)" : "var(--blush)"}`, background: dm === v ? "#fff0ed" : "var(--cream)", color: "var(--text)", fontWeight: dm === v ? 500 : 400, transition: "all .2s" }}>{l}</button>
           ))}
         </div>
       </div>
 
-      {/* QR Codes — URL réelle */}
       <div style={{ background: "var(--white)", borderRadius: 18, padding: "1.5rem", boxShadow: "0 2px 10px var(--shadow)" }}>
-        <h3 style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: "1.3rem", color: "var(--burgundy)", marginBottom: 14 }}>QR Codes</h3>
+        <h3 style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: "1.3rem", color: "var(--burgundy)", marginBottom: 14 }}>Liens et QR Codes</h3>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 12 }}>
-          {[["📸 Invités","upload"],["🖼️ Galerie","gallery"],["📺 Écran TV","live"]].map(([l,h]) => {
+          {[["Invités","upload"],["Galerie","gallery"],["Écran TV","live"]].map(([l,h]) => {
             const url = `${APP_URL}#${h}`;
             return (
               <div key={h} style={{ textAlign: "center" }}>
                 <p style={{ fontSize: ".72rem", color: "var(--muted)", marginBottom: 9 }}>{l}</p>
-                <div style={{ display: "flex", justifyContent: "center" }}>
-                  <QRCode value={url} size={85} />
-                </div>
-                <button onClick={() => navigator.clipboard?.writeText(url)} className="btn" style={{ marginTop: 7, background: "var(--blush)", color: "var(--burgundy)", borderRadius: 50, padding: "4px 12px", fontSize: ".68rem" }}>
-                  Copier
-                </button>
+                <div style={{ display: "flex", justifyContent: "center" }}><QRCode value={url} size={85} /></div>
+                <button onClick={() => navigator.clipboard?.writeText(url)} className="btn" style={{ marginTop: 7, background: "var(--blush)", color: "var(--burgundy)", borderRadius: 50, padding: "4px 12px", fontSize: ".68rem" }}>Copier</button>
               </div>
             );
           })}
         </div>
-        <p style={{ fontSize: ".7rem", color: "var(--muted)", marginTop: 14, wordBreak: "break-all", opacity: .6 }}>
-          Base : {APP_URL}
-        </p>
+        <p style={{ fontSize: ".7rem", color: "var(--muted)", marginTop: 14, wordBreak: "break-all", opacity: .6 }}>Base : {APP_URL}</p>
       </div>
 
-      <button onClick={() => onUpdate({ name, date, moderationMode: mm, displayMode: dm, adminPassword: pw, coverMessage: msg })} className="btn"
+      <button onClick={() => onUpdate({ name, date, moderationMode: mm, displayMode: dm, coverMessage: msg })} className="btn"
         style={{ width: "100%", padding: "14px", borderRadius: 50, fontSize: ".97rem", background: "linear-gradient(135deg, var(--rose), var(--burgundy))", color: "white", fontWeight: 500, boxShadow: "0 4px 18px rgba(92,42,30,.28)" }}>
-        💾 Sauvegarder
+        Sauvegarder
       </button>
     </div>
   );
 }
 
-function AdminExport({ photos, event }) {
+function AdminExport({ photos, event }) {function AdminExport({ photos, event }) {
   const [exporting, setExporting] = useState(false);
   const [prog, setProg] = useState(0);
 
