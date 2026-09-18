@@ -79,6 +79,7 @@ exports.createWedding = onCall({ region: "europe-west1" }, async request => {
       name,
       date,
       ownerUid: adminUser.uid,
+      adminEmail,
       active: true,
       moderationMode: "immediate",
       displayMode: "mixed",
@@ -114,6 +115,75 @@ exports.createWedding = onCall({ region: "europe-west1" }, async request => {
     }
     throw new HttpsError("internal", "Création du mariage impossible.");
   }
+});
+
+exports.listWeddings = onCall({ region: "europe-west1" }, async request => {
+  if (!request.auth || request.auth.uid !== PLATFORM_OWNER_UID) {
+    throw new HttpsError("permission-denied", "Accès réservé à l’administrateur du logiciel.");
+  }
+
+  const db = getFirestore();
+  const snapshot = await db.collection("events").get();
+  const eventDocs = snapshot.docs.filter(doc => {
+    const data = doc.data();
+    return Boolean(data.ownerUid && (data.slug || data.id));
+  });
+
+  const weddings = await Promise.all(eventDocs.map(async eventDoc => {
+    const data = eventDoc.data();
+    const [photosSnap, videosSnap] = await Promise.all([
+      eventDoc.ref.collection("photos").get(),
+      eventDoc.ref.collection("videoTestimonials").get(),
+    ]);
+
+    const photoDocs = photosSnap.docs.filter(doc => {
+      const type = doc.data().type;
+      return type !== "photoLike" && type !== "tvSettings";
+    });
+    const pendingPhotos = photoDocs.filter(doc => doc.data().status === "pending").length;
+    const pendingVideos = videosSnap.docs.filter(doc => doc.data().status === "pending").length;
+
+    let adminEmail = data.adminEmail || "";
+    if (!adminEmail && data.ownerUid) {
+      try {
+        const owner = await getAuth().getUser(data.ownerUid);
+        adminEmail = owner.email || "";
+      } catch (error) {
+        console.warn("Impossible de lire l’email admin", eventDoc.id, error?.code || error?.message);
+      }
+    }
+
+    const createdAt = data.createdAt?.toDate?.()?.toISOString?.() || null;
+    const updatedAt = data.updatedAt?.toDate?.()?.toISOString?.() || null;
+    const slug = data.slug || eventDoc.id;
+    const guestUrl = `${PUBLIC_APP_BASE}?w=${encodeURIComponent(slug)}`;
+
+    return {
+      id: eventDoc.id,
+      slug,
+      name: data.name || slug,
+      date: data.date || "",
+      active: data.active !== false,
+      ownerUid: data.ownerUid,
+      adminEmail,
+      photoCount: photoDocs.length,
+      pendingPhotoCount: pendingPhotos,
+      videoCount: videosSnap.size,
+      pendingVideoCount: pendingVideos,
+      createdAt,
+      updatedAt,
+      guestUrl,
+      adminUrl: `${guestUrl}#admin`,
+    };
+  }));
+
+  weddings.sort((a, b) => {
+    const aTime = a.createdAt ? Date.parse(a.createdAt) : 0;
+    const bTime = b.createdAt ? Date.parse(b.createdAt) : 0;
+    return bTime - aTime || a.name.localeCompare(b.name, "fr");
+  });
+
+  return { weddings };
 });
 
 exports.notifyNewPendingVideoV2 = onDocumentCreated(
