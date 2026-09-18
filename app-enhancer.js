@@ -123,6 +123,21 @@
     "Photos les plus aimées":"Beliebteste Fotos","Télécharger le CSV":"CSV herunterladen","Télécharger les photos":"Fotos herunterladen","Exporter":"Exportieren","Dernière":"Neueste","Photo la plus aimée":"Beliebtestes Foto"
   };
 
+  const LANGUAGE_CODES = ["fr","en","vi","de"];
+  const reverseTranslations = {};
+  LANGUAGE_CODES.forEach(code => {
+    reverseTranslations[code] = {};
+    Object.entries(translations[code] || {}).forEach(([fr, translated]) => {
+      reverseTranslations[code][translated] = fr;
+    });
+  });
+  function canonicalFrench(text) {
+    for (const code of LANGUAGE_CODES) {
+      if (reverseTranslations[code]?.[text]) return reverseTranslations[code][text];
+    }
+    return text;
+  }
+
   let currentLanguage = localStorage.getItem(LANG_KEY) || ((navigator.language || "fr").slice(0, 2));
   if (!translations[currentLanguage]) currentLanguage = "fr";
 
@@ -165,7 +180,8 @@
     nodes.forEach(node => {
       if (node.parentElement?.closest("#wedding-language-switcher,#wedding-live-panel")) return;
       const clean = node.nodeValue.trim();
-      if (dictionary[clean]) node.nodeValue = node.nodeValue.replace(clean, dictionary[clean]);
+      const source = canonicalFrench(clean);
+      if (dictionary[source] && dictionary[source] !== clean) node.nodeValue = node.nodeValue.replace(clean, dictionary[source]);
     });
     const placeholderMap = {
       fr: { "Mot de passe": "Mot de passe", "Votre prénom": "Votre prénom", "Votre message": "Votre message" },
@@ -202,7 +218,7 @@
       const button = document.createElement("button");
       button.type = "button"; button.dataset.lang = code; button.textContent = code.toUpperCase();
       Object.assign(button.style, { border:"0", borderRadius:"999px", padding:"8px 11px", cursor:"pointer", fontWeight:"700" });
-      button.onclick = () => { currentLanguage = code; localStorage.setItem(LANG_KEY, code); translatePage(); applyEventIdentity(); };
+      button.onclick = () => { currentLanguage = code; localStorage.setItem(LANG_KEY, code); translatePage(); applyEventIdentity(); window.dispatchEvent(new CustomEvent("wedding:language-changed",{detail:{language:code}})); };
       switcher.appendChild(button);
     });
     document.body.appendChild(switcher);
