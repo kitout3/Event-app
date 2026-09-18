@@ -31,6 +31,19 @@
       adminTitle: "Video messages", pending: "Pending", approved: "Approved", rejected: "Rejected", approve: "Approve", reject: "Reject", remove: "Delete", download: "Download", empty: "No video messages.",
       playAll: "Play all videos", noApproved: "No approved videos.", tvTitle: "Play video messages", tvStop: "Stop playback", previous: "Previous", next: "Next"
     },
+    de: {
+      cardTitle: "Videobotschaft hinterlassen", cardDesc: "Nehmen Sie eine Nachricht für Huyen & Quentin auf",
+      galleryTitle: "Videogalerie", galleryDesc: "Veröffentlichte Videobotschaften ansehen",
+      title: "Videobotschaft", subtitle: "Hinterlassen Sie eine Videoerinnerung für Huyen & Quentin",
+      firstName: "Ihr Vorname (optional)", message: "Eine kurze Nachricht (optional)",
+      record: "Video aufnehmen", choose: "Video auswählen", start: "Aufnahme starten", stop: "Aufnahme stoppen", retry: "Erneut aufnehmen",
+      send: "Video hochladen", back: "Zurück zur Startseite", uploading: "Wird hochgeladen…", success: "Danke! Ihr Video wurde hochgeladen.",
+      tooLarge: "Das Video ist größer als 500 MB.", tooLong: "Das Video ist länger als 5 Minuten.", invalid: "Bitte MP4-, MOV- oder WebM-Video auswählen.", error: "Upload fehlgeschlagen. Prüfen Sie Ihre Verbindung und versuchen Sie es erneut.",
+      cameraError: "Kein Zugriff auf Kamera oder Mikrofon. Prüfen Sie die Browserberechtigungen.", recording: "Aufnahme läuft", ready: "Video ist bereit zum Hochladen.",
+      moderationNote: "Die Veröffentlichung hängt von den Moderationseinstellungen dieses Ereignisses ab.",
+      adminTitle: "Videobotschaften", pending: "Ausstehend", approved: "Freigegeben", rejected: "Abgelehnt", approve: "Freigeben", reject: "Ablehnen", remove: "Löschen", download: "Herunterladen", empty: "Keine Videobotschaften.",
+      playAll: "Alle Videos abspielen", noApproved: "Keine veröffentlichten Videos.", tvTitle: "Videobotschaften abspielen", tvStop: "Wiedergabe stoppen", previous: "Zurück", next: "Weiter"
+    },
     vi: {
       cardTitle: "Gửi lời chúc bằng video", cardDesc: "Quay lời nhắn dành cho Huyen & Quentin",
       galleryTitle: "Thư viện video", galleryDesc: "Xem các video đã được duyệt",
@@ -106,7 +119,12 @@
     const snap=await new Promise((resolve,reject)=>task.on("state_changed",s=>onProgress(Math.round(s.bytesTransferred/s.totalBytes*100)),reject,()=>resolve(task.snapshot)));
     const url=await st.getDownloadURL(snap.ref);
     const duration=Math.round(await getDuration(file));
-    const doc=await fs.addDoc(fs.collection(db,"videoTestimonials"),{eventId:EVENT_ID,url,path,author:null,message:null,duration,size:file.size,mimeType:file.type,status:"pending",createdAt:fs.serverTimestamp(),selectedForTv:false});
+    const prefs=(()=>{try{return JSON.parse(localStorage.getItem("mariage-account-preferences")||"{}")}catch{return {}}})();
+    const videoMode=prefs.videoModerationMode||"moderated";
+    const delayMinutes=Math.max(1,Number(prefs.videoDelayMinutes)||60);
+    const status=videoMode==="immediate"?"approved":"pending";
+    const publishAt=videoMode==="delayed"?new Date(Date.now()+delayMinutes*60000).toISOString():null;
+    const doc=await fs.addDoc(fs.collection(db,"videoTestimonials"),{eventId:EVENT_ID,url,path,author:null,message:null,duration,size:file.size,mimeType:file.type,status,moderationMode:videoMode,publishAt,createdAt:fs.serverTimestamp(),selectedForTv:videoMode==="immediate"});
     return {id:doc.id,url};
   }
 
@@ -147,7 +165,7 @@
   async function openGallery(){
     closeOverlay();history.replaceState(null,"",`${location.pathname}${location.search}#video-gallery`);
     const el=document.createElement("section");el.id="vt-overlay";el.className="vt-overlay";el.innerHTML=`<div class="vt-shell"><button class="vt-btn vt-secondary" data-close>← ${t("back")}</button><div style="height:14px"></div><div class="vt-panel"><div style="text-align:center"><div style="font-size:42px">🎞️</div><h1 style="font:300 2.2rem 'Cormorant Garamond',serif;color:#5c2a1e">${t("galleryTitle")}</h1></div><div class="vt-actions" style="justify-content:center;margin:16px 0"><button class="vt-btn vt-primary" data-all>▶ ${t("playAll")}</button></div><div class="vt-gallery-grid" data-grid>${t("uploading")}</div></div></div>`;document.body.appendChild(el);el.querySelector("[data-close]").onclick=closeOverlay;
-    try{const items=(await listVideos()).filter(v=>v.status==="approved"&&v.url);const grid=el.querySelector("[data-grid]");grid.innerHTML=items.length?"":`<p>${t("noApproved")}</p>`;items.forEach(item=>{const card=document.createElement("article");card.className="vt-gallery-item";card.dataset.mediaKind="video";card.dataset.mediaId=item.id;card.dataset.mediaUrl=item.url;card.dataset.mediaName=`video-${item.id}.${(item.mimeType||"").includes("quicktime")?"mov":(item.mimeType||"").includes("webm")?"webm":"mp4"}`;card.dataset.mediaSize=item.size||"";card.innerHTML=`<video controls playsinline preload="metadata" src="${item.url}"></video><strong>${esc(item.author)||"—"}</strong>${item.message?`<p>${esc(item.message)}</p>`:""}`;grid.appendChild(card)});window.dispatchEvent(new CustomEvent("wedding:media-rendered"));el.querySelector("[data-all]").disabled=!items.length;el.querySelector("[data-all]").onclick=()=>startPlaylist(items)}catch(e){console.error(e);el.querySelector("[data-grid]").textContent=t("error")}
+    try{const now=Date.now();const items=(await listVideos()).filter(v=>v.url&&(v.status==="approved"||(v.moderationMode==="delayed"&&v.status==="pending"&&v.publishAt&&Date.parse(v.publishAt)<=now)));const grid=el.querySelector("[data-grid]");grid.innerHTML=items.length?"":`<p>${t("noApproved")}</p>`;items.forEach(item=>{const card=document.createElement("article");card.className="vt-gallery-item";card.dataset.mediaKind="video";card.dataset.mediaId=item.id;card.dataset.mediaUrl=item.url;card.dataset.mediaName=`video-${item.id}.${(item.mimeType||"").includes("quicktime")?"mov":(item.mimeType||"").includes("webm")?"webm":"mp4"}`;card.dataset.mediaSize=item.size||"";card.innerHTML=`<video controls playsinline preload="metadata" src="${item.url}"></video><strong>${esc(item.author)||"—"}</strong>${item.message?`<p>${esc(item.message)}</p>`:""}`;grid.appendChild(card)});window.dispatchEvent(new CustomEvent("wedding:media-rendered"));el.querySelector("[data-all]").disabled=!items.length;el.querySelector("[data-all]").onclick=()=>startPlaylist(items)}catch(e){console.error(e);el.querySelector("[data-grid]").textContent=t("error")}
   }
 
   function startPlaylist(items){if(!items?.length)return alert(t("noApproved"));const tv=document.createElement("div");tv.className="vt-tv";tv.innerHTML=`<button class="vt-close">✕ ${t("tvStop")}</button><video autoplay controls playsinline></video>`;document.body.appendChild(tv);const video=tv.querySelector("video");let i=0;const play=()=>{video.src=items[i%items.length].url;video.muted=false;video.volume=1;video.play().catch(()=>{})};video.onended=()=>{i++;play()};tv.querySelector("button").onclick=()=>tv.remove();play()}
