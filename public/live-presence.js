@@ -2,7 +2,7 @@
   const PANEL_ID = "wedding-live-panel";
   const BADGE_ID = "wedding-live-viewers";
   const COLLECTION = "livePresence";
-  const EVENT_ID = "mariage-2026";
+  const EVENT_ID = window.__WEDDING_TENANT__?.eventId || "quentin-huyen-2026";
   const HEARTBEAT_MS = 25000;
   const ACTIVE_WINDOW_MS = 70000;
 
@@ -92,11 +92,11 @@
 
     try {
       const { db, fs } = await getFirebase();
-      presenceRef = fs.doc(db, COLLECTION, sessionId());
+      presenceRef = fs.doc(db, "events", EVENT_ID, COLLECTION, sessionId());
       await heartbeat();
       heartbeatTimer = setInterval(heartbeat, HEARTBEAT_MS);
 
-      unsubscribe = fs.onSnapshot(fs.collection(db, COLLECTION), snapshot => {
+      unsubscribe = fs.onSnapshot(fs.collection(db, "events", EVENT_ID, COLLECTION), snapshot => {
         const cutoff = Date.now() - ACTIVE_WINDOW_MS;
         let count = 0;
         snapshot.forEach(doc => {
