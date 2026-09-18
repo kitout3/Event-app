@@ -1,6 +1,6 @@
 (() => {
   const LANG_KEY = "mariage-lang";
-  const EVENT_ID = "mariage-2026";
+  const EVENT_ID = window.__WEDDING_TENANT__?.eventId || "quentin-huyen-2026";
   const MAX_BYTES = 500 * 1024 * 1024;
   const MAX_SECONDS = 300;
 
@@ -119,18 +119,18 @@
     const snap=await new Promise((resolve,reject)=>task.on("state_changed",s=>onProgress(Math.round(s.bytesTransferred/s.totalBytes*100)),reject,()=>resolve(task.snapshot)));
     const url=await st.getDownloadURL(snap.ref);
     const duration=Math.round(await getDuration(file));
-    const prefs=(()=>{try{return JSON.parse(localStorage.getItem("mariage-account-preferences")||"{}")}catch{return {}}})();
+    const prefs={...(window.__WEDDING_EVENT__?.settings||{}),...(()=>{try{return JSON.parse(localStorage.getItem(`mariage-account-preferences:${EVENT_ID}`)||"{}")}catch{return {}}})()};
     const videoMode=prefs.videoModerationMode||"moderated";
     const delayMinutes=Math.max(1,Number(prefs.videoDelayMinutes)||60);
     const status=videoMode==="immediate"?"approved":"pending";
-    const publishAt=videoMode==="delayed"?new Date(Date.now()+delayMinutes*60000).toISOString():null;
-    const doc=await fs.addDoc(fs.collection(db,"videoTestimonials"),{eventId:EVENT_ID,url,path,author:null,message:null,duration,size:file.size,mimeType:file.type,status,moderationMode:videoMode,publishAt,createdAt:fs.serverTimestamp(),selectedForTv:videoMode==="immediate"});
+    const publishAt=videoMode==="delayed"?fs.Timestamp.fromDate(new Date(Date.now()+delayMinutes*60000)):null;
+    const doc=await fs.addDoc(fs.collection(db,"events",EVENT_ID,"videoTestimonials"),{eventId:EVENT_ID,url,path,author:null,message:null,duration,size:file.size,mimeType:file.type,status,moderationMode:videoMode,publishAt,createdAt:fs.serverTimestamp(),selectedForTv:videoMode==="immediate"});
     return {id:doc.id,url};
   }
 
   async function listVideos(){const {db,fs}=await firebase();const snap=await fs.getDocs(fs.query(fs.collection(db,"videoTestimonials"),fs.orderBy("createdAt","desc")));return snap.docs.map(d=>({id:d.id,...d.data()}));}
-  async function updateVideo(id,patch){const {db,fs}=await firebase();await fs.updateDoc(fs.doc(db,"videoTestimonials",id),patch);}
-  async function deleteVideo(item){const {db,storage,fs,st}=await firebase();if(item.path){try{await st.deleteObject(st.ref(storage,item.path))}catch{}}await fs.deleteDoc(fs.doc(db,"videoTestimonials",item.id));}
+  async function updateVideo(id,patch){const {db,fs}=await firebase();await fs.updateDoc(fs.doc(db,"events",EVENT_ID,"videoTestimonials",id),patch);}
+  async function deleteVideo(item){const {db,storage,fs,st}=await firebase();if(item.path){try{await st.deleteObject(st.ref(storage,item.path))}catch{}}await fs.deleteDoc(fs.doc(db,"events",EVENT_ID,"videoTestimonials",item.id));}
 
   function closeOverlay(){document.getElementById("vt-overlay")?.remove();history.replaceState(null,"",location.pathname+location.search);}
 
@@ -165,7 +165,7 @@
   async function openGallery(){
     closeOverlay();history.replaceState(null,"",`${location.pathname}${location.search}#video-gallery`);
     const el=document.createElement("section");el.id="vt-overlay";el.className="vt-overlay";el.innerHTML=`<div class="vt-shell"><button class="vt-btn vt-secondary" data-close>← ${t("back")}</button><div style="height:14px"></div><div class="vt-panel"><div style="text-align:center"><div style="font-size:42px">🎞️</div><h1 style="font:300 2.2rem 'Cormorant Garamond',serif;color:#5c2a1e">${t("galleryTitle")}</h1></div><div class="vt-actions" style="justify-content:center;margin:16px 0"><button class="vt-btn vt-primary" data-all>▶ ${t("playAll")}</button></div><div class="vt-gallery-grid" data-grid>${t("uploading")}</div></div></div>`;document.body.appendChild(el);el.querySelector("[data-close]").onclick=closeOverlay;
-    try{const now=Date.now();const items=(await listVideos()).filter(v=>v.url&&(v.status==="approved"||(v.moderationMode==="delayed"&&v.status==="pending"&&v.publishAt&&Date.parse(v.publishAt)<=now)));const grid=el.querySelector("[data-grid]");grid.innerHTML=items.length?"":`<p>${t("noApproved")}</p>`;items.forEach(item=>{const card=document.createElement("article");card.className="vt-gallery-item";card.dataset.mediaKind="video";card.dataset.mediaId=item.id;card.dataset.mediaUrl=item.url;card.dataset.mediaName=`video-${item.id}.${(item.mimeType||"").includes("quicktime")?"mov":(item.mimeType||"").includes("webm")?"webm":"mp4"}`;card.dataset.mediaSize=item.size||"";card.innerHTML=`<video controls playsinline preload="metadata" src="${item.url}"></video><strong>${esc(item.author)||"—"}</strong>${item.message?`<p>${esc(item.message)}</p>`:""}`;grid.appendChild(card)});window.dispatchEvent(new CustomEvent("wedding:media-rendered"));el.querySelector("[data-all]").disabled=!items.length;el.querySelector("[data-all]").onclick=()=>startPlaylist(items)}catch(e){console.error(e);el.querySelector("[data-grid]").textContent=t("error")}
+    try{const now=Date.now();const items=(await listVideos()).filter(v=>v.url&&(v.status==="approved"||(v.moderationMode==="delayed"&&v.status==="pending"&&v.publishAt&&((v.publishAt.toMillis?.()||Date.parse(v.publishAt))<=now))));const grid=el.querySelector("[data-grid]");grid.innerHTML=items.length?"":`<p>${t("noApproved")}</p>`;items.forEach(item=>{const card=document.createElement("article");card.className="vt-gallery-item";card.dataset.mediaKind="video";card.dataset.mediaId=item.id;card.dataset.mediaUrl=item.url;card.dataset.mediaName=`video-${item.id}.${(item.mimeType||"").includes("quicktime")?"mov":(item.mimeType||"").includes("webm")?"webm":"mp4"}`;card.dataset.mediaSize=item.size||"";card.innerHTML=`<video controls playsinline preload="metadata" src="${item.url}"></video><strong>${esc(item.author)||"—"}</strong>${item.message?`<p>${esc(item.message)}</p>`:""}`;grid.appendChild(card)});window.dispatchEvent(new CustomEvent("wedding:media-rendered"));el.querySelector("[data-all]").disabled=!items.length;el.querySelector("[data-all]").onclick=()=>startPlaylist(items)}catch(e){console.error(e);el.querySelector("[data-grid]").textContent=t("error")}
   }
 
   function startPlaylist(items){if(!items?.length)return alert(t("noApproved"));const tv=document.createElement("div");tv.className="vt-tv";tv.innerHTML=`<button class="vt-close">✕ ${t("tvStop")}</button><video autoplay controls playsinline></video>`;document.body.appendChild(tv);const video=tv.querySelector("video");let i=0;const play=()=>{video.src=items[i%items.length].url;video.muted=false;video.volume=1;video.play().catch(()=>{})};video.onended=()=>{i++;play()};tv.querySelector("button").onclick=()=>tv.remove();play()}
