@@ -1,13 +1,47 @@
 (() => {
   "use strict";
-  const KEY="mariage-account-preferences";
+  const EVENT_ID=window.__WEDDING_TENANT__?.eventId||"quentin-huyen-2026";
+  const KEY=`mariage-account-preferences:${EVENT_ID}`;
   const defaults={
     primary:"#5c2a1e",background:"#fdf8f4",
     showUpload:true,showGallery:true,showVideo:true,showTv:true,
     videoModerationMode:"moderated",videoDelayMinutes:60
   };
-  const read=()=>{try{return {...defaults,...JSON.parse(localStorage.getItem(KEY)||"{}")}}catch{return {...defaults}}};
-  const save=p=>{const n={...read(),...p};localStorage.setItem(KEY,JSON.stringify(n));apply(n);return n};
+  const read=()=>{try{return {...defaults,...(window.__WEDDING_EVENT__?.settings||{}),...JSON.parse(localStorage.getItem(KEY)||"{}")}}catch{return {...defaults,...(window.__WEDDING_EVENT__?.settings||{})}}};
+  let firebasePromise;
+  async function firebase(){
+    if(firebasePromise)return firebasePromise;
+    firebasePromise=(async()=>{
+      const cfg=window.__FIREBASE_CONFIG__||{};
+      const [{initializeApp,getApps},fs]=await Promise.all([
+        import("https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js"),
+        import("https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js")
+      ]);
+      const app=getApps()[0]||initializeApp(cfg);
+      return {db:fs.getFirestore(app),fs};
+    })();
+    return firebasePromise;
+  }
+  async function persistRemote(settings){
+    try{
+      const {db,fs}=await firebase();
+      await fs.updateDoc(fs.doc(db,"events",EVENT_ID),{settings,updatedAt:fs.serverTimestamp()});
+      window.__WEDDING_EVENT__={...(window.__WEDDING_EVENT__||{}),settings};
+    }catch(error){console.warn("Wedding settings sync:",error)}
+  }
+  const save=p=>{const n={...read(),...p};localStorage.setItem(KEY,JSON.stringify(n));apply(n);void persistRemote(n);return n};
+  async function hydrateRemote(){
+    try{
+      const {db,fs}=await firebase();
+      const snap=await fs.getDoc(fs.doc(db,"events",EVENT_ID));
+      if(!snap.exists())return;
+      const remote=snap.data();
+      window.__WEDDING_EVENT__={...(window.__WEDDING_EVENT__||{}),...remote};
+      const n={...defaults,...(remote.settings||{})};
+      localStorage.setItem(KEY,JSON.stringify(n));
+      apply(n);
+    }catch(error){console.warn("Wedding settings load:",error)}
+  }
   const matches=(el,re)=>re.test((el.textContent||"").trim());
   function apply(p=read()){
     document.documentElement.style.setProperty("--burgundy",p.primary);
@@ -57,7 +91,7 @@
       <label data-delay style="display:block;margin-top:10px">Délai avant publication (minutes)
         <input data-pref="videoDelayMinutes" type="number" min="1" step="1" style="width:100%;padding:10px;border-radius:10px;border:1px solid #ddd">
       </label>
-      <p style="font-size:.76rem;color:#9e7060;margin-top:12px">Ces réglages sont propres à cet espace mariage. Le Live cérémonie reste masqué.</p>`;
+      <p style="font-size:.76rem;color:#9e7060;margin-top:12px">Ces réglages sont propres à cet espace mariage et sont synchronisés avec Firebase.</p>`;
     content.appendChild(box);
     const p=read();
     box.querySelectorAll("[data-pref]").forEach(el=>{
@@ -68,7 +102,7 @@
   }
   document.addEventListener("click",e=>{if(e.target.closest("button")&&/Paramètres|Settings|Cài đặt|Einstellungen/i.test(e.target.closest("button").textContent||""))setTimeout(panel,30)},true);
   const obs=new MutationObserver(()=>{apply();panel()});
-  function start(){apply();obs.observe(document.body,{childList:true,subtree:true})}
+  function start(){apply();void hydrateRemote();obs.observe(document.body,{childList:true,subtree:true})}
   if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",start);else start();
   window.weddingAccountPreferences={read,save,apply};
 })();

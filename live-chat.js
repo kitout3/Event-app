@@ -2,7 +2,7 @@
   const CHAT_ID = "wedding-live-chat";
   const TOGGLE_ID = "wedding-live-chat-toggle";
   const STYLE_ID = "wedding-live-chat-style";
-  const EVENT_ID = "mariage-2026";
+  const EVENT_ID = window.__WEDDING_TENANT__?.eventId || "quentin-huyen-2026";
   const COLLECTION = "liveChatMessages";
   let mountedHost = null;
   let unsubscribe = null;
@@ -243,7 +243,7 @@
       if (!config.apiKey || !config.projectId) throw new Error("Firebase configuration missing");
       const app = getApps()[0] || initializeApp(config);
       const db = fs.getFirestore(app);
-      const query = fs.query(fs.collection(db, COLLECTION), fs.orderBy("createdAt", "asc"), fs.limit(300));
+      const query = fs.query(fs.collection(db, "events", EVENT_ID, COLLECTION), fs.orderBy("createdAt", "asc"), fs.limit(300));
 
       unsubscribe = fs.onSnapshot(query, snapshot => {
         const messages = snapshot.docs.map(doc => doc.data()).filter(item => item.eventId === EVENT_ID).slice(-150);
@@ -282,7 +282,7 @@
         sendButton.textContent = t("sending");
         try {
           localStorage.setItem("wedding-chat-name", name === "Invité" ? "" : name);
-          await fs.addDoc(fs.collection(db, COLLECTION), { eventId: EVENT_ID, name, message, createdAt: fs.serverTimestamp() });
+          await fs.addDoc(fs.collection(db, "events", EVENT_ID, COLLECTION), { eventId: EVENT_ID, name, message, createdAt: fs.serverTimestamp() });
           messageInput.value = "";
         } catch (error) {
           console.error("Send chat message:", error);
