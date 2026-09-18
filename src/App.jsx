@@ -56,7 +56,7 @@ async function initFirebase() {
   if (!isRealConfig || _firebaseReady) return _firebaseReady;
   try {
     const [
-      { initializeApp },
+      { initializeApp, getApps },
       { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy, serverTimestamp, getDoc, setDoc },
       { getStorage, ref, uploadString, uploadBytes, getDownloadURL },
       { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut },
@@ -68,7 +68,7 @@ async function initFirebase() {
       import("https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js"),
       import("https://www.gstatic.com/firebasejs/10.7.1/firebase-functions.js"),
     ]);
-    _firebaseApp = initializeApp(FIREBASE_CONFIG);
+    _firebaseApp = getApps()[0] || initializeApp(FIREBASE_CONFIG);
     _db = getFirestore(_firebaseApp);
     _storage = getStorage(_firebaseApp);
     _auth = getAuth(_firebaseApp);
@@ -387,7 +387,7 @@ export default function App() {
   const [adminAuth, setAdminAuth] = useState(false);
   const [adminUser, setAdminUser] = useState(null);
   const [fbReady, setFbReady] = useState(!isRealConfig);
-  const [eventExists, setEventExists] = useState(!isRealConfig || true);
+  const [eventExists, setEventExists] = useState(!isRealConfig);
   const [firebaseError, setFirebaseError] = useState("");
 
   const navigate = useCallback((v) => {
