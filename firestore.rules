@@ -3,34 +3,68 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     function signedIn() { return request.auth != null; }
-    function event(eventId) { return get(/databases/$(database)/documents/events/$(eventId)); }
-    function owns(eventId) { return signedIn() && event(eventId).data.ownerUid == request.auth.uid; }
+    function platformAdmin() {
+      return signedIn() && request.auth.uid == 'beQK5FNoVla9lnvnzSfqasK93QR2';
+    }
+    function event(eventId) {
+      return get(/databases/$(database)/documents/events/$(eventId));
+    }
+    function owns(eventId) {
+      return signedIn() && event(eventId).data.ownerUid == request.auth.uid;
+    }
+    function manages(eventId) {
+      return owns(eventId) || platformAdmin();
+    }
+    function active(eventId) {
+      return event(eventId).data.active == true;
+    }
 
     match /events/{eventId} {
-      allow read: if resource.data.active == true || owns(eventId);
-      allow create: if signedIn() && request.resource.data.ownerUid == request.auth.uid;
-      allow update, delete: if owns(eventId);
+      allow read: if resource.data.active == true || manages(eventId);
+      allow create: if platformAdmin()
+        && request.resource.data.id == eventId
+        && request.resource.data.slug == eventId;
+      allow update, delete: if manages(eventId);
 
       match /photos/{photoId} {
-        allow read: if event(eventId).data.active == true || owns(eventId);
-        allow create: if event(eventId).data.active == true
+        allow read: if active(eventId) || manages(eventId);
+        allow create: if active(eventId)
           && request.resource.data.eventId == eventId;
-        allow update, delete: if owns(eventId);
+        allow update, delete: if manages(eventId);
       }
 
       match /videoTestimonials/{videoId} {
-        allow read: if (event(eventId).data.active == true
-          && resource.data.status == 'approved') || owns(eventId);
-        allow create: if event(eventId).data.active == true
+        allow read: if manages(eventId)
+          || (active(eventId) && (
+            resource.data.status == 'approved'
+            || (
+              resource.data.moderationMode == 'delayed'
+              && resource.data.publishAt is timestamp
+              && resource.data.publishAt <= request.time
+            )
+          ));
+        allow create: if active(eventId)
           && request.resource.data.eventId == eventId;
-        allow update, delete: if owns(eventId);
+        allow update, delete: if manages(eventId);
+      }
+
+      match /liveChatMessages/{messageId} {
+        allow read, create: if active(eventId);
+        allow update, delete: if manages(eventId);
+      }
+
+      match /livePresence/{sessionId} {
+        allow read, create, update: if active(eventId);
+        allow delete: if manages(eventId);
       }
 
       match /pushSubscriptions/{subscriptionId} {
-        allow read, write: if owns(eventId);
+        allow read, write: if manages(eventId);
       }
     }
 
-    match /{document=**} { allow read, write: if false; }
+    match /{document=**} {
+      allow read, write: if false;
+    }
   }
 }
