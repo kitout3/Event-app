@@ -116,7 +116,7 @@ exports.createWedding = onCall({ region: "europe-west1" }, async request => {
   }
 });
 
-exports.notifyNewPendingVideo = onDocumentCreated(
+exports.notifyNewPendingVideoV2 = onDocumentCreated(
   { document: "events/{eventId}/videoTestimonials/{videoId}", region: "europe-west1" },
   async event => {
     const { eventId, videoId } = event.params;
