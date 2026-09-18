@@ -1537,7 +1537,7 @@ function PlatformWeddingCreator({ showToast }) {
   );
 }
 
-function AdminPhotos({ photos, onUpdate, onDelete }) {function AdminPhotos({ photos, onUpdate, onDelete }) {
+function AdminPhotos({ photos, onUpdate, onDelete }) {
   const [filter, setFilter] = useState("all");
   const [selected, setSelected] = useState(new Set());
   const [lb, setLb] = useState(null);
