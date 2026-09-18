@@ -1,0 +1,36 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function event(eventId) { return get(/databases/$(database)/documents/events/$(eventId)); }
+    function owns(eventId) { return signedIn() && event(eventId).data.ownerUid == request.auth.uid; }
+
+    match /events/{eventId} {
+      allow read: if resource.data.active == true || owns(eventId);
+      allow create: if signedIn() && request.resource.data.ownerUid == request.auth.uid;
+      allow update, delete: if owns(eventId);
+
+      match /photos/{photoId} {
+        allow read: if event(eventId).data.active == true || owns(eventId);
+        allow create: if event(eventId).data.active == true
+          && request.resource.data.eventId == eventId;
+        allow update, delete: if owns(eventId);
+      }
+
+      match /videoTestimonials/{videoId} {
+        allow read: if (event(eventId).data.active == true
+          && resource.data.status == 'approved') || owns(eventId);
+        allow create: if event(eventId).data.active == true
+          && request.resource.data.eventId == eventId;
+        allow update, delete: if owns(eventId);
+      }
+
+      match /pushSubscriptions/{subscriptionId} {
+        allow read, write: if owns(eventId);
+      }
+    }
+
+    match /{document=**} { allow read, write: if false; }
+  }
+}
