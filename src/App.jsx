@@ -1731,7 +1731,7 @@ function AdminSettings({ event, onUpdate }) {
   );
 }
 
-function AdminExport({ photos, event }) {function AdminExport({ photos, event }) {
+function AdminExport({ photos, event }) {
   const [exporting, setExporting] = useState(false);
   const [prog, setProg] = useState(0);
 
