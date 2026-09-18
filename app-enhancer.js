@@ -107,6 +107,22 @@
     }
   };
 
+  translations.de = {
+    "Envoyer une photo":"Foto hochladen","Partager un souvenir":"Erinnerung teilen","Galerie & réactions":"Galerie & Reaktionen","Voir toutes les photos":"Alle Fotos ansehen",
+    "Affichage TV":"TV-Anzeige","Diaporama plein écran":"Vollbild-Diashow","Administration":"Administration","Modérer & exporter":"Moderieren und exportieren","Modérer et exporter":"Moderieren und exportieren",
+    "Regarder le live":"Live ansehen","Suivre la cérémonie en direct":"Zeremonie live verfolgen","QR Code invités":"Gäste-QR-Code","Copier le lien":"Link kopieren","Connexion…":"Verbindung…",
+    "Retour à l'accueil":"Zurück zur Startseite","Retour à l’accueil":"Zurück zur Startseite","Votre prénom (optionnel)":"Ihr Vorname (optional)","Un petit mot (optionnel)":"Eine kurze Nachricht (optional)",
+    "Choisir une photo":"Foto auswählen","Prendre une photo":"Foto aufnehmen","Envoyer":"Senden","Annuler":"Abbrechen","Réessayer":"Erneut versuchen","Merci !":"Danke!","Photo envoyée":"Foto hochgeladen",
+    "Voir la galerie":"Galerie ansehen","Toutes":"Alle","Publiées":"Veröffentlicht","En attente":"Ausstehend","Refusées":"Abgelehnt","Aucune photo ici":"Keine Fotos vorhanden","Photo mise à jour":"Foto aktualisiert",
+    "Supprimée":"Gelöscht","Photos":"Fotos","Stats":"Statistiken","Statistiques":"Statistiken","Paramètres":"Einstellungen","Export":"Export","Événement":"Veranstaltung","Nom des mariés":"Namen des Brautpaars",
+    "Date":"Datum","Message d'accueil":"Willkommensnachricht","Message d’accueil":"Willkommensnachricht","Mot de passe admin":"Admin-Passwort","Mot de passe administrateur":"Admin-Passwort",
+    "Modération":"Moderation","Immédiate":"Sofort","Photos visibles dès l'envoi":"Fotos sofort nach dem Upload sichtbar","Photos visibles dès l’envoi":"Fotos sofort nach dem Upload sichtbar",
+    "Modérée":"Moderiert","Validation manuelle":"Manuelle Freigabe","Différée":"Verzögert","Affichage automatique après délai":"Automatische Anzeige nach einer Verzögerung","Affichage automatique après un délai":"Automatische Anzeige nach einer Verzögerung",
+    "Mur":"Wand","Diapo":"Diashow","Diaporama":"Diashow","Mixte":"Gemischt","Sauvegarder":"Speichern","Paramètres sauvegardés":"Einstellungen gespeichert","Mot de passe":"Passwort","Se connecter":"Anmelden",
+    "Mot de passe incorrect":"Falsches Passwort","Déconnexion":"Abmelden","Déco.":"Abmelden","Accueil":"Startseite","Total":"Gesamt","Réactions":"Reaktionen","Photos par heure":"Fotos pro Stunde","Aucune donnée":"Keine Daten",
+    "Photos les plus aimées":"Beliebteste Fotos","Télécharger le CSV":"CSV herunterladen","Télécharger les photos":"Fotos herunterladen","Exporter":"Exportieren","Dernière":"Neueste","Photo la plus aimée":"Beliebtestes Foto"
+  };
+
   let currentLanguage = localStorage.getItem(LANG_KEY) || ((navigator.language || "fr").slice(0, 2));
   if (!translations[currentLanguage]) currentLanguage = "fr";
 
@@ -154,13 +170,14 @@
     const placeholderMap = {
       fr: { "Mot de passe": "Mot de passe", "Votre prénom": "Votre prénom", "Votre message": "Votre message" },
       en: { "Mot de passe": "Password", "Votre prénom": "Your first name", "Votre message": "Your message" },
-      vi: { "Mot de passe": "Mật khẩu", "Votre prénom": "Tên của bạn", "Votre message": "Lời nhắn của bạn" }
+      vi: { "Mot de passe": "Mật khẩu", "Votre prénom": "Tên của bạn", "Votre message": "Lời nhắn của bạn" },
+      de: { "Mot de passe": "Passwort", "Votre prénom": "Ihr Vorname", "Votre message": "Ihre Nachricht" }
     };
     root.querySelectorAll?.("input,textarea").forEach(input => {
       const placeholder = input.getAttribute("placeholder");
       if (!placeholder) return;
       for (const source of Object.keys(placeholderMap.fr)) {
-        const variants = [placeholderMap.fr[source], placeholderMap.en[source], placeholderMap.vi[source]];
+        const variants = [placeholderMap.fr[source], placeholderMap.en[source], placeholderMap.vi[source], placeholderMap.de[source]];
         if (variants.includes(placeholder)) input.setAttribute("placeholder", placeholderMap[currentLanguage][source]);
       }
     });
@@ -181,7 +198,7 @@
     const switcher = document.createElement("div");
     switcher.id = "wedding-language-switcher";
     Object.assign(switcher.style, { position:"fixed", top:"12px", right:"12px", zIndex:"2147483647", display:"flex", gap:"4px", padding:"5px", borderRadius:"999px", background:"#fffdf9", border:"1px solid #f5ddd4", boxShadow:"0 5px 24px rgba(92,42,30,.25)" });
-    ["fr","en","vi"].forEach(code => {
+    ["fr","en","vi","de"].forEach(code => {
       const button = document.createElement("button");
       button.type = "button"; button.dataset.lang = code; button.textContent = code.toUpperCase();
       Object.assign(button.style, { border:"0", borderRadius:"999px", padding:"8px 11px", cursor:"pointer", fontWeight:"700" });
@@ -206,7 +223,7 @@
     document.body.appendChild(panel);
   }
 
-  function addLiveCard() {
+  function addLiveCard() { return;
     if (document.getElementById("wedding-live-card")) return;
     const adminButton = [...document.querySelectorAll("button")].find(button => /Administration|Quản trị/.test(button.textContent));
     const grid = adminButton?.parentElement;
