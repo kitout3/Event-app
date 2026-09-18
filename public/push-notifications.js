@@ -1,5 +1,6 @@
 (() => {
   const COLLECTION = "pushSubscriptions";
+  const EVENT_ID = window.__WEDDING_TENANT__?.eventId || "quentin-huyen-2026";
   const LANG_KEY = "mariage-lang";
   const VAPID_KEY = "BF_FutOslaft75leK3ToH9EwsogNxgvPFzNSyUvTOliqs07nnXpEe7rcn6KnycfJhjUjFyhSjjRhok-bwKLb1Ug";
   const APP_BASE_PATH = "/mariage-app/";
@@ -86,9 +87,9 @@
       }
 
       try {
-        await fs.setDoc(fs.doc(db, COLLECTION, token), {
+        await fs.setDoc(fs.doc(db, "events", EVENT_ID, COLLECTION, token), {
           token,
-          eventId: "mariage-2026",
+          eventId: EVENT_ID,
           enabled: true,
           platform: navigator.userAgent,
           updatedAt: fs.serverTimestamp()
