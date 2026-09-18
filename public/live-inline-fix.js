@@ -1,6 +1,6 @@
 (() => {
   const PANEL_ID = "wedding-live-panel";
-  const EVENT_DOC = "mariage-live";
+  const EVENT_DOC = window.__WEDDING_TENANT__?.eventId || "quentin-huyen-2026";
   let pollTimer = null;
   let currentPlayerUrl = "";
 
@@ -104,7 +104,7 @@
     panel.innerHTML = `
       <header style="height:68px;display:flex;align-items:center;padding:10px 16px;background:#fffdf9;border-bottom:1px solid #f5ddd4;position:relative;z-index:2">
         <button data-live-back type="button" style="border:0;background:#5c2a1e;color:white;border-radius:999px;padding:10px 17px;cursor:pointer">← ${t.back}</button>
-        <strong style="position:absolute;left:50%;transform:translateX(-50%);font:400 22px 'Cormorant Garamond',Georgia,serif;color:#5c2a1e;white-space:nowrap">Huyen & Quentin · Live</strong>
+        <strong style="position:absolute;left:50%;transform:translateX(-50%);font:400 22px 'Cormorant Garamond',Georgia,serif;color:#5c2a1e;white-space:nowrap">${(window.__WEDDING_EVENT__?.name || "Mariage").replace(/</g,"&lt;")} · Live</strong>
       </header>
       <div data-live-main style="position:relative;flex:1;display:flex;min-height:0;min-width:0;overflow:hidden">
         <div data-live-body style="position:relative;flex:1;display:flex;align-items:center;justify-content:center;background:#fdf8f4;min-height:0;min-width:0">

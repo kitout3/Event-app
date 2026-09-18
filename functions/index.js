@@ -1,112 +1,198 @@
-const { onDocumentCreated } = require('firebase-functions/v2/firestore');
-const { initializeApp } = require('firebase-admin/app');
-const { getFirestore, FieldValue } = require('firebase-admin/firestore');
-const { getMessaging } = require('firebase-admin/messaging');
+const { onDocumentCreated } = require("firebase-functions/v2/firestore");
+const { onCall, HttpsError } = require("firebase-functions/v2/https");
+const { initializeApp } = require("firebase-admin/app");
+const { getFirestore, FieldValue } = require("firebase-admin/firestore");
+const { getMessaging } = require("firebase-admin/messaging");
+const { getAuth } = require("firebase-admin/auth");
 
 initializeApp();
 
-exports.notifyNewPendingVideo = onDocumentCreated(
-  { document: 'videoTestimonials/{videoId}', region: 'europe-west1' },
-  async event => {
-    const videoId = event.params.videoId;
-    const video = event.data?.data();
+const PLATFORM_OWNER_UID = "beQK5FNoVla9lnvnzSfqasK93QR2";
+const PUBLIC_APP_BASE = "https://kitout3.github.io/mariage-app/";
 
-    console.log('Nouvelle vidéo détectée', {
-      videoId,
-      status: video?.status,
-      author: video?.author || null
-    });
+function normalizeSlug(value) {
+  return String(value || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80);
+}
 
-    if (!video || video.status !== 'pending') {
-      console.log('Notification ignorée : vidéo absente ou statut différent de pending', { videoId });
-      return;
+exports.createWedding = onCall({ region: "europe-west1" }, async request => {
+  if (!request.auth || request.auth.uid !== PLATFORM_OWNER_UID) {
+    throw new HttpsError("permission-denied", "Seul l’administrateur de la plateforme peut créer un mariage.");
+  }
+
+  const data = request.data || {};
+  const name = String(data.name || "").trim();
+  const date = String(data.date || "").trim();
+  const slug = normalizeSlug(data.slug || name);
+  const adminEmail = String(data.adminEmail || "").trim().toLowerCase();
+  const adminPassword = String(data.adminPassword || "");
+
+  if (!name || !slug || !adminEmail) {
+    throw new HttpsError("invalid-argument", "Nom, identifiant et email administrateur obligatoires.");
+  }
+  if (!/^[a-z0-9][a-z0-9-]{2,80}$/.test(slug)) {
+    throw new HttpsError("invalid-argument", "Identifiant de mariage invalide.");
+  }
+  if (adminPassword.length < 8) {
+    throw new HttpsError("invalid-argument", "Le mot de passe temporaire doit contenir au moins 8 caractères.");
+  }
+
+  const db = getFirestore();
+  const eventRef = db.collection("events").doc(slug);
+  const existingEvent = await eventRef.get();
+  if (existingEvent.exists) {
+    throw new HttpsError("already-exists", "Cet identifiant de mariage existe déjà.");
+  }
+
+  let adminUser = null;
+  try {
+    try {
+      adminUser = await getAuth().getUserByEmail(adminEmail);
+    } catch (error) {
+      if (error.code !== "auth/user-not-found") throw error;
+      adminUser = await getAuth().createUser({
+        email: adminEmail,
+        password: adminPassword,
+        emailVerified: false,
+        disabled: false,
+        displayName: `Admin · ${name}`,
+      });
     }
 
-    const db = getFirestore();
-    const subscriptions = await db.collection('pushSubscriptions')
-      .where('enabled', '==', true)
-      .get();
+    const alreadyOwned = await db.collection("events").where("ownerUid", "==", adminUser.uid).limit(1).get();
+    if (!alreadyOwned.empty) {
+      throw new HttpsError(
+        "already-exists",
+        "Ce compte admin est déjà associé à un mariage. Utilisez une autre adresse email pour garantir l’indépendance des espaces."
+      );
+    }
 
-    const tokens = subscriptions.docs
-      .map(doc => doc.data().token)
-      .filter(Boolean);
-
-    console.log('Abonnements push trouvés', {
-      videoId,
-      subscriptions: subscriptions.size,
-      tokens: tokens.length
+    const now = FieldValue.serverTimestamp();
+    await eventRef.set({
+      id: slug,
+      slug,
+      name,
+      date,
+      ownerUid: adminUser.uid,
+      active: true,
+      moderationMode: "immediate",
+      displayMode: "mixed",
+      coverMessage: "Partagez vos plus beaux souvenirs",
+      settings: {
+        primary: "#5c2a1e",
+        background: "#fdf8f4",
+        showUpload: true,
+        showGallery: true,
+        showVideo: true,
+        showTv: true,
+        showLive: true,
+        videoModerationMode: "moderated",
+        videoDelayMinutes: 60,
+      },
+      createdAt: now,
+      updatedAt: now,
+      createdBy: request.auth.uid,
     });
 
-    if (!tokens.length) {
-      console.warn('Aucun jeton push actif : aucune notification envoyée', { videoId });
+    const guestUrl = `${PUBLIC_APP_BASE}?w=${encodeURIComponent(slug)}`;
+    return {
+      eventId: slug,
+      ownerUid: adminUser.uid,
+      guestUrl,
+      adminUrl: `${guestUrl}#admin`,
+    };
+  } catch (error) {
+    console.error("createWedding:", error);
+    if (error instanceof HttpsError) throw error;
+    if (error.code === "auth/email-already-exists") {
+      throw new HttpsError("already-exists", "Cette adresse email est déjà utilisée.");
+    }
+    throw new HttpsError("internal", "Création du mariage impossible.");
+  }
+});
+
+exports.notifyNewPendingVideoV2 = onDocumentCreated(
+  { document: "events/{eventId}/videoTestimonials/{videoId}", region: "europe-west1" },
+  async event => {
+    const { eventId, videoId } = event.params;
+    const video = event.data?.data();
+
+    console.log("Nouvelle vidéo détectée", {
+      eventId,
+      videoId,
+      status: video?.status,
+      author: video?.author || null,
+    });
+
+    if (!video || video.status !== "pending") return;
+
+    const db = getFirestore();
+    const subscriptions = await db
+      .collection("events").doc(eventId)
+      .collection("pushSubscriptions")
+      .where("enabled", "==", true)
+      .get();
+
+    const recipients = subscriptions.docs
+      .map(doc => ({ docId: doc.id, token: doc.data().token }))
+      .filter(item => item.token);
+
+    if (!recipients.length) {
       await event.data.ref.update({
         notificationAttemptedAt: FieldValue.serverTimestamp(),
         notificationSuccessCount: 0,
-        notificationFailureCount: 0
+        notificationFailureCount: 0,
       });
       return;
     }
 
-    const author = video.author ? ` de ${video.author}` : '';
+    const author = video.author ? ` de ${video.author}` : "";
+    const adminUrl = `${PUBLIC_APP_BASE}?w=${encodeURIComponent(eventId)}#admin`;
     const response = await getMessaging().sendEachForMulticast({
-      tokens,
+      tokens: recipients.map(item => item.token),
       notification: {
-        title: '🎥 Nouvelle vidéo à valider',
-        body: `Une nouvelle vidéo${author} attend votre validation.`
+        title: "Nouvelle vidéo à valider",
+        body: `Une nouvelle vidéo${author} attend votre validation.`,
       },
       data: {
-        url: 'https://kitout3.github.io/mariage-app/#admin',
-        videoId
+        url: adminUrl,
+        eventId,
+        videoId,
       },
       webpush: {
         notification: {
-          title: '🎥 Nouvelle vidéo à valider',
+          title: "Nouvelle vidéo à valider",
           body: `Une nouvelle vidéo${author} attend votre validation.`,
-          icon: 'https://kitout3.github.io/mariage-app/icons/icon-192.png',
-          badge: 'https://kitout3.github.io/mariage-app/icons/icon-192.png'
+          icon: `${PUBLIC_APP_BASE}icons/icon-192.png`,
+          badge: `${PUBLIC_APP_BASE}icons/icon-192.png`,
         },
-        fcmOptions: {
-          link: 'https://kitout3.github.io/mariage-app/#admin'
-        }
-      }
-    });
-
-    console.log('Résultat envoi notifications', {
-      videoId,
-      successCount: response.successCount,
-      failureCount: response.failureCount
+        fcmOptions: { link: adminUrl },
+      },
     });
 
     const removals = [];
     response.responses.forEach((result, index) => {
-      if (!result.success) {
-        console.error('Échec notification', {
-          videoId,
-          index,
-          code: result.error?.code || null,
-          message: result.error?.message || null
-        });
-      }
-
       if (
         !result.success &&
-        [
-          'messaging/registration-token-not-registered',
-          'messaging/invalid-registration-token'
-        ].includes(result.error?.code)
+        ["messaging/registration-token-not-registered", "messaging/invalid-registration-token"].includes(result.error?.code)
       ) {
         removals.push(
-          db.collection('pushSubscriptions').doc(tokens[index]).delete()
+          db.collection("events").doc(eventId)
+            .collection("pushSubscriptions").doc(recipients[index].docId).delete()
         );
       }
     });
-
     await Promise.all(removals);
 
     await event.data.ref.update({
       notificationSentAt: FieldValue.serverTimestamp(),
       notificationSuccessCount: response.successCount,
-      notificationFailureCount: response.failureCount
+      notificationFailureCount: response.failureCount,
     });
   }
 );

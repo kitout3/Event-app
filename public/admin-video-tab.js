@@ -1,5 +1,5 @@
 (() => {
-  const EVENT_ID = "mariage-2026";
+  const EVENT_ID = window.__WEDDING_TENANT__?.eventId || "quentin-huyen-2026";
   let firebasePromise;
   let activeFilter = "all";
   let refreshTimer = null;
@@ -37,23 +37,23 @@
   async function getVideos() {
     const { db, firestore } = await firebase();
     const query = firestore.query(
-      firestore.collection(db, "videoTestimonials"),
+      firestore.collection(db, "events", EVENT_ID, "videoTestimonials"),
       firestore.orderBy("createdAt", "desc")
     );
     const snapshot = await firestore.getDocs(query);
     return snapshot.docs
       .map(doc => ({ id: doc.id, ...doc.data() }))
-      .filter(video => !video.eventId || video.eventId === EVENT_ID);
+      ;
   }
 
   async function updateVideo(id, patch) {
     const { db, firestore } = await firebase();
-    await firestore.updateDoc(firestore.doc(db, "videoTestimonials", id), patch);
+    await firestore.updateDoc(firestore.doc(db, "events", EVENT_ID, "videoTestimonials", id), patch);
   }
 
   async function removeVideo(video) {
     const { db, bucket, firestore, storage } = await firebase();
-    await firestore.deleteDoc(firestore.doc(db, "videoTestimonials", video.id));
+    await firestore.deleteDoc(firestore.doc(db, "events", EVENT_ID, "videoTestimonials", video.id));
     if (video.path) {
       void storage.deleteObject(storage.ref(bucket, video.path))
         .catch(error => console.warn("Suppression du fichier vidéo :", error));

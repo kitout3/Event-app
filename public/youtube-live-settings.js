@@ -1,5 +1,5 @@
 (() => {
-  const DOC_ID = "mariage-live";
+  const DOC_ID = window.__WEDDING_TENANT__?.eventId || "quentin-huyen-2026";
   const PANEL_ID = "wedding-live-settings";
 
   const getLang = () => localStorage.getItem("mariage-lang") || "fr";
@@ -52,40 +52,38 @@
     }
   }
 
+  let firebasePromise;
+  async function firebase() {
+    if (firebasePromise) return firebasePromise;
+    firebasePromise = (async () => {
+      const cfg = window.__FIREBASE_CONFIG__ || {};
+      const [{ initializeApp, getApps }, fs] = await Promise.all([
+        import("https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js"),
+        import("https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js")
+      ]);
+      const app = getApps()[0] || initializeApp(cfg);
+      return { db: fs.getFirestore(app), fs };
+    })();
+    return firebasePromise;
+  }
+
   async function readRemote() {
-    const fb = window.__FIREBASE_CONFIG__ || {};
-    if (!fb.projectId || !fb.apiKey) return {};
-    const url = `https://firestore.googleapis.com/v1/projects/${fb.projectId}/databases/(default)/documents/events/${DOC_ID}?key=${encodeURIComponent(fb.apiKey)}`;
     try {
-      const response = await fetch(url, { cache: "no-store" });
-      if (!response.ok) return {};
-      const json = await response.json();
-      const fields = json.fields || {};
-      return Object.fromEntries(Object.entries(fields).map(([key, value]) => [key, value.stringValue ?? ""]));
+      const { db, fs } = await firebase();
+      const snap = await fs.getDoc(fs.doc(db, "events", DOC_ID));
+      return snap.exists() ? snap.data() : {};
     } catch { return {}; }
   }
 
   async function writeRemote(data) {
-    const fb = window.__FIREBASE_CONFIG__ || {};
-    if (!fb.projectId || !fb.apiKey) throw new Error("Firebase configuration missing");
-    const url = `https://firestore.googleapis.com/v1/projects/${fb.projectId}/databases/(default)/documents/events/${DOC_ID}?key=${encodeURIComponent(fb.apiKey)}&updateMask.fieldPaths=liveUrl&updateMask.fieldPaths=playerUrl&updateMask.fieldPaths=eventName&updateMask.fieldPaths=eventDate&updateMask.fieldPaths=eventTime&updateMask.fieldPaths=location`;
-    const event = (() => { try { return JSON.parse(localStorage.getItem("mariage-event-settings") || "{}"); } catch { return {}; } })();
-    const body = {
-      fields: {
-        liveUrl: { stringValue: data.liveUrl || "" },
-        playerUrl: { stringValue: data.playerUrl || "" },
-        eventName: { stringValue: event.name || "Huyen & Quentin" },
-        eventDate: { stringValue: event.date || "13 septembre 2026" },
-        eventTime: { stringValue: "15:30" },
-        location: { stringValue: event.location || "La Faisanderie d’Arcueil" }
-      }
-    };
-    const response = await fetch(url, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body)
+    const { db, fs } = await firebase();
+    await fs.updateDoc(fs.doc(db, "events", DOC_ID), {
+      liveUrl: data.liveUrl || "",
+      playerUrl: data.playerUrl || "",
+      updatedAt: fs.serverTimestamp()
     });
-    if (!response.ok) throw new Error(await response.text());
+    window.__WEDDING_EVENT__ = { ...(window.__WEDDING_EVENT__ || {}), ...data };
+    window.dispatchEvent(new CustomEvent("wedding:event-updated", { detail: window.__WEDDING_EVENT__ }));
   }
 
   async function addPanel() {

@@ -1,0 +1,26 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    function signedIn() { return request.auth != null; }
+    function platformAdmin() {
+      return signedIn() && request.auth.uid == 'beQK5FNoVla9lnvnzSfqasK93QR2';
+    }
+    function event(eventId) {
+      return firestore.get(/databases/(default)/documents/events/$(eventId));
+    }
+    function owns(eventId) {
+      return signedIn() && event(eventId).data.ownerUid == request.auth.uid;
+    }
+    function active(eventId) {
+      return event(eventId).data.active == true;
+    }
+
+    match /events/{eventId}/{allPaths=**} {
+      allow read: if active(eventId) || owns(eventId) || platformAdmin();
+      allow create: if active(eventId)
+        && request.resource.size < 500 * 1024 * 1024;
+      allow update, delete: if owns(eventId) || platformAdmin();
+    }
+  }
+}

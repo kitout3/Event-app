@@ -1,0 +1,22 @@
+{
+  "id": "quentin-huyen-2026",
+  "slug": "quentin-huyen-2026",
+  "name": "Huyen & Quentin",
+  "date": "12 – 13 Septembre 2026",
+  "ownerUid": "beQK5FNoVla9lnvnzSfqasK93QR2",
+  "active": true,
+  "moderationMode": "immediate",
+  "displayMode": "mixed",
+  "coverMessage": "Partagez vos plus beaux souvenirs",
+  "settings": {
+    "primary": "#5c2a1e",
+    "background": "#fdf8f4",
+    "showUpload": true,
+    "showGallery": true,
+    "showVideo": true,
+    "showTv": true,
+    "showLive": true,
+    "videoModerationMode": "moderated",
+    "videoDelayMinutes": 60
+  }
+}
