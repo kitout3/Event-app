@@ -75,11 +75,25 @@ exports.createWedding = onCall({ region: "europe-west1" }, async request => {
     }
 
     const now = FieldValue.serverTimestamp();
+    const eventType = eventConfig.eventType(data.eventType);
+    const themePreset = eventConfig.themePreset(data.themePreset || data.theme?.preset, eventType);
+    const eventModules = eventConfig.modules(data.modules, eventType);
+    const location = String(data.location || "").trim().slice(0, 180);
+    const organiserName = String(data.organiserName || "").trim().slice(0, 120);
     await eventRef.set({
       id: slug,
       slug,
       name,
       date,
+      location,
+      organiserName,
+      eventType,
+      customEventType: eventType === "custom" ? String(data.customEventType || "").trim().slice(0, 120) : "",
+      themePreset,
+      theme: eventConfig.theme(data.theme, themePreset),
+      modules: eventModules,
+      labels: eventConfig.labels(data.labels),
+      branding: eventConfig.branding(data.branding, organiserName),
       ownerUid: adminUser.uid,
       adminEmail,
       active: true,
