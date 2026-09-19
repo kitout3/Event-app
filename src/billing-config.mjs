@@ -4,16 +4,16 @@ export const BILLING_PLANS = {
     label: "Essentiel",
     description: "L’essentiel pour centraliser les souvenirs de l’événement.",
     features: ["Photos & galerie", "QR Code", "Réactions", "Espace organisateur"],
-    privateAmount: 4900,
-    corporateAmount: 14900,
+    privateAmount: 5000,
+    corporateAmount: 5000,
   },
   premium: {
     id: "premium",
     label: "Premium",
     description: "Le format complet pour une expérience événementielle interactive.",
     features: ["Tout Essentiel", "Messages vidéo", "Programme & infos pratiques", "Personnalisation avancée", "Affichage TV"],
-    privateAmount: 8900,
-    corporateAmount: 24900,
+    privateAmount: 5000,
+    corporateAmount: 5000,
     recommended: true,
   },
   signature: {
@@ -21,8 +21,8 @@ export const BILLING_PLANS = {
     label: "Signature",
     description: "L’expérience la plus complète, pensée pour les événements premium.",
     features: ["Tout Premium", "Live", "Branding complet", "Livre d’or", "Expérience premium"],
-    privateAmount: 12900,
-    corporateAmount: 39900,
+    privateAmount: 5000,
+    corporateAmount: 5000,
   },
 };
 
