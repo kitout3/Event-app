@@ -425,7 +425,7 @@ function HomeButton({ setView, dark = false }) {
 // ============================================================
 // NAVIGATION
 // ============================================================
-const VIEWS = { HOME: "home", UPLOAD: "upload", GALLERY: "gallery", LIVE: "live", ADMIN: "admin" };
+const VIEWS = { HOME: "home", UPLOAD: "upload", GALLERY: "gallery", LIVE: "live", SCHEDULE: "schedule", INFO: "info", ADMIN: "admin" };
 
 export default function App() {
   const [view, setView] = useState(VIEWS.HOME);
@@ -443,7 +443,7 @@ export default function App() {
   useEffect(() => {
     let unsubscribeAuth = null;
     const hash = window.location.hash.slice(1).toLowerCase();
-    const map = { upload: VIEWS.UPLOAD, gallery: VIEWS.GALLERY, live: VIEWS.LIVE, admin: VIEWS.ADMIN };
+    const map = { upload: VIEWS.UPLOAD, gallery: VIEWS.GALLERY, live: VIEWS.LIVE, schedule: VIEWS.SCHEDULE, info: VIEWS.INFO, admin: VIEWS.ADMIN };
     if (map[hash]) setView(map[hash]);
 
     if (isRealConfig && TENANT.isValid) {
@@ -464,7 +464,7 @@ export default function App() {
     return () => unsubscribeAuth?.();
   }, []);
 
-  if (!TENANT.isValid) return <><GlobalStyles /><div style={{minHeight:'100vh',display:'grid',placeItems:'center',padding:24}}><div style={{textAlign:'center'}}><h1>Lien de mariage invalide</h1><p>Vérifiez le lien transmis par les mariés.</p><a href={import.meta.env.BASE_URL}>Revenir à l’accueil</a></div></div></>;
+  if (!TENANT.isValid) return <><GlobalStyles /><div style={{minHeight:'100vh',display:'grid',placeItems:'center',padding:24}}><div style={{textAlign:'center'}}><h1>Lien d’événement invalide</h1><p>Vérifiez le lien transmis par l’organisateur.</p><a href={import.meta.env.BASE_URL}>Revenir à l’accueil</a></div></div></>;
 
   if (!fbReady && isRealConfig && !firebaseError) return (
     <><GlobalStyles />
@@ -490,17 +490,19 @@ export default function App() {
   if (isRealConfig && !eventExists && view !== VIEWS.ADMIN) return (
     <><GlobalStyles /><div style={{ minHeight: "100vh", display: "grid", placeItems: "center", padding: 24, background: "var(--cream)" }}>
       <div style={{ maxWidth: 560, textAlign: "center", background: "var(--white)", padding: 30, borderRadius: 22, boxShadow: "0 6px 30px var(--shadow)" }}>
-        <h1 style={{ color: "var(--burgundy)", fontSize: "2rem" }}>Mariage non configuré</h1>
+        <h1 style={{ color: "var(--burgundy)", fontSize: "2rem" }}>Événement non configuré</h1>
         <p style={{ marginTop: 10, color: "var(--muted)" }}>L’espace <strong>{EVENT_ID}</strong> n’existe pas encore.</p>
         <button onClick={() => navigate(VIEWS.ADMIN)} className="btn" style={{ marginTop: 18, padding: "11px 18px", borderRadius: 50, background: "var(--burgundy)", color: "white" }}>Administration</button>
       </div>
     </div></>
   );
 
-  if (view === VIEWS.LIVE)    return <><GlobalStyles /><LiveTV setView={setView2} /></>;
-  if (view === VIEWS.UPLOAD)  return <><GlobalStyles /><UploadPage setView={setView2} /></>;
-  if (view === VIEWS.GALLERY) return <><GlobalStyles /><GalleryPage setView={setView2} /></>;
-  if (view === VIEWS.ADMIN)   return <><GlobalStyles /><AdminPage auth={adminAuth} user={adminUser} setAuth={setAdminAuth} setEventExists={setEventExists} setView={setView2} /></>;
+  if (view === VIEWS.LIVE)     return <><GlobalStyles /><LiveTV setView={setView2} /></>;
+  if (view === VIEWS.UPLOAD)   return <><GlobalStyles /><UploadPage setView={setView2} /></>;
+  if (view === VIEWS.GALLERY)  return <><GlobalStyles /><GalleryPage setView={setView2} /></>;
+  if (view === VIEWS.SCHEDULE) return <><GlobalStyles /><EventTextPage setView={setView2} mode="schedule" /></>;
+  if (view === VIEWS.INFO)     return <><GlobalStyles /><EventTextPage setView={setView2} mode="info" /></>;
+  if (view === VIEWS.ADMIN)    return <><GlobalStyles /><AdminPage auth={adminAuth} user={adminUser} setAuth={setAdminAuth} setEventExists={setEventExists} setView={setView2} /></>;
   return <><GlobalStyles /><HomePage setView={setView2} /></>;
 }
 
