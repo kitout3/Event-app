@@ -4,6 +4,7 @@ const { initializeApp } = require("firebase-admin/app");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 const { getMessaging } = require("firebase-admin/messaging");
 const { getAuth } = require("firebase-admin/auth");
+const { getStorage } = require("firebase-admin/storage");
 
 initializeApp();
 
@@ -264,6 +265,88 @@ exports.createWeddingV2 = onCall({ region: "europe-west1" }, async request => {
   }
 });
 
+exports.listPublicVideos = onCall({ region: "europe-west1" }, async request => {
+  const eventId = normalizeSlug(request.data?.eventId);
+  if (!eventId) {
+    throw new HttpsError("invalid-argument", "Mariage invalide.");
+  }
+
+  const db = getFirestore();
+  const eventRef = db.collection("events").doc(eventId);
+  const eventSnap = await eventRef.get();
+  if (!eventSnap.exists || eventSnap.data()?.active === false) {
+    return { videos: [] };
+  }
+
+  const now = Date.now();
+  const snap = await eventRef.collection("videoTestimonials").get();
+  const videos = snap.docs
+    .map(doc => ({ id: doc.id, ...doc.data() }))
+    .filter(video => {
+      if (!video.url) return false;
+      if (video.status === "approved") return true;
+      const publishAt = video.publishAt?.toDate?.()?.getTime?.()
+        ?? (video.publishAt ? Date.parse(String(video.publishAt)) : NaN);
+      return video.status === "pending"
+        && video.moderationMode === "delayed"
+        && Number.isFinite(publishAt)
+        && publishAt <= now;
+    })
+    .sort((a, b) => {
+      const aTime = a.createdAt?.toDate?.()?.getTime?.() || 0;
+      const bTime = b.createdAt?.toDate?.()?.getTime?.() || 0;
+      return bTime - aTime;
+    })
+    .map(video => ({
+      id: video.id,
+      url: video.url,
+      author: video.author || null,
+      message: video.message || null,
+      duration: Number(video.duration) || 0,
+      size: Number(video.size) || 0,
+      mimeType: video.mimeType || "video/mp4",
+      status: video.status || "approved",
+      moderationMode: video.moderationMode || "moderated",
+      publishAt: video.publishAt?.toDate?.()?.toISOString?.() || null,
+      createdAt: video.createdAt?.toDate?.()?.toISOString?.() || null,
+      selectedForTv: video.selectedForTv === true,
+    }));
+
+  return { videos };
+});
+
+exports.updateWedding = onCall({ region: "europe-west1" }, async request => {
+  if (!request.auth || request.auth.uid !== PLATFORM_OWNER_UID) {
+    throw new HttpsError("permission-denied", "Accès réservé à l’administrateur du logiciel.");
+  }
+
+  const eventId = normalizeSlug(request.data?.eventId);
+  if (!eventId) throw new HttpsError("invalid-argument", "Mariage invalide.");
+
+  const patch = {};
+  if (typeof request.data?.name === "string") {
+    const name = request.data.name.trim();
+    if (!name) throw new HttpsError("invalid-argument", "Le nom du mariage est obligatoire.");
+    patch.name = name.slice(0, 120);
+  }
+  if (typeof request.data?.date === "string") {
+    patch.date = request.data.date.trim().slice(0, 120);
+  }
+  if (typeof request.data?.active === "boolean") {
+    patch.active = request.data.active;
+  }
+  if (!Object.keys(patch).length) {
+    throw new HttpsError("invalid-argument", "Aucune modification fournie.");
+  }
+
+  const ref = getFirestore().collection("events").doc(eventId);
+  const snap = await ref.get();
+  if (!snap.exists) throw new HttpsError("not-found", "Mariage introuvable.");
+
+  await ref.update({ ...patch, updatedAt: FieldValue.serverTimestamp() });
+  return { updated: true, eventId, ...patch };
+});
+
 exports.deleteWedding = onCall({ region: "europe-west1" }, async request => {
   if (!request.auth || request.auth.uid !== PLATFORM_OWNER_UID) {
     throw new HttpsError("permission-denied", "Accès réservé à l’administrateur du logiciel.");
@@ -277,6 +360,16 @@ exports.deleteWedding = onCall({ region: "europe-west1" }, async request => {
   if (!eventSnap.exists) throw new HttpsError("not-found", "Mariage introuvable.");
 
   const data = eventSnap.data() || {};
+
+  // Delete every uploaded object for this tenant before removing Firestore
+  // metadata, so a deleted wedding cannot leave billable/orphaned media.
+  try {
+    await getStorage().bucket().deleteFiles({ prefix: `events/${eventId}/` });
+  } catch (error) {
+    console.error("deleteWedding storage:", eventId, error);
+    throw new HttpsError("internal", "Impossible de supprimer les fichiers du mariage. Réessayez.");
+  }
+
   await db.recursiveDelete(eventRef);
 
   if (data.ownerUid && data.ownerUid !== PLATFORM_OWNER_UID) {
@@ -302,17 +395,31 @@ exports.listWeddings = onCall({ region: "europe-west1" }, async request => {
 
   const weddings = await Promise.all(eventDocs.map(async eventDoc => {
     const data = eventDoc.data();
-    const [photosSnap, videosSnap] = await Promise.all([
-      eventDoc.ref.collection("photos").get(),
-      eventDoc.ref.collection("videoTestimonials").get(),
+    const photosRef = eventDoc.ref.collection("photos");
+    const videosRef = eventDoc.ref.collection("videoTestimonials");
+    const [
+      totalPhotosAgg,
+      photoLikesAgg,
+      tvSettingsAgg,
+      pendingPhotosAgg,
+      totalVideosAgg,
+      pendingVideosAgg,
+    ] = await Promise.all([
+      photosRef.count().get(),
+      photosRef.where("type", "==", "photoLike").count().get(),
+      photosRef.where("type", "==", "tvSettings").count().get(),
+      photosRef.where("status", "==", "pending").count().get(),
+      videosRef.count().get(),
+      videosRef.where("status", "==", "pending").count().get(),
     ]);
 
-    const photoDocs = photosSnap.docs.filter(doc => {
-      const type = doc.data().type;
-      return type !== "photoLike" && type !== "tvSettings";
-    });
-    const pendingPhotos = photoDocs.filter(doc => doc.data().status === "pending").length;
-    const pendingVideos = videosSnap.docs.filter(doc => doc.data().status === "pending").length;
+    const totalPhotoDocs = totalPhotosAgg.data().count || 0;
+    const photoLikes = photoLikesAgg.data().count || 0;
+    const tvSettings = tvSettingsAgg.data().count || 0;
+    const photoCount = Math.max(0, totalPhotoDocs - photoLikes - tvSettings);
+    const pendingPhotos = pendingPhotosAgg.data().count || 0;
+    const videoCount = totalVideosAgg.data().count || 0;
+    const pendingVideos = pendingVideosAgg.data().count || 0;
 
     let adminEmail = data.adminEmail || "";
     if (!adminEmail && data.ownerUid) {
@@ -338,9 +445,9 @@ exports.listWeddings = onCall({ region: "europe-west1" }, async request => {
       active: data.active !== false,
       ownerUid: data.ownerUid || (isLegacyWedding ? PLATFORM_OWNER_UID : null),
       adminEmail,
-      photoCount: photoDocs.length,
+      photoCount,
       pendingPhotoCount: pendingPhotos,
-      videoCount: videosSnap.size,
+      videoCount,
       pendingVideoCount: pendingVideos,
       createdAt,
       updatedAt,
