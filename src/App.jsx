@@ -1648,72 +1648,143 @@ function AdminStats({ photos }) {
 }
 
 function AdminSettings({ event, onUpdate }) {
-  const [name, setName] = useState(event.name);
-  const [date, setDate] = useState(event.date);
-  const [mm, setMm] = useState(event.moderationMode);
-  const [dm, setDm] = useState(event.displayMode);
-  const [msg, setMsg] = useState(event.coverMessage || "");
+  const normalized = normalizeEventConfig(event);
+  const [form, setForm] = useState(() => ({
+    name:normalized.name || "",
+    date:normalized.date || "",
+    location:normalized.location || "",
+    organiserName:normalized.organiserName || "",
+    eventType:normalized.eventType,
+    customEventType:normalized.customEventType || "",
+    themePreset:normalized.themePreset,
+    theme:{...normalized.theme},
+    branding:{...normalized.branding},
+    modules:{...normalized.modules},
+    labels:{...normalized.labels},
+    scheduleText:normalized.scheduleText || "",
+    practicalInfoText:normalized.practicalInfoText || "",
+    moderationMode:normalized.moderationMode || "immediate",
+    displayMode:normalized.displayMode || "mixed",
+  }));
+  const [uploadingAsset,setUploadingAsset] = useState("");
+
+  const preset = THEME_PRESETS[form.themePreset] || THEME_PRESETS["custom-neutral"];
+  const typeMeta = EVENT_TYPES[form.eventType] || EVENT_TYPES.custom;
+  const setField=(key,value)=>setForm(current=>({...current,[key]:value}));
+  const setNested=(group,key,value)=>setForm(current=>({...current,[group]:{...current[group],[key]:value}}));
+  const changeType=(type)=>{
+    const defaults=eventDefaults(type);
+    setForm(current=>({...current,eventType:type,customEventType:type==="custom"?current.customEventType:"",themePreset:defaults.themePreset,theme:{...defaults.theme},modules:{...defaults.modules},labels:{...defaults.labels}}));
+  };
+  const choosePreset=(id)=>{
+    const next=THEME_PRESETS[id]||THEME_PRESETS["custom-neutral"];
+    setForm(current=>({...current,themePreset:id,theme:{...current.theme,...next.colors,preset:id}}));
+  };
+  const uploadAsset=async(file,kind)=>{
+    if(!file)return;
+    setUploadingAsset(kind);
+    try{
+      const url=await DB.uploadBrandAsset(file,kind);
+      setNested("branding",kind==="logo"?"logoUrl":"coverUrl",url);
+    }catch(error){console.error("Brand asset:",error);alert("Impossible d’envoyer cette image.");}
+    finally{setUploadingAsset("");}
+  };
+
+  const save=()=>onUpdate({
+    name:form.name.trim(),
+    date:form.date,
+    location:form.location.trim(),
+    organiserName:form.organiserName.trim(),
+    eventType:form.eventType,
+    customEventType:form.eventType==="custom"?form.customEventType.trim():"",
+    themePreset:form.themePreset,
+    theme:{...form.theme,preset:form.themePreset},
+    branding:form.branding,
+    modules:form.modules,
+    labels:form.labels,
+    scheduleText:form.scheduleText,
+    practicalInfoText:form.practicalInfoText,
+    moderationMode:form.moderationMode,
+    displayMode:form.displayMode,
+    coverMessage:form.labels.heroSubtitle,
+  });
+
+  const cardStyle={background:"var(--white)",borderRadius:"var(--event-radius)",padding:"1.5rem",boxShadow:"0 2px 12px var(--shadow)",border:"1px solid var(--blush)"};
+  const fieldStyle={width:"100%",padding:"10px 13px",borderRadius:10,border:"1.5px solid var(--blush)",background:"var(--cream)",fontSize:".9rem",color:"var(--text)"};
+  const labelStyle={fontSize:".73rem",color:"var(--muted)",display:"block",marginBottom:4};
 
   return (
-    <div style={{ maxWidth: 560, display: "grid", gap: 12 }}>
-      <div style={{ background: "var(--white)", borderRadius: 18, padding: "1.5rem", boxShadow: "0 2px 10px var(--shadow)" }}>
-        <h3 style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: "1.3rem", color: "var(--burgundy)", marginBottom: 14 }}>Événement</h3>
-        <div style={{ display: "grid", gap: 9 }}>
-          {[["Nom des mariés", name, setName],["Date", date, setDate],["Message d'accueil", msg, setMsg]].map(([l,v,s]) => (
-            <div key={l}>
-              <label style={{ fontSize: ".75rem", color: "var(--muted)", display: "block", marginBottom: 3 }}>{l}</label>
-              <input type="text" value={v} onChange={e => s(e.target.value)} style={{ width: "100%", padding: "10px 13px", borderRadius: 10, border: "1.5px solid var(--blush)", background: "var(--cream)", fontSize: ".93rem" }} />
-            </div>
-          ))}
-          <div>
-            <label style={{ fontSize: ".75rem", color: "var(--muted)", display: "block", marginBottom: 3 }}>Identifiant du mariage</label>
-            <input readOnly value={EVENT_ID} style={{ width: "100%", padding: "10px 13px", borderRadius: 10, border: "1.5px solid var(--blush)", background: "#f3eee9", color: "var(--muted)", fontSize: ".93rem" }} />
-          </div>
+    <div style={{maxWidth:900,display:"grid",gap:12}}>
+      <div style={cardStyle}>
+        <h3 style={{fontFamily:"var(--event-title-font)",fontSize:"1.35rem",color:"var(--burgundy)",marginBottom:14}}>Identité de l’événement</h3>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))",gap:10}}>
+          <div><label style={labelStyle}>Nom de l’événement</label><input style={fieldStyle} value={form.name} onChange={e=>setField("name",e.target.value)}/></div>
+          <div><label style={labelStyle}>Date</label><input style={fieldStyle} type="date" value={form.date} onChange={e=>setField("date",e.target.value)}/></div>
+          <div><label style={labelStyle}>Lieu</label><input style={fieldStyle} value={form.location} onChange={e=>setField("location",e.target.value)} placeholder="Ville, lieu, adresse courte"/></div>
+          <div><label style={labelStyle}>Organisateur</label><input style={fieldStyle} value={form.organiserName} onChange={e=>setField("organiserName",e.target.value)} placeholder="Entreprise, équipe, couple…"/></div>
+          <div><label style={labelStyle}>Type</label><select style={fieldStyle} value={form.eventType} onChange={e=>changeType(e.target.value)}>{Object.values(EVENT_TYPES).map(meta=><option key={meta.id} value={meta.id}>{meta.icon} {meta.label}</option>)}</select></div>
+          {form.eventType==="custom"&&<div><label style={labelStyle}>Nom du type</label><input style={fieldStyle} value={form.customEventType} onChange={e=>setField("customEventType",e.target.value)}/></div>}
+          <div><label style={labelStyle}>Identifiant</label><input style={{...fieldStyle,background:"#eee9e5"}} readOnly value={EVENT_ID}/></div>
         </div>
       </div>
 
-      <div style={{ background: "var(--white)", borderRadius: 18, padding: "1.5rem", boxShadow: "0 2px 10px var(--shadow)" }}>
-        <h3 style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: "1.3rem", color: "var(--burgundy)", marginBottom: 12 }}>Modération</h3>
-        <div style={{ display: "grid", gap: 7 }}>
-          {[["immediate","Immédiate","Photos visibles dès l'envoi"],["moderated","Modérée","Validation manuelle"],["delayed","Différée","Affichage automatique après délai"]].map(([v,l,d]) => (
-            <button key={v} onClick={() => setMm(v)} style={{ padding: "11px 13px", borderRadius: 11, textAlign: "left", border: `2px solid ${mm === v ? "var(--rose)" : "var(--blush)"}`, background: mm === v ? "#fff0ed" : "var(--cream)", transition: "all .2s" }}>
-              <div style={{ fontWeight: 500, color: "var(--text)", marginBottom: 1 }}>{mm === v ? "◉" : "○"} {l}</div>
-              <div style={{ fontSize: ".76rem", color: "var(--muted)" }}>{d}</div>
-            </button>
-          ))}
+      <div style={cardStyle}>
+        <h3 style={{fontFamily:"var(--event-title-font)",fontSize:"1.35rem",color:"var(--burgundy)",marginBottom:5}}>Apparence</h3>
+        <p style={{fontSize:".78rem",color:"var(--muted)",marginBottom:14}}>Le thème change couleurs, typographies, arrondis et ambiance générale.</p>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(170px,1fr))",gap:8}}>
+          {Object.values(THEME_PRESETS).map(item=><button key={item.id} onClick={()=>choosePreset(item.id)} style={{border:`2px solid ${form.themePreset===item.id?"var(--burgundy)":"var(--blush)"}`,borderRadius:12,overflow:"hidden",padding:0,textAlign:"left",background:"var(--white)"}}>
+            <div style={{height:55,background:item.hero}}/><div style={{padding:9}}><strong style={{fontSize:".82rem",color:"var(--text)"}}>{item.label}</strong><div style={{fontSize:".68rem",color:"var(--muted)",marginTop:2}}>{item.description}</div></div>
+          </button>)}
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:9,marginTop:14}}>
+          {[["primary","Couleur principale"],["secondary","Secondaire"],["background","Fond"],["surface","Cartes"],["text","Texte"],["accent","Accent"]].map(([key,label])=><div key={key}><label style={labelStyle}>{label}</label><div style={{display:"flex",gap:7}}><input type="color" value={form.theme[key]||preset.colors[key]} onChange={e=>setNested("theme",key,e.target.value)} style={{width:44,height:40,border:0,background:"transparent"}}/><input style={fieldStyle} value={form.theme[key]||preset.colors[key]} onChange={e=>setNested("theme",key,e.target.value)}/></div></div>)}
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(240px,1fr))",gap:10,marginTop:15}}>
+          <div><label style={labelStyle}>Logo</label>{form.branding.logoUrl&&<img src={form.branding.logoUrl} alt="" style={{display:"block",maxHeight:62,maxWidth:170,objectFit:"contain",margin:"4px 0 8px"}}/>}<input type="file" accept="image/*" onChange={e=>uploadAsset(e.target.files?.[0],"logo")} disabled={uploadingAsset==="logo"}/><small style={{display:"block",color:"var(--muted)",marginTop:4}}>{uploadingAsset==="logo"?"Envoi…":"PNG, JPG, WebP ou SVG"}</small></div>
+          <div><label style={labelStyle}>Image de couverture</label>{form.branding.coverUrl&&<img src={form.branding.coverUrl} alt="" style={{display:"block",width:"100%",height:80,objectFit:"cover",borderRadius:10,margin:"4px 0 8px"}}/>}<input type="file" accept="image/*" onChange={e=>uploadAsset(e.target.files?.[0],"cover")} disabled={uploadingAsset==="cover"}/><small style={{display:"block",color:"var(--muted)",marginTop:4}}>{uploadingAsset==="cover"?"Envoi…":"Utilisée dans le hero"}</small></div>
         </div>
       </div>
 
-      <div style={{ background: "var(--white)", borderRadius: 18, padding: "1.5rem", boxShadow: "0 2px 10px var(--shadow)" }}>
-        <h3 style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: "1.3rem", color: "var(--burgundy)", marginBottom: 12 }}>Affichage TV</h3>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8 }}>
-          {[["wall","Mur"],["slideshow","Diapo"],["mixed","Mixte"]].map(([v,l]) => (
-            <button key={v} onClick={() => setDm(v)} style={{ padding: "13px", borderRadius: 11, textAlign: "center", border: `2px solid ${dm === v ? "var(--rose)" : "var(--blush)"}`, background: dm === v ? "#fff0ed" : "var(--cream)", color: "var(--text)", fontWeight: dm === v ? 500 : 400, transition: "all .2s" }}>{l}</button>
-          ))}
+      <div style={cardStyle}>
+        <h3 style={{fontFamily:"var(--event-title-font)",fontSize:"1.35rem",color:"var(--burgundy)",marginBottom:12}}>Modules</h3>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(190px,1fr))",gap:8}}>
+          {Object.entries(MODULE_META).map(([key,meta])=><label key={key} style={{display:"flex",gap:9,alignItems:"center",padding:11,border:"1px solid var(--blush)",borderRadius:11,background:form.modules[key]?"var(--cream)":"var(--white)",cursor:"pointer"}}><input type="checkbox" checked={!!form.modules[key]} onChange={()=>setNested("modules",key,!form.modules[key])}/><span>{meta.icon} {meta.label}</span></label>)}
         </div>
       </div>
 
-      <div style={{ background: "var(--white)", borderRadius: 18, padding: "1.5rem", boxShadow: "0 2px 10px var(--shadow)" }}>
-        <h3 style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: "1.3rem", color: "var(--burgundy)", marginBottom: 14 }}>Liens et QR Codes</h3>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 12 }}>
-          {[["Invités","upload"],["Galerie","gallery"],["Écran TV","live"]].map(([l,h]) => {
-            const url = `${APP_URL}#${h}`;
-            return (
-              <div key={h} style={{ textAlign: "center" }}>
-                <p style={{ fontSize: ".72rem", color: "var(--muted)", marginBottom: 9 }}>{l}</p>
-                <div style={{ display: "flex", justifyContent: "center" }}><QRCode value={url} size={85} /></div>
-                <button onClick={() => navigator.clipboard?.writeText(url)} className="btn" style={{ marginTop: 7, background: "var(--blush)", color: "var(--burgundy)", borderRadius: 50, padding: "4px 12px", fontSize: ".68rem" }}>Copier</button>
-              </div>
-            );
-          })}
+      <div style={cardStyle}>
+        <h3 style={{fontFamily:"var(--event-title-font)",fontSize:"1.35rem",color:"var(--burgundy)",marginBottom:12}}>Textes de l’application</h3>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(230px,1fr))",gap:9}}>
+          {[["heroSubtitle","Sous-titre d’accueil"],["uploadTitle","Bouton photo"],["uploadSubtitle","Sous-titre photo"],["galleryTitle","Galerie"],["gallerySubtitle","Sous-titre galerie"],["videoTitle","Vidéo"],["tvTitle","Affichage TV"],["adminTitle","Administration"],["adminSubtitle","Sous-titre admin"],["qrTitle","Titre QR code"]].map(([key,label])=><div key={key}><label style={labelStyle}>{label}</label><input style={fieldStyle} value={form.labels[key]||""} onChange={e=>setNested("labels",key,e.target.value)}/></div>)}
         </div>
-        <p style={{ fontSize: ".7rem", color: "var(--muted)", marginTop: 14, wordBreak: "break-all", opacity: .6 }}>Base : {APP_URL}</p>
       </div>
 
-      <button onClick={() => onUpdate({ name, date, moderationMode: mm, displayMode: dm, coverMessage: msg })} className="btn"
-        style={{ width: "100%", padding: "14px", borderRadius: 50, fontSize: ".97rem", background: "linear-gradient(135deg, var(--rose), var(--burgundy))", color: "white", fontWeight: 500, boxShadow: "0 4px 18px rgba(92,42,30,.28)" }}>
-        Sauvegarder
-      </button>
+      {(form.modules.schedule||form.modules.practicalInfo)&&<div style={cardStyle}>
+        <h3 style={{fontFamily:"var(--event-title-font)",fontSize:"1.35rem",color:"var(--burgundy)",marginBottom:12}}>Informations participants</h3>
+        {form.modules.schedule&&<div style={{marginBottom:12}}><label style={labelStyle}>Programme</label><textarea style={{...fieldStyle,minHeight:130,resize:"vertical"}} value={form.scheduleText} onChange={e=>setField("scheduleText",e.target.value)} placeholder={"18:00 — Accueil\n19:00 — Cocktail\n20:30 — Animation"}/></div>}
+        {form.modules.practicalInfo&&<div><label style={labelStyle}>Informations pratiques</label><textarea style={{...fieldStyle,minHeight:130,resize:"vertical"}} value={form.practicalInfoText} onChange={e=>setField("practicalInfoText",e.target.value)} placeholder={"Accès, parking, dress code, Wi-Fi, contact…"}/></div>}
+      </div>}
+
+      <div style={cardStyle}>
+        <h3 style={{fontFamily:"var(--event-title-font)",fontSize:"1.35rem",color:"var(--burgundy)",marginBottom:12}}>Modération & affichage</h3>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(240px,1fr))",gap:14}}>
+          <div><label style={labelStyle}>Photos</label>{[["immediate","Immédiate"],["moderated","Validation manuelle"],["delayed","Différée"]].map(([value,label])=><button key={value} onClick={()=>setField("moderationMode",value)} style={{display:"block",width:"100%",padding:"10px",marginTop:5,borderRadius:10,textAlign:"left",border:`1.5px solid ${form.moderationMode===value?"var(--rose)":"var(--blush)"}`,background:form.moderationMode===value?"var(--cream)":"var(--white)",color:"var(--text)"}}>{form.moderationMode===value?"◉":"○"} {label}</button>)}</div>
+          <div><label style={labelStyle}>Mode TV</label>{[["wall","Mur"],["slideshow","Diaporama"],["mixed","Mixte"]].map(([value,label])=><button key={value} onClick={()=>setField("displayMode",value)} style={{display:"block",width:"100%",padding:"10px",marginTop:5,borderRadius:10,textAlign:"left",border:`1.5px solid ${form.displayMode===value?"var(--rose)":"var(--blush)"}`,background:form.displayMode===value?"var(--cream)":"var(--white)",color:"var(--text)"}}>{form.displayMode===value?"◉":"○"} {label}</button>)}</div>
+        </div>
+      </div>
+
+      <div style={cardStyle}>
+        <h3 style={{fontFamily:"var(--event-title-font)",fontSize:"1.35rem",color:"var(--burgundy)",marginBottom:12}}>Liens & QR Codes</h3>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12}}>
+          {[["Participants","upload"],["Galerie","gallery"],["Écran TV","live"]].map(([label,hash])=>{const url=`${APP_URL}#${hash}`;return <div key={hash} style={{textAlign:"center"}}><p style={{fontSize:".7rem",color:"var(--muted)",marginBottom:8}}>{label}</p><div style={{display:"flex",justifyContent:"center"}}><QRCode value={url} size={84}/></div><button onClick={()=>navigator.clipboard?.writeText(url)} className="btn" style={{marginTop:7,background:"var(--blush)",color:"var(--burgundy)",borderRadius:50,padding:"4px 12px",fontSize:".68rem"}}>Copier</button></div>})}
+        </div>
+      </div>
+
+      <div className="event-card" style={{background:preset.hero,borderRadius:"var(--event-radius)",padding:"1.5rem",color:preset.darkHero?"#fff":"var(--burgundy)"}}>
+        <div style={{fontSize:28}}>{typeMeta.icon}</div><div style={{fontFamily:preset.titleFont,fontSize:28,marginTop:5}}>{form.name||"Aperçu"}</div><div style={{fontSize:12,opacity:.75,marginTop:4}}>{[form.date,form.location].filter(Boolean).join(" · ")}</div><div style={{fontSize:13,opacity:.8,marginTop:8}}>{form.labels.heroSubtitle}</div>
+      </div>
+
+      <button onClick={save} className="btn" style={{width:"100%",padding:14,borderRadius:50,fontSize:".95rem",background:"var(--burgundy)",color:"#fff",fontWeight:600}}>Sauvegarder toutes les modifications</button>
     </div>
   );
 }
