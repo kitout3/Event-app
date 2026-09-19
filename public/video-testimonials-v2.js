@@ -70,8 +70,8 @@
   const css = `
     .vt-card{background:var(--white);border:1.5px solid var(--blush);border-radius:18px;padding:1.5rem 1.25rem;text-align:left;box-shadow:0 3px 16px rgba(92,42,30,.12);cursor:pointer;transition:.2s}
     .vt-card:hover{transform:translateY(-1px);filter:brightness(1.02)}
-    .vt-overlay{position:fixed;inset:0;z-index:2147483645;background:linear-gradient(160deg,var(--cream),var(--blush));height:100dvh;max-height:100dvh;overflow-x:hidden;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior-y:contain;touch-action:pan-y;padding:24px 16px max(40px,calc(24px + env(safe-area-inset-bottom)));font-family:Jost,Arial,sans-serif;color:var(--text)}
-    .vt-shell{max-width:760px;margin:0 auto;padding-bottom:24px}.vt-panel{background:var(--white);border-radius:22px;padding:22px;box-shadow:0 6px 30px rgba(92,42,30,.16)}
+    .vt-overlay{position:fixed;inset:0;z-index:2147483645;background:linear-gradient(160deg,var(--cream),var(--blush));height:100dvh;max-height:100dvh;overflow-x:hidden;overflow-y:scroll!important;-webkit-overflow-scrolling:touch!important;overscroll-behavior-y:auto;touch-action:pan-y!important;padding:24px 16px max(80px,calc(40px + env(safe-area-inset-bottom)));font-family:Jost,Arial,sans-serif;color:var(--text)}
+    .vt-shell{max-width:760px;margin:0 auto;padding-bottom:56px}.vt-overlay-actions{display:flex;align-items:center;justify-content:space-between;gap:10px}.vt-panel{background:var(--white);border-radius:22px;padding:22px;box-shadow:0 6px 30px rgba(92,42,30,.16)}
     .vt-btn{border:0;border-radius:999px;padding:12px 18px;cursor:pointer;font-weight:600}.vt-btn:disabled{opacity:.5;cursor:not-allowed}.vt-primary{background:linear-gradient(135deg,var(--rose),var(--burgundy));color:#fff}.vt-secondary{background:var(--blush);color:var(--burgundy)}.vt-danger{background:#9f2f2f;color:#fff}
     .vt-input{width:100%;box-sizing:border-box;padding:12px 14px;border:1.5px solid var(--blush);border-radius:12px;background:var(--cream);font:inherit}.vt-grid{display:grid;gap:12px}.vt-actions{display:flex;gap:9px;flex-wrap:wrap}
     .vt-heart-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;width:100%;max-width:520px;margin:4px auto 8px}
@@ -80,12 +80,14 @@
     .vt-heart-choose{--heart-fill:#efc9bf;--heart-text:var(--burgundy)}.vt-heart-shape{position:absolute;inset:0;width:100%;height:100%;overflow:visible}.vt-heart-shape path{fill:var(--heart-fill);transition:fill .2s ease}
     .vt-heart-label{position:absolute;inset:25% 12% 18%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;color:var(--heart-text);font-size:clamp(.78rem,2.4vw,.95rem);font-weight:600;line-height:1.12;text-align:center;pointer-events:none}.vt-heart-icon{font-size:clamp(1.45rem,4.5vw,2rem);line-height:1}
     @media (max-width:650px){
-      .vt-overlay{padding:calc(env(safe-area-inset-top) + 76px) 10px max(110px,calc(36px + env(safe-area-inset-bottom)));scroll-padding-top:calc(env(safe-area-inset-top) + 76px)}
-      .vt-shell{max-width:none;width:100%;padding-bottom:48px}
+      .vt-overlay{padding:calc(env(safe-area-inset-top) + 126px) 10px max(140px,calc(60px + env(safe-area-inset-bottom)));scroll-padding-top:calc(env(safe-area-inset-top) + 126px)}
+      .vt-shell{max-width:none;width:100%;padding-bottom:80px}
+      .vt-overlay-actions{position:fixed;z-index:2147483646;top:calc(env(safe-area-inset-top) + 8px);left:10px;right:10px;min-height:44px;pointer-events:none}
+      .vt-overlay-actions .vt-btn{pointer-events:auto;box-shadow:0 4px 16px rgba(92,42,30,.18)}
       .vt-panel{padding:16px 11px;border-radius:18px}
-      .vt-gallery-grid{grid-template-columns:minmax(0,1fr);gap:14px}
-      .vt-gallery-item{border-radius:15px;padding:10px;min-width:0}
-      .vt-gallery-item video{pointer-events:none;display:block}
+      .vt-gallery-grid{grid-template-columns:minmax(0,1fr)!important;gap:14px}
+      .vt-gallery-item{border-radius:15px;padding:10px;min-width:0;touch-action:pan-y!important}
+      .vt-gallery-item video{pointer-events:none!important;display:block;touch-action:pan-y!important}
       .vt-actions{gap:7px}
       .vt-btn{padding:10px 14px}
       .vt-heart-actions{gap:8px}
@@ -181,6 +183,29 @@
 
   function closeOverlay(){document.getElementById("vt-overlay")?.remove();history.replaceState(null,"",location.pathname+location.search);}
 
+  function enableMobileOverlayScroll(el){
+    if(!el || !window.matchMedia?.("(max-width: 650px)").matches)return;
+    let lastY=null;
+    el.addEventListener("touchstart",event=>{
+      if(event.touches.length!==1)return;
+      lastY=event.touches[0].clientY;
+    },{passive:true});
+    el.addEventListener("touchmove",event=>{
+      if(lastY===null || event.touches.length!==1)return;
+      const target=event.target;
+      if(target?.closest?.("button,input,textarea,select,a")){lastY=event.touches[0].clientY;return}
+      const y=event.touches[0].clientY;
+      const delta=lastY-y;
+      if(Math.abs(delta)>1){
+        el.scrollTop+=delta;
+        event.preventDefault();
+      }
+      lastY=y;
+    },{passive:false});
+    el.addEventListener("touchend",()=>{lastY=null},{passive:true});
+    el.addEventListener("touchcancel",()=>{lastY=null},{passive:true});
+  }
+
   function preferredMime(){
     const types=["video/mp4;codecs=h264,aac","video/webm;codecs=vp9,opus","video/webm;codecs=vp8,opus","video/webm"];
     return types.find(x=>window.MediaRecorder?.isTypeSupported?.(x)) || "";
@@ -190,8 +215,9 @@
     closeOverlay();history.replaceState(null,"",`${location.pathname}${location.search}#video`);
     const el=document.createElement("section");el.id="vt-overlay";el.className="vt-overlay";
     const heart=`<svg class="vt-heart-shape" viewBox="0 0 200 190" aria-hidden="true" focusable="false"><path d="M100 182C93 176 22 121 22 70C22 37 45 18 71 18C88 18 98 28 100 32C102 28 112 18 129 18C155 18 178 37 178 70C178 121 107 176 100 182Z"></path></svg>`;
-    el.innerHTML=`<div class="vt-shell"><button class="vt-btn vt-secondary" data-close>← ${t("back")}</button><div style="height:14px"></div><div class="vt-panel vt-grid"><div style="text-align:center"><div style="font-size:42px">🎬</div><h1 style="font:300 2.2rem 'Cormorant Garamond',serif;color:var(--burgundy);margin:.2rem">${t("title")}</h1><p style="color:var(--muted)">${t("subtitle")}</p></div><input data-file type="file" accept="video/mp4,video/quicktime,video/webm" hidden><div class="vt-heart-actions"><button class="vt-heart-btn vt-heart-record" data-camera aria-label="${t("record")}">${heart}<span class="vt-heart-label"><span class="vt-heart-icon">🎥</span><span>${t("record")}</span></span></button><button class="vt-heart-btn vt-heart-choose" data-choose aria-label="${t("choose")}">${heart}<span class="vt-heart-label"><span class="vt-heart-icon">📁</span><span>${t("choose")}</span></span></button></div><div class="vt-camera" data-camera-box style="display:none"><video data-live autoplay muted playsinline></video><span class="vt-timer" data-timer>00:00 / 05:00</span></div><div class="vt-actions" data-record-actions style="display:none"><button class="vt-btn vt-primary" data-start>● ${t("start")}</button><button class="vt-btn vt-danger" data-stop disabled>■ ${t("stop")}</button></div><video data-preview controls playsinline style="display:none;width:100%;max-height:460px;border-radius:15px;background:#000"></video><button class="vt-btn vt-secondary" data-retry style="display:none">↻ ${t("retry")}</button><p style="font-size:.82rem;color:var(--muted)">${t("moderationNote")}</p><div class="vt-progress" style="display:none"><div style="width:0"></div></div><button class="vt-btn vt-primary" data-send disabled>⬆️ ${t("send")}</button><p data-status style="min-height:22px;text-align:center"></p></div></div>`;
+    el.innerHTML=`<div class="vt-shell"><div class="vt-overlay-actions"><button class="vt-btn vt-secondary" data-close>← ${t("back")}</button></div><div class="vt-panel vt-grid"><div style="text-align:center"><div style="font-size:42px">🎬</div><h1 style="font:300 2.2rem 'Cormorant Garamond',serif;color:var(--burgundy);margin:.2rem">${t("title")}</h1><p style="color:var(--muted)">${t("subtitle")}</p></div><input data-file type="file" accept="video/mp4,video/quicktime,video/webm" hidden><div class="vt-heart-actions"><button class="vt-heart-btn vt-heart-record" data-camera aria-label="${t("record")}">${heart}<span class="vt-heart-label"><span class="vt-heart-icon">🎥</span><span>${t("record")}</span></span></button><button class="vt-heart-btn vt-heart-choose" data-choose aria-label="${t("choose")}">${heart}<span class="vt-heart-label"><span class="vt-heart-icon">📁</span><span>${t("choose")}</span></span></button></div><div class="vt-camera" data-camera-box style="display:none"><video data-live autoplay muted playsinline></video><span class="vt-timer" data-timer>00:00 / 05:00</span></div><div class="vt-actions" data-record-actions style="display:none"><button class="vt-btn vt-primary" data-start>● ${t("start")}</button><button class="vt-btn vt-danger" data-stop disabled>■ ${t("stop")}</button></div><video data-preview controls playsinline style="display:none;width:100%;max-height:460px;border-radius:15px;background:#000"></video><button class="vt-btn vt-secondary" data-retry style="display:none">↻ ${t("retry")}</button><p style="font-size:.82rem;color:var(--muted)">${t("moderationNote")}</p><div class="vt-progress" style="display:none"><div style="width:0"></div></div><button class="vt-btn vt-primary" data-send disabled>⬆️ ${t("send")}</button><p data-status style="min-height:22px;text-align:center"></p></div></div>`;
     document.body.appendChild(el);
+    enableMobileOverlayScroll(el);
 
     const q=s=>el.querySelector(s), fileInput=q("[data-file]"), preview=q("[data-preview]"), live=q("[data-live]"), status=q("[data-status]"), send=q("[data-send]"), bar=q(".vt-progress"), fill=bar.firstElementChild, cameraBox=q("[data-camera-box]"), recordActions=q("[data-record-actions]"), startBtn=q("[data-start]"), stopBtn=q("[data-stop]"), retryBtn=q("[data-retry]"), timer=q("[data-timer]");
     let file=null, stream=null, recorder=null, chunks=[], seconds=0, interval=null, autoStop=null, previewUrl=null;
@@ -211,7 +237,7 @@
 
   async function openGallery(){
     closeOverlay();history.replaceState(null,"",`${location.pathname}${location.search}#video-gallery`);
-    const el=document.createElement("section");el.id="vt-overlay";el.className="vt-overlay";el.innerHTML=`<div class="vt-shell"><button class="vt-btn vt-secondary" data-close>← ${t("back")}</button><div style="height:14px"></div><div class="vt-panel"><div style="text-align:center"><div style="font-size:42px">🎞️</div><h1 style="font:300 2.2rem 'Cormorant Garamond',serif;color:var(--burgundy)">${t("galleryTitle")}</h1></div><div class="vt-actions" style="justify-content:center;margin:16px 0"><button class="vt-btn vt-primary" data-all>▶ ${t("playAll")}</button></div><div class="vt-gallery-grid" data-grid>${t("uploading")}</div></div></div>`;document.body.appendChild(el);el.querySelector("[data-close]").onclick=closeOverlay;
+    const el=document.createElement("section");el.id="vt-overlay";el.className="vt-overlay";el.innerHTML=`<div class="vt-shell"><div class="vt-overlay-actions"><button class="vt-btn vt-secondary" data-close>← ${t("back")}</button><button class="vt-btn vt-primary" data-all>▶ ${t("playAll")}</button></div><div class="vt-panel"><div style="text-align:center"><div style="font-size:42px">🎞️</div><h1 style="font:300 2.2rem 'Cormorant Garamond',serif;color:var(--burgundy)">${t("galleryTitle")}</h1></div><div class="vt-gallery-grid" data-grid>${t("uploading")}</div></div></div>`;document.body.appendChild(el);enableMobileOverlayScroll(el);el.querySelector("[data-close]").onclick=closeOverlay;
     try{const now=Date.now();const items=(await listVideos()).filter(v=>v.url&&(v.status==="approved"||(v.moderationMode==="delayed"&&v.status==="pending"&&v.publishAt&&((v.publishAt.toMillis?.()||Date.parse(v.publishAt))<=now))));const grid=el.querySelector("[data-grid]");grid.innerHTML=items.length?"":`<p>${t("noApproved")}</p>`;items.forEach(item=>{const card=document.createElement("article");card.className="vt-gallery-item";card.dataset.mediaKind="video";card.dataset.mediaId=item.id;card.dataset.mediaUrl=item.url;card.dataset.mediaName=`video-${item.id}.${(item.mimeType||"").includes("quicktime")?"mov":(item.mimeType||"").includes("webm")?"webm":"mp4"}`;card.dataset.mediaSize=item.size||"";card.innerHTML=`<video controls playsinline preload="metadata" src="${item.url}"></video><strong>${esc(item.author)||"—"}</strong>${item.message?`<p>${esc(item.message)}</p>`:""}`;grid.appendChild(card)});window.dispatchEvent(new CustomEvent("wedding:media-rendered"));el.querySelector("[data-all]").disabled=!items.length;el.querySelector("[data-all]").onclick=()=>startPlaylist(items)}catch(e){console.error(e);el.querySelector("[data-grid]").textContent=t("error")}
   }
 
