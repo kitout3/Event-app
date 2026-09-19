@@ -287,12 +287,12 @@ const DB = {
   },
   onGuestbookMessages: (cb) => {
     if (!_firebaseReady) return () => {};
-    const { collection, query, where, orderBy, onSnapshot } = window.__fb;
-    const q = query(collection(_db, "events", EVENT_ID, "guestbookMessages"), where("status", "==", "approved"), orderBy("createdAt", "desc"));
+    const { collection, query, where, onSnapshot } = window.__fb;
+    const q = query(collection(_db, "events", EVENT_ID, "guestbookMessages"), where("status", "==", "approved"));
     return onSnapshot(q, snap => cb(snap.docs.map(d => {
       const data = d.data();
       return { id:d.id, ...data, createdAt:data.createdAt?.toDate?.()?.toISOString?.() || new Date().toISOString() };
-    }).filter(item => item.status === "approved")));
+    }).filter(item => item.status === "approved").sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt))));
   },
   uploadBrandAsset: async (file, kind = "cover") => {
     if (!_firebaseReady || !file) throw new Error("Stockage indisponible");
