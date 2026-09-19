@@ -10,8 +10,8 @@ self.addEventListener('message', event => {
         const title = payload.notification?.title || 'Nouvelle vidéo à valider';
         const options = {
           body: payload.notification?.body || 'Une nouvelle vidéo attend votre validation.',
-          icon: './icon-192.png',
-          badge: './icon-192.png',
+          icon: './favicon.svg',
+          badge: './favicon.svg',
           data: { url: payload.data?.url || './#admin' },
           tag: 'video-pending'
         };
@@ -23,9 +23,9 @@ self.addEventListener('message', event => {
 
 self.addEventListener('notificationclick', event => {
   event.notification.close();
-  const target = new URL(event.notification.data?.url || './#admin', self.location.origin).href;
+  const target = (() => { const incoming = new URL(event.notification.data?.url || './admin.html', self.registration.scope); const url = new URL(self.registration.scope); if (incoming.searchParams.has('w')) { url.searchParams.set('w', incoming.searchParams.get('w')); url.hash = 'admin'; } else { url.pathname += 'admin.html'; } return url.href; })();
   event.waitUntil(clients.matchAll({ type:'window', includeUncontrolled:true }).then(list => {
-    const existing = list.find(c => c.url.includes('/mariage-app/'));
+    const existing = list.find(c => new URL(c.url).origin === self.location.origin);
     if (existing) { existing.focus(); existing.navigate(target); return; }
     return clients.openWindow(target);
   }));

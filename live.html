@@ -1,13 +1,9 @@
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta http-equiv="refresh" content="0; url=./#live" />
-  <title>Redirection vers le direct</title>
-  <script>location.replace('./#live');</script>
-</head>
-<body>
-  <p>Redirection vers le direct… <a href="./#live">Ouvrir le direct</a></p>
-</body>
-</html>
+<!doctype html>
+<html lang="fr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Cérémonie en direct · Espace Mariage</title></head><body><p>Ouverture du direct… <a id="live-link" href="./">Retour à l’accueil</a></p><script>
+const destination=new URL('./',location.href);
+const wedding=new URL(location.href).searchParams.get('w');
+if(wedding!==null)destination.searchParams.set('w',wedding);
+destination.hash='live';
+document.getElementById('live-link').href=destination.href;
+location.replace(destination.href);
+</script></body></html>
