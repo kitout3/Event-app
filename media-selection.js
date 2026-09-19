@@ -122,9 +122,23 @@
 
   function setText(element, value) { if (element && element.textContent !== value) element.textContent = value; }
 
-  function visibleItems() {
+  function isActuallyVisible(element) {
+    if (!element?.isConnected) return false;
+    const style = getComputedStyle(element);
+    if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') return false;
+    return element.getClientRects().length > 0;
+  }
+
+  function activeMediaRoot() {
+    const videoOverlay = document.querySelector('#vt-overlay .vt-gallery-grid')?.closest('#vt-overlay');
+    if (videoOverlay) return videoOverlay;
+    return document;
+  }
+
+  function visibleItems(root = activeMediaRoot()) {
     const items = new Map();
-    document.querySelectorAll('[data-media-kind][data-media-id][data-media-url]').forEach(element => {
+    root.querySelectorAll('[data-media-kind][data-media-id][data-media-url]').forEach(element => {
+      if (!isActuallyVisible(element)) return;
       const item = itemFromElement(element); items.set(itemKey(item), item);
     });
     return [...items.values()].slice(0, MAX_ITEMS);
@@ -132,15 +146,19 @@
 
   function renderBar() {
     let bar = document.getElementById('media-selection-bar');
-    const available = visibleItems();
+    const root = activeMediaRoot();
+    const available = visibleItems(root);
     if (!available.length) { bar?.remove(); return; }
     if (!bar) {
       bar = document.createElement('div'); bar.id = 'media-selection-bar'; bar.className = 'ms-bar';
       bar.innerHTML = `<div class="ms-bar__info"><strong data-count></strong><span class="ms-status" data-status aria-live="polite"></span></div><button class="ms-button ms-secondary" data-clear></button><button class="ms-button ms-secondary" data-all></button><button class="ms-button ms-primary" data-download></button>`;
       bar.querySelector('[data-clear]').onclick = () => { if (busy) return; selected.clear(); save(); render(); };
-      bar.querySelector('[data-all]').onclick = event => downloadItems(visibleItems(), event.currentTarget, false, true);
+      bar.querySelector('[data-all]').onclick = event => downloadItems(visibleItems(activeMediaRoot()), event.currentTarget, false, true);
       bar.querySelector('[data-download]').onclick = event => downloadSelection(event.currentTarget);
-      document.body.appendChild(bar);
+      (root.id === 'vt-overlay' ? root : document.body).appendChild(bar);
+    } else {
+      const expectedParent = root.id === 'vt-overlay' ? root : document.body;
+      if (bar.parentElement !== expectedParent) expectedParent.appendChild(bar);
     }
     setText(bar.querySelector('[data-count]'), selected.size ? `${selected.size} ${t('items')}` : `${available.length} média(s)`);
     setText(bar.querySelector('[data-clear]'), t('clear'));
@@ -557,5 +575,8 @@
   const observer = new MutationObserver(() => requestAnimationFrame(render));
   document.addEventListener('DOMContentLoaded', () => { render(); observer.observe(document.body, { childList: true, subtree: true }); });
   window.addEventListener('wedding:media-rendered', render);
-  window.addEventListener('hashchange', render);
+  window.addEventListener('hashchange', () => {
+    document.getElementById('media-selection-bar')?.remove();
+    requestAnimationFrame(render);
+  });
 })();
