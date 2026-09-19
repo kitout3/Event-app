@@ -189,3 +189,15 @@ test("billing amounts are quoted again on the trusted backend",()=>{
   assert.match(billing,/signature/);
   assert.match(billing,/corporateAmount/);
 });
+
+
+test("temporary pricing is flat at 50 EUR for every event plan and segment",()=>{
+  const client=read("src/billing-config.mjs");
+  const server=read("functions/billing-config.js");
+  assert.doesNotMatch(client,/privateAmount:\s*(?!5000)\d+/);
+  assert.doesNotMatch(client,/corporateAmount:\s*(?!5000)\d+/);
+  assert.doesNotMatch(server,/privateAmount:\s*(?!5000)\d+/);
+  assert.doesNotMatch(server,/corporateAmount:\s*(?!5000)\d+/);
+  assert.match(client,/privateAmount:\s*5000/);
+  assert.match(server,/corporateAmount:\s*5000/);
+});
