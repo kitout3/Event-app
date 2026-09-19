@@ -267,7 +267,7 @@
     const panel = document.createElement("section");
     panel.id = "wedding-live-panel";
     Object.assign(panel.style, { position:"fixed", inset:"0", zIndex:"2147483646", background:"#fdf8f4", display:"flex", flexDirection:"column" });
-    panel.innerHTML = `<header style="height:64px;display:flex;align-items:center;padding:10px 16px;background:#fffdf9;border-bottom:1px solid #f5ddd4"><button data-back type="button" style="border:0;background:#5c2a1e;color:white;border-radius:999px;padding:10px 17px;cursor:pointer">← ${backText}</button><strong style="margin:auto;font:400 22px Georgia,serif;color:#5c2a1e">${event.name} · Live</strong><span style="width:145px"></span></header><iframe src="${window.location.origin}${basePath()}live.html" title="Live" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen style="width:100%;flex:1;border:0;background:#1a0d09"></iframe>`;
+    panel.innerHTML = `<header style="height:64px;display:flex;align-items:center;padding:10px 16px;background:#fffdf9;border-bottom:1px solid #f5ddd4"><button data-back type="button" style="border:0;background:#5c2a1e;color:white;border-radius:999px;padding:10px 17px;cursor:pointer">← ${backText}</button><strong style="margin:auto;font:400 22px Georgia,serif;color:#5c2a1e">${event.name} · Live</strong><span style="width:145px"></span></header><iframe src="${window.location.origin}${basePath()}live.html?w=${encodeURIComponent(EVENT_ID)}" title="Live" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen style="width:100%;flex:1;border:0;background:#1a0d09"></iframe>`;
     panel.querySelector("[data-back]").onclick = closeLivePanel;
     document.body.appendChild(panel);
   }

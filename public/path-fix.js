@@ -1,4 +1,6 @@
 (() => {
+  // Only the historical Pages URL needs the repository prefix.
+  if (window.location.hostname !== 'kitout3.github.io') return;
   const APP_PATH = "/mariage-app/";
 
   function normalizeUrl(input) {
@@ -7,7 +9,7 @@
       const url = new URL(String(input), window.location.href);
       if (url.origin !== window.location.origin) return input;
 
-      if (url.pathname === "/mariage-app" || url.pathname === "/") {
+      if (url.pathname === "/mariage-app") {
         url.pathname = APP_PATH;
       }
 
@@ -17,7 +19,7 @@
     }
   }
 
-  if (window.location.pathname === "/mariage-app" || window.location.pathname === "/") {
+  if (window.location.pathname === "/mariage-app") {
     const corrected = `${APP_PATH}${window.location.search}${window.location.hash}`;
     window.location.replace(corrected);
     return;

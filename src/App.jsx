@@ -3,22 +3,23 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 // ============================================================
 // FIREBASE CONFIG — remplace par tes vraies clés Firebase
 // ============================================================
+const runtimeConfig = window.__FIREBASE_CONFIG__ || {};
 const FIREBASE_CONFIG = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || runtimeConfig.apiKey,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || runtimeConfig.authDomain,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || runtimeConfig.projectId,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || runtimeConfig.storageBucket,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || runtimeConfig.messagingSenderId,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || runtimeConfig.appId,
 };
 
-const isRealConfig = !!import.meta.env.VITE_FIREBASE_API_KEY;
+const isRealConfig = !!FIREBASE_CONFIG.apiKey;
 const TENANT = window.__WEDDING_TENANT__ || (() => {
   const url = new URL(window.location.href);
   const requested = url.searchParams.get("w");
   const raw = String(requested || "").trim().toLowerCase();
   const valid = /^[a-z0-9][a-z0-9-]{0,79}$/.test(raw);
-  const eventId = requested === null ? "quentin-huyen-2026" : (valid ? raw : "__invalid_wedding__");
+  const eventId = valid ? raw : "__invalid_wedding__";
   const base = `${window.location.origin}${window.location.pathname}`;
   return {
     eventId,
@@ -418,9 +419,9 @@ export default function App() {
   const [view, setView] = useState(VIEWS.HOME);
   const [adminAuth, setAdminAuth] = useState(false);
   const [adminUser, setAdminUser] = useState(null);
-  const [fbReady, setFbReady] = useState(!isRealConfig);
-  const [eventExists, setEventExists] = useState(!isRealConfig);
-  const [firebaseError, setFirebaseError] = useState("");
+  const [fbReady, setFbReady] = useState(false);
+  const [eventExists, setEventExists] = useState(false);
+  const [firebaseError, setFirebaseError] = useState(!isRealConfig ? "L’espace est temporairement indisponible. Merci de réessayer plus tard." : "");
 
   const navigate = useCallback((v) => {
     setView(v);
@@ -433,7 +434,7 @@ export default function App() {
     const map = { upload: VIEWS.UPLOAD, gallery: VIEWS.GALLERY, live: VIEWS.LIVE, admin: VIEWS.ADMIN };
     if (map[hash]) setView(map[hash]);
 
-    if (isRealConfig) {
+    if (isRealConfig && TENANT.isValid) {
       initFirebase().then(ok => {
         setFbReady(ok);
         setEventExists(_eventExists);
@@ -451,7 +452,9 @@ export default function App() {
     return () => unsubscribeAuth?.();
   }, []);
 
-  if (!fbReady && isRealConfig) return (
+  if (!TENANT.isValid) return <><GlobalStyles /><div style={{minHeight:'100vh',display:'grid',placeItems:'center',padding:24}}><div style={{textAlign:'center'}}><h1>Lien de mariage invalide</h1><p>Vérifiez le lien transmis par les mariés.</p><a href={import.meta.env.BASE_URL}>Revenir à l’accueil</a></div></div></>;
+
+  if (!fbReady && isRealConfig && !firebaseError) return (
     <><GlobalStyles />
       <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 16 }}>
         <div style={{ fontSize: 48, animation: "spin 1.4s linear infinite", display: "inline-block" }}>💍</div>
@@ -465,6 +468,7 @@ export default function App() {
       <div style={{ maxWidth: 520, textAlign: "center", background: "var(--white)", padding: 28, borderRadius: 20 }}>
         <h1 style={{ color: "var(--burgundy)" }}>Connexion impossible</h1>
         <p style={{ marginTop: 10, color: "var(--muted)" }}>{firebaseError}</p>
+        <button className="btn" onClick={() => window.location.reload()} style={{marginTop:18,padding:'12px 20px'}}>Réessayer</button>
       </div>
     </div></>
   );

@@ -1,8 +1,17 @@
 [
   {
-    "origin": ["https://kitout3.github.io"],
-    "method": ["GET"],
-    "responseHeader": ["Content-Type", "Content-Length", "Content-Disposition"],
+    "origin": [
+      "https://kitout3.github.io",
+      "https://espace-mariage.kitout.chatgpt.site"
+    ],
+    "method": [
+      "GET"
+    ],
+    "responseHeader": [
+      "Content-Type",
+      "Content-Length",
+      "Content-Disposition"
+    ],
     "maxAgeSeconds": 3600
   }
 ]

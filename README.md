@@ -1,118 +1,63 @@
-# 💍 Mariage App
+# Espace Mariage
 
-## 🚀 Déploiement en 5 étapes
+Application de partage de photos, de témoignages vidéo et de cérémonie en direct, avec un espace distinct par mariage et une administration de la plateforme séparée.
 
----
+## Dépôt et données
 
-### Étape 1 — Configurer les clés Firebase (localement)
+Le code complet reste dans **kitout3/mariage-app**. Firebase **mariage-hq** conserve les comptes, les documents et les médias existants ; aucune migration de données n’est nécessaire pour changer l’adresse du site.
 
-Duplique le fichier `.env.example` et renomme-le `.env` :
-```
-.env.example  →  .env
-```
+- Accueil général : `/`.
+- Espace invités : `/?w=<identifiant-du-mariage>`.
+- Administration du mariage : `/?w=<identifiant-du-mariage>#admin`.
+- Administration de la plateforme : `/admin.html`, réservée au propriétaire via Firebase Authentication et les contrôles des Cloud Functions.
+- L’ancienne adresse GitHub Pages sans paramètre reste compatible avec le mariage historique. Sur les autres domaines, l’accueil ne sélectionne aucun mariage automatiquement.
+- Un identifiant invalide ne bascule jamais vers un autre mariage. Aucun annuaire public n’est affiché sur l’accueil.
 
-Ouvre `.env` et remplis avec tes vraies clés Firebase (disponibles dans la console Firebase → ⚙️ Paramètres → Vos applications) :
-```
-VITE_FIREBASE_API_KEY=AIzaSy...
-VITE_FIREBASE_AUTH_DOMAIN=ton-projet.firebaseapp.com
-VITE_FIREBASE_PROJECT_ID=ton-projet
-VITE_FIREBASE_STORAGE_BUCKET=ton-projet.appspot.com
-VITE_FIREBASE_MESSAGING_SENDER_ID=123456...
-VITE_FIREBASE_APP_ID=1:123456:web:abc...
-```
+## Développement
 
----
-
-### Étape 2 — Configurer le nom du repo
-
-Dans `vite.config.js`, remplace `mariage-app` par le nom exact de ton repo GitHub :
-```js
-base: '/TON-NOM-DE-REPO/',
+```sh
+npm ci
+npm run dev
+npm test
+npm run build
 ```
 
----
+Node.js 20 ou supérieur. Le résultat du build est dans `dist/`.
 
-### Étape 3 — Créer le repo GitHub et pusher
+La configuration web Firebase déjà publiée est conservée dans `config/firebase.public.json`. Ces identifiants publics ne donnent aucun accès administrateur : les règles Firestore/Storage et l’authentification protègent les données. Ne jamais ajouter de compte de service, de clé privée ou de secret administrateur au code ou aux variables `VITE_`.
 
-```bash
-npm install
-git init
-git add .
-git commit -m "premier commit"
-git remote add origin https://github.com/TONPSEUDO/mariage-app.git
-git push -u origin main
-```
+Les variables `VITE_FIREBASE_*` peuvent remplacer les valeurs publiques lors du build. La configuration navigateur est produite automatiquement dans `firebase-config.js` ; une absence de configuration n’active pas de galerie fictive en production.
 
----
+## Hébergement et adresses
 
-### Étape 4 — Ajouter les secrets dans GitHub
+Le chemin de base est `/` pour Sites ou un domaine personnalisé. Pour préserver GitHub Pages, le workflow `.github/workflows/deploy.yml` utilise `VITE_APP_BASE_PATH=/mariage-app/`. Les deux hébergements utilisent le même code.
 
-Dans ton repo GitHub → **Settings → Secrets and variables → Actions → New repository secret**
+Le manifeste `.openai/hosting.json` identifie le site Sites. Le code est également transmis à son dépôt de publication, mais GitHub demeure le dépôt utilisateur. Une modification sur GitHub déclenche GitHub Pages ; une nouvelle version Sites doit être publiée pour actualiser l’adresse Sites. Ne pas confondre ces deux déploiements.
 
-Ajoute chaque clé une par une (même noms que dans `.env`) :
-- `VITE_FIREBASE_API_KEY`
-- `VITE_FIREBASE_AUTH_DOMAIN`
-- `VITE_FIREBASE_PROJECT_ID`
-- `VITE_FIREBASE_STORAGE_BUCKET`
-- `VITE_FIREBASE_MESSAGING_SENDER_ID`
-- `VITE_FIREBASE_APP_ID`
+### Raccorder un domaine personnalisé
 
----
+1. Disposer du domaine souhaité et de l’accès à son DNS.
+2. Ajouter le nom d’hôte exact au site publié dans Sites.
+3. Reporter **les enregistrements DNS renvoyés par Sites**, puis attendre la validation et le certificat HTTPS. Ne pas inventer de cible DNS ou de fichier CNAME.
+4. Vérifier le domaine dans Firebase Authentication (domaines autorisés) et les éventuelles restrictions d’origine de la clé API web.
+5. Vérifier le téléchargement de médias depuis cette origine ; si une requête est refusée par CORS, ajouter l’origine exacte à la configuration existante du bucket sans supprimer les origines encore utilisées.
 
-### Étape 5 — Activer GitHub Pages
+Aucun domaine payant n’est acheté ou configuré automatiquement. Le nom définitif doit être fourni avant le raccordement.
 
-Dans ton repo GitHub → **Settings → Pages**
-- Source : **Deploy from a branch**
-- Branch : **gh-pages** → **/root**
-- Clique **Save**
+## Fonctionnalités conservées
 
-Le déploiement se fait automatiquement à chaque `git push` grâce au fichier `.github/workflows/deploy.yml` ✅
+- Photos, galerie, réactions et téléchargement de sélections.
+- Messages vidéo, modération et export.
+- Affichage TV et cérémonie en direct.
+- Français, anglais, vietnamien et allemand.
+- Création, modification, activation, accès et suppression des mariages depuis l’administration existante.
 
-Ton site sera sur : `https://TONPSEUDO.github.io/mariage-app`
+Les liens ouverts depuis l’administration, les QR codes et la navigation des invités restent sur le domaine consulté. Les anciens liens de mariage peuvent être collés dans le nouvel accueil. Les redirections vers le direct et les clics de notifications conservent l’identifiant du mariage.
 
----
+## Validation
 
-### Étape 6 — Autoriser le domaine dans Firebase
+`npm test` vérifie notamment la sélection des mariages, l’absence de repli inter-mariages, les origines des liens et les protections existantes. Avant la mise en service d’un nouveau domaine, contrôler avec un compte autorisé la connexion administrateur, puis un dépôt et un téléchargement de média. Les tests automatisés ne remplacent pas cette vérification de la configuration Firebase en production.
 
-Console Firebase → ⚙️ **Paramètres du projet → Authorized domains → Add domain** :
-```
-TONPSEUDO.github.io
-```
+### État de la migration au 19 septembre 2026
 
----
-
-## 📱 Pages de l'app
-
-| URL | Page |
-|-----|------|
-| `/` | Accueil |
-| `/#upload` | Upload photo (QR code invités) |
-| `/#gallery` | Galerie + likes |
-| `/#live` | Affichage TV plein écran |
-| `/#admin` | Administration (mot de passe : `admin123`) |
-
-## ⬇️ Téléchargement des sélections
-
-L'invité sélectionne ses photos et vidéos puis les télécharge directement sur son
-appareil, sans compte et sans adresse e-mail. Plusieurs photos sont regroupées dans
-des archives ZIP sans recompression. Les vidéos sont téléchargées individuellement
-afin de ne pas saturer la mémoire des appareils mobiles.
-
-Les nouvelles photos conservent à la fois un aperçu optimisé pour la galerie et le
-fichier original destiné au téléchargement. Les anciens médias ne sont ni modifiés
-ni supprimés.
-
-Le navigateur doit pouvoir lire les fichiers Firebase Storage pour produire les
-archives ZIP. Appliquer une fois la configuration CORS fournie dans `cors.json` :
-
-```bash
-gsutil cors set cors.json gs://mariage-hq.firebasestorage.app
-```
-
----
-
-## 🔒 Sécurité
-
-- Le fichier `.env` est dans `.gitignore` → tes clés ne seront **jamais** visibles sur GitHub
-- Les clés sont injectées au moment du build via les GitHub Secrets
-- Change le mot de passe admin dans les paramètres de l'app !
+Les builds racine et GitHub Pages et les huit contrôles automatisés passent. La lecture du mariage existant depuis la nouvelle origine est acceptée par Firestore. Le contrôle HTTP d’un média a confirmé que Firebase Storage renvoie actuellement l’autorisation CORS pour `https://kitout3.github.io`, mais pas pour `https://espace-mariage.kitout.chatgpt.site`. Le fichier `cors.json` inclut les deux origines ; cette configuration **reste à appliquer au bucket** avec un compte autorisé, puis à vérifier. Le dernier workflow backend a ignoré son déploiement car le secret du compte de service était absent. La connexion administrateur et les envois de médias n’ont pas été testés avec un compte utilisateur ; aucun mariage ou média de production n’a été créé, modifié ou supprimé pendant la validation. Le contrôle visuel était indisponible dans l’environnement d’aperçu.

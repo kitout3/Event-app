@@ -1,10 +1,10 @@
 (() => {
   const COLLECTION = "pushSubscriptions";
-  const EVENT_ID = window.__WEDDING_TENANT__?.eventId || "quentin-huyen-2026";
+  const EVENT_ID = window.__WEDDING_TENANT__?.eventId || "__invalid_wedding__";
   const PUSH_ENABLED_KEY = `video-push-enabled:${EVENT_ID}`;
   const LANG_KEY = "mariage-lang";
   const VAPID_KEY = "BF_FutOslaft75leK3ToH9EwsogNxgvPFzNSyUvTOliqs07nnXpEe7rcn6KnycfJhjUjFyhSjjRhok-bwKLb1Ug";
-  const APP_BASE_PATH = "/mariage-app/";
+  const APP_BASE_PATH = window.__WEDDING_TENANT__?.assetBasePath || new URL("./", window.location.href).pathname;
 
   const texts = {
     fr: {
@@ -69,7 +69,7 @@
       const { cfg, db, fs, messaging, msg } = await getFirebase();
       let registration;
       try {
-        const workerUrl = `${window.location.origin}${APP_BASE_PATH}firebase-messaging-sw.js?v=20260728-2`;
+        const workerUrl = `${window.location.origin}${APP_BASE_PATH}firebase-messaging-sw.js?v=20260919-domain-1`;
         registration = await navigator.serviceWorker.register(workerUrl, { scope: APP_BASE_PATH });
         await registration.update();
         await navigator.serviceWorker.ready;

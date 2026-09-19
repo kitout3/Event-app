@@ -7,11 +7,14 @@
   const requested = url.searchParams.get("w");
   const raw = String(requested || "").trim().toLowerCase();
   const validSlug = /^[a-z0-9][a-z0-9-]{0,79}$/.test(raw);
+  const isLegacyEntry = url.hostname === 'kitout3.github.io' && /^\/mariage-app\/?$/.test(url.pathname);
+  const hasWedding = requested !== null || isLegacyEntry;
+  const assetBaseUrl = new URL('./', document.currentScript?.src || url.href);
 
   // IMPORTANT: only URLs with no ?w= at all may use the historical default.
   // An explicit but invalid wedding id must NEVER fall back to another tenant.
   const eventId = requested === null
-    ? LEGACY_DEFAULT_EVENT_ID
+    ? (isLegacyEntry ? LEGACY_DEFAULT_EVENT_ID : INVALID_EVENT_ID)
     : (validSlug ? raw : INVALID_EVENT_ID);
 
   const basePath = `${window.location.origin}${window.location.pathname}`;
@@ -21,6 +24,10 @@
     eventId,
     requestedEventId: requested,
     isValid: eventId !== INVALID_EVENT_ID,
+    hasWedding,
+    isLegacyEntry,
+    assetBaseUrl: assetBaseUrl.href,
+    assetBasePath: assetBaseUrl.pathname,
     basePath,
     baseUrl,
     urlFor(view = "") {

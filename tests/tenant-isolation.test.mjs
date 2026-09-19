@@ -1,14 +1,46 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import vm from 'node:vm';
+import {invitationSlug,weddingLink} from '../src/wedding-links.mjs';
 
 const read = path => fs.readFileSync(path, "utf8");
 
 test("tenant context accepts existing short slugs without cross-tenant fallback", () => {
   const source = read("public/tenant-context.js");
-  assert.match(source, /\{0,79\}/);
-  assert.match(source, /requested === null\s*\?\s*LEGACY_DEFAULT_EVENT_ID/);
-  assert.match(source, /__invalid_wedding__/);
+  const contextFor = href => {
+    const context={URL,window:{location:{href}},document:{documentElement:{dataset:{}},currentScript:{src:new URL('tenant-context.js',href).href}}};
+    vm.runInNewContext(source,context);
+    return context.window.__WEDDING_TENANT__;
+  };
+  const root=contextFor('https://wedding.example/');
+  assert.equal(root.hasWedding,false);
+  assert.equal(root.isValid,false);
+  assert.notEqual(root.eventId,'quentin-huyen-2026');
+  assert.equal(contextFor('https://kitout3.github.io/mariage-app/').eventId,'quentin-huyen-2026');
+  for(const origin of ['https://wedding.example/','https://kitout3.github.io/mariage-app/']) {
+    assert.equal(contextFor(`${origin}?w=ab`).eventId,'ab');
+    assert.equal(contextFor(`${origin}?w=another-wedding`).eventId,'another-wedding');
+    for(const input of ['','%2F','bad%20slug','%3Cscript%3E']) {
+      assert.equal(contextFor(`${origin}?w=${input}`).isValid,false);
+      assert.notEqual(contextFor(`${origin}?w=${input}`).eventId,'quentin-huyen-2026');
+    }
+  }
+});
+
+test('invitation links always open the selected wedding on the current deployment',()=>{
+  assert.equal(invitationSlug(' AB '),'ab');
+  assert.equal(invitationSlug('https://kitout3.github.io/mariage-app/?w=other-wedding#gallery'),'other-wedding');
+  assert.equal(weddingLink('https://wedding.example/','other-wedding',true),'https://wedding.example/?w=other-wedding#admin');
+  assert.equal(weddingLink('https://kitout3.github.io/mariage-app/','other-wedding'),'https://kitout3.github.io/mariage-app/?w=other-wedding');
+  for(const input of ['', 'https://example.com/', 'javascript:alert(1)', '?w=', '../quentin-huyen-2026']) assert.throws(()=>invitationSlug(input));
+});
+
+test('root and custom domains never redirect into the GitHub Pages prefix',()=>{
+  const source=read('public/path-fix.js');
+  let redirected=false;
+  vm.runInNewContext(source,{window:{location:{hostname:'wedding.example',pathname:'/',replace:()=>{redirected=true;}}}});
+  assert.equal(redirected,false);
 });
 
 test("video gallery never reads the legacy global videoTestimonials collection", () => {
