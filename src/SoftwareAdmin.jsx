@@ -3,7 +3,7 @@ import { EVENT_TYPES, THEME_PRESETS, MODULE_META, DEFAULT_MODULES, presetForType
 import { formatEuro } from "./billing-config.mjs";
 
 const PLATFORM_OWNER_UID = "beQK5FNoVla9lnvnzSfqasK93QR2";
-const APP_BASE = new URL(import.meta.env.BASE_URL, window.location.origin).href;
+const APP_BASE = new URL("./", window.location.href).href;
 const eventUrl = (slug, admin = false) => `${APP_BASE}?w=${encodeURIComponent(slug)}${admin ? "#admin" : ""}`;
 const runtimeConfig = window.__FIREBASE_CONFIG__ || {};
 const FIREBASE_CONFIG = {
