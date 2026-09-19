@@ -297,7 +297,7 @@ exports.createWeddingV2 = onCall({ region: "europe-west1" }, async request => {
 exports.listPublicVideos = onCall({ region: "europe-west1" }, async request => {
   const eventId = normalizeSlug(request.data?.eventId);
   if (!eventId) {
-    throw new HttpsError("invalid-argument", "Mariage invalide.");
+    throw new HttpsError("invalid-argument", "Événement invalide.");
   }
 
   const db = getFirestore();
@@ -350,27 +350,38 @@ exports.updateWedding = onCall({ region: "europe-west1" }, async request => {
   }
 
   const eventId = normalizeSlug(request.data?.eventId);
-  if (!eventId) throw new HttpsError("invalid-argument", "Mariage invalide.");
+  if (!eventId) throw new HttpsError("invalid-argument", "Événement invalide.");
 
   const patch = {};
   if (typeof request.data?.name === "string") {
     const name = request.data.name.trim();
-    if (!name) throw new HttpsError("invalid-argument", "Le nom du mariage est obligatoire.");
+    if (!name) throw new HttpsError("invalid-argument", "Le nom de l’événement est obligatoire.");
     patch.name = name.slice(0, 120);
   }
-  if (typeof request.data?.date === "string") {
-    patch.date = request.data.date.trim().slice(0, 120);
+  if (typeof request.data?.date === "string") patch.date = request.data.date.trim().slice(0, 120);
+  if (typeof request.data?.location === "string") patch.location = request.data.location.trim().slice(0, 180);
+  if (typeof request.data?.organiserName === "string") patch.organiserName = request.data.organiserName.trim().slice(0, 120);
+  if (typeof request.data?.active === "boolean") patch.active = request.data.active;
+
+  if (typeof request.data?.eventType === "string") {
+    patch.eventType = eventConfig.eventType(request.data.eventType);
+    patch.customEventType = patch.eventType === "custom" ? String(request.data?.customEventType || "").trim().slice(0, 120) : "";
   }
-  if (typeof request.data?.active === "boolean") {
-    patch.active = request.data.active;
+  const configType = patch.eventType || eventConfig.eventType(request.data?.currentEventType);
+  if (request.data?.themePreset || request.data?.theme) {
+    patch.themePreset = eventConfig.themePreset(request.data?.themePreset || request.data?.theme?.preset, configType);
+    patch.theme = eventConfig.theme(request.data?.theme, patch.themePreset);
   }
+  if (request.data?.modules && typeof request.data.modules === "object") patch.modules = eventConfig.modules(request.data.modules, configType);
+  if (request.data?.labels && typeof request.data.labels === "object") patch.labels = eventConfig.labels(request.data.labels);
+  if (request.data?.branding && typeof request.data.branding === "object") patch.branding = eventConfig.branding(request.data.branding, request.data?.organiserName);
   if (!Object.keys(patch).length) {
     throw new HttpsError("invalid-argument", "Aucune modification fournie.");
   }
 
   const ref = getFirestore().collection("events").doc(eventId);
   const snap = await ref.get();
-  if (!snap.exists) throw new HttpsError("not-found", "Mariage introuvable.");
+  if (!snap.exists) throw new HttpsError("not-found", "Événement introuvable.");
 
   await ref.update({ ...patch, updatedAt: FieldValue.serverTimestamp() });
   return { updated: true, eventId, ...patch };
@@ -382,11 +393,11 @@ exports.deleteWedding = onCall({ region: "europe-west1" }, async request => {
   }
 
   const eventId = normalizeSlug(request.data?.eventId);
-  if (!eventId) throw new HttpsError("invalid-argument", "Mariage invalide.");
+  if (!eventId) throw new HttpsError("invalid-argument", "Événement invalide.");
   const db = getFirestore();
   const eventRef = db.collection("events").doc(eventId);
   const eventSnap = await eventRef.get();
-  if (!eventSnap.exists) throw new HttpsError("not-found", "Mariage introuvable.");
+  if (!eventSnap.exists) throw new HttpsError("not-found", "Événement introuvable.");
 
   const data = eventSnap.data() || {};
 
