@@ -255,6 +255,34 @@
       switcher.appendChild(button);
     });
     document.body.appendChild(switcher);
+    if (!document.getElementById("wedding-language-mobile-style")) {
+      const responsive = document.createElement("style");
+      responsive.id = "wedding-language-mobile-style";
+      responsive.textContent = `
+        #wedding-language-switcher{top:max(12px,env(safe-area-inset-top))!important}
+        @media(max-width:650px){
+          body:has(#vt-overlay) #wedding-language-switcher,
+          body:has(#wedding-live-panel) #wedding-language-switcher{
+            top:calc(env(safe-area-inset-top) + 8px)!important;
+            left:10px!important;
+            right:10px!important;
+            width:auto!important;
+            max-width:none!important;
+            justify-content:center!important;
+            gap:2px!important;
+            padding:4px!important;
+          }
+          body:has(#vt-overlay) #wedding-language-switcher button,
+          body:has(#wedding-live-panel) #wedding-language-switcher button{
+            flex:1 1 0!important;
+            min-width:0!important;
+            padding:8px 5px!important;
+            font-size:13px!important;
+          }
+        }
+      `;
+      document.head.appendChild(responsive);
+    }
   }
 
   const basePath = () => window.location.pathname.endsWith("/") ? window.location.pathname : window.location.pathname.substring(0, window.location.pathname.lastIndexOf("/") + 1);
