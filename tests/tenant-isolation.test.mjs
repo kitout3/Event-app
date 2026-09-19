@@ -261,3 +261,20 @@ test("media download bar is visible over video gallery and removed outside media
   assert.match(media,/if \(!available\.length\) \{ bar\?\.remove\(\); return; \}/);
   assert.doesNotMatch(media,/if \(!available\.length && !selected\.size\)/);
 });
+
+
+test("video gallery scrolls inside a dedicated iOS shell",()=>{
+  const video=read("public/video-testimonials-v2.js");
+  assert.match(video,/\.vt-overlay\{[^}]*overflow:hidden!important/);
+  assert.match(video,/\.vt-shell\{[^}]*height:100dvh[^}]*overflow-y:auto!important[^}]*-webkit-overflow-scrolling:touch[^}]*touch-action:pan-y/);
+  assert.match(video,/@media \(max-width:650px\)\{[\s\S]*\.vt-shell\{[^}]*height:100dvh/);
+});
+
+test("download banner belongs to active gallery and is destroyed on navigation",()=>{
+  const media=read("public/media-selection.js");
+  assert.match(media,/function activeMediaRoot\(\)/);
+  assert.match(media,/document\.querySelector\('#vt-overlay \.vt-gallery-grid'\)\?\.closest\('#vt-overlay'\)/);
+  assert.match(media,/isActuallyVisible/);
+  assert.match(media,/root\.id === 'vt-overlay' \? root : document\.body/);
+  assert.match(media,/hashchange', \(\) => \{[\s\S]*media-selection-bar'\)\?\.remove\(\)/);
+});
