@@ -147,6 +147,123 @@ exports.createWedding = onCall({ region: "europe-west1" }, async request => {
   }
 });
 
+exports.createWeddingV2 = onCall({ region: "europe-west1" }, async request => {
+  if (!request.auth || request.auth.uid !== PLATFORM_OWNER_UID) {
+    throw new HttpsError("permission-denied", "Accès réservé à l’administrateur du logiciel.");
+  }
+
+  let stage = "validation";
+  let createdUserUid = null;
+  try {
+    const data = request.data || {};
+    const name = String(data.name || "").trim();
+    const date = String(data.date || "").trim();
+    const slug = normalizeSlug(data.slug || name);
+    const adminEmail = String(data.adminEmail || "").trim().toLowerCase();
+    const adminPassword = String(data.adminPassword || "");
+
+    if (!name || !slug || !adminEmail) {
+      return { ok: false, stage, code: "invalid-argument", message: "Nom, lien unique et email administrateur obligatoires." };
+    }
+    if (!/^[a-z0-9][a-z0-9-]{2,80}$/.test(slug)) {
+      return { ok: false, stage, code: "invalid-slug", message: "Le lien unique du mariage est invalide." };
+    }
+    if (adminPassword.length < 8) {
+      return { ok: false, stage, code: "invalid-password", message: "Le mot de passe temporaire doit contenir au moins 8 caractères." };
+    }
+
+    stage = "firestore-check";
+    const db = getFirestore();
+    const eventRef = db.collection("events").doc(slug);
+    if ((await eventRef.get()).exists) {
+      return { ok: false, stage, code: "already-exists", message: "Cet identifiant de mariage existe déjà." };
+    }
+
+    stage = "auth-user";
+    let adminUser;
+    try {
+      adminUser = await getAuth().getUserByEmail(adminEmail);
+    } catch (error) {
+      if (error?.code !== "auth/user-not-found") throw error;
+      stage = "auth-create-user";
+      adminUser = await getAuth().createUser({
+        email: adminEmail,
+        password: adminPassword,
+        emailVerified: false,
+        disabled: false,
+        displayName: `Admin · ${name}`,
+      });
+      createdUserUid = adminUser.uid;
+    }
+
+    stage = "ownership-check";
+    const alreadyOwned = await db.collection("events").where("ownerUid", "==", adminUser.uid).limit(1).get();
+    if (!alreadyOwned.empty) {
+      if (createdUserUid) {
+        try { await getAuth().deleteUser(createdUserUid); } catch (_) {}
+        createdUserUid = null;
+      }
+      return {
+        ok: false,
+        stage,
+        code: "admin-already-used",
+        message: "Ce compte administrateur est déjà associé à un mariage. Utilisez une autre adresse email.",
+      };
+    }
+
+    stage = "firestore-create";
+    const now = FieldValue.serverTimestamp();
+    await eventRef.set({
+      id: slug,
+      slug,
+      name,
+      date,
+      ownerUid: adminUser.uid,
+      adminEmail,
+      active: true,
+      moderationMode: "immediate",
+      displayMode: "mixed",
+      coverMessage: "Partagez vos plus beaux souvenirs",
+      settings: {
+        primary: "#5c2a1e",
+        background: "#fdf8f4",
+        showUpload: true,
+        showGallery: true,
+        showVideo: true,
+        showTv: true,
+        showLive: true,
+        videoModerationMode: "moderated",
+        videoDelayMinutes: 60,
+      },
+      createdAt: now,
+      updatedAt: now,
+      createdBy: request.auth.uid,
+    });
+
+    const guestUrl = `${PUBLIC_APP_BASE}?w=${encodeURIComponent(slug)}`;
+    return {
+      ok: true,
+      eventId: slug,
+      ownerUid: adminUser.uid,
+      guestUrl,
+      adminUrl: `${guestUrl}#admin`,
+    };
+  } catch (error) {
+    console.error("createWeddingV2:", { stage, code: error?.code, message: error?.message, stack: error?.stack });
+    if (createdUserUid) {
+      try { await getAuth().deleteUser(createdUserUid); } catch (cleanupError) {
+        console.warn("createWeddingV2 cleanup:", cleanupError?.code || cleanupError?.message);
+      }
+    }
+    return {
+      ok: false,
+      stage,
+      code: String(error?.code || "unknown"),
+      message: String(error?.message || "Erreur serveur inconnue.").slice(0, 250),
+    };
+  }
+});
+
 exports.deleteWedding = onCall({ region: "europe-west1" }, async request => {
   if (!request.auth || request.auth.uid !== PLATFORM_OWNER_UID) {
     throw new HttpsError("permission-denied", "Accès réservé à l’administrateur du logiciel.");
