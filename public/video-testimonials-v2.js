@@ -141,9 +141,18 @@
   async function listVideos(adminMode=false){
     const {db,fs,functions,fn}=await firebase();
     if(!adminMode){
-      const call=fn.httpsCallable(functions,"listPublicVideos");
-      const res=await call({eventId:EVENT_ID});
-      return Array.isArray(res.data?.videos)?res.data.videos:[];
+      try {
+        const call=fn.httpsCallable(functions,"listPublicVideos");
+        const res=await call({eventId:EVENT_ID});
+        return Array.isArray(res.data?.videos)?res.data.videos:[];
+      } catch (error) {
+        // Transition fallback only: while the new backend is being deployed,
+        // stay tenant-scoped and use the legacy Firestore read path. Once the
+        // hardened rules are live this fallback is naturally denied.
+        if (!String(error?.code || "").includes("not-found")) throw error;
+        const snap=await fs.getDocs(fs.collection(db,"events",EVENT_ID,"videoTestimonials"));
+        return snap.docs.map(d=>({id:d.id,...d.data()}));
+      }
     }
     const snap=await fs.getDocs(fs.query(
       fs.collection(db,"events",EVENT_ID,"videoTestimonials"),
