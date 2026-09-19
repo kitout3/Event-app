@@ -215,25 +215,39 @@ exports.createWeddingV2 = onCall({ region: "europe-west1" }, async request => {
 
     stage = "firestore-create";
     const now = FieldValue.serverTimestamp();
+    const eventType = eventConfig.eventType(data.eventType);
+    const themePreset = eventConfig.themePreset(data.themePreset || data.theme?.preset, eventType);
+    const eventModules = eventConfig.modules(data.modules, eventType);
+    const location = String(data.location || "").trim().slice(0, 180);
+    const organiserName = String(data.organiserName || "").trim().slice(0, 120);
     await eventRef.set({
       id: slug,
       slug,
       name,
       date,
+      location,
+      organiserName,
+      eventType,
+      customEventType: eventType === "custom" ? String(data.customEventType || "").trim().slice(0, 120) : "",
+      themePreset,
+      theme: eventConfig.theme(data.theme, themePreset),
+      modules: eventModules,
+      labels: eventConfig.labels(data.labels),
+      branding: eventConfig.branding(data.branding, organiserName),
       ownerUid: adminUser.uid,
       adminEmail,
       active: true,
       moderationMode: "immediate",
       displayMode: "mixed",
-      coverMessage: "Partagez vos plus beaux souvenirs",
+      coverMessage: "Partagez vos meilleurs moments",
       settings: {
-        primary: "#5c2a1e",
-        background: "#fdf8f4",
-        showUpload: true,
-        showGallery: true,
-        showVideo: true,
-        showTv: true,
-        showLive: true,
+        primary: (eventConfig.THEME_COLORS[themePreset] || eventConfig.THEME_COLORS["custom-neutral"]).primary,
+        background: (eventConfig.THEME_COLORS[themePreset] || eventConfig.THEME_COLORS["custom-neutral"]).background,
+        showUpload: eventModules.photoUpload,
+        showGallery: eventModules.gallery,
+        showVideo: eventModules.videoTestimonials,
+        showTv: eventModules.tvDisplay,
+        showLive: eventModules.live,
         videoModerationMode: "moderated",
         videoDelayMinutes: 60,
       },
