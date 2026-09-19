@@ -2,9 +2,6 @@
   "use strict";
 
   const LANG_KEY = "mariage-lang";
-  const EVENT_NAME = "Huyen & Quentin";
-  const EVENT_DATE = "13 septembre 2026";
-
   const rows = [
     ["Envoyer une photo", "Upload a photo", "Gửi ảnh"],
     ["Partager un souvenir", "Share a memory", "Chia sẻ kỷ niệm"],
@@ -124,12 +121,7 @@
       while (walker.nextNode()) nodes.push(walker.currentNode);
       nodes.forEach(node => {
         if (node.parentElement?.closest("script,style")) return;
-        let next = node.nodeValue
-          .replace(/Marie\s*&\s*Thomas/gi, EVENT_NAME)
-          .replace(/Quentin\s*&\s*Huyen/gi, EVENT_NAME)
-          .replace(/21\s*Juin\s*2025/gi, EVENT_DATE)
-          .replace(/13\s*Septembre\s*2026/gi, EVENT_DATE);
-        next = translateString(next);
+        let next = translateString(node.nodeValue);
         if (next !== node.nodeValue) node.nodeValue = next;
       });
 

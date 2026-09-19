@@ -182,10 +182,24 @@
     while (walker.nextNode()) nodes.push(walker.currentNode);
     nodes.forEach(node => {
       if (node.parentElement?.closest("#wedding-language-switcher,#wedding-live-panel")) return;
-      let value = node.nodeValue;
-      value = value.replace(/Marie\s*&\s*Thomas/gi, event.name).replace(/Quentin\s*&\s*Huyen/gi, event.name);
-      value = value.replace(/21\s*Juin\s*2025/gi, event.date).replace(/13\s*Septembre\s*2026/gi, event.date);
-      if (value !== node.nodeValue) node.nodeValue = value;
+      const original = node.nodeValue;
+      const trimmed = original.trim();
+      let replacement = null;
+
+      // Replace only complete legacy placeholders. Never replace a date fragment
+      // inside the current event date, otherwise a MutationObserver refresh can
+      // recursively turn "12 – 13 septembre 2026" into "12 – 12 – 13 ...".
+      if (/^(Marie\s*&\s*Thomas|Quentin\s*&\s*Huyen)$/i.test(trimmed)) {
+        replacement = event.name;
+      } else if (/^(21\s*Juin\s*2025|13\s*Septembre\s*2026)$/i.test(trimmed)) {
+        replacement = event.date;
+      }
+
+      if (replacement !== null) {
+        const leading = original.match(/^\s*/)?.[0] || "";
+        const trailing = original.match(/\s*$/)?.[0] || "";
+        node.nodeValue = `${leading}${replacement}${trailing}`;
+      }
     });
     document.title = `${event.name} — ${event.date}`;
   }
