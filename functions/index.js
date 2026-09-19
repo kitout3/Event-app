@@ -35,7 +35,7 @@ exports.createWedding = onCall({ region: "europe-west1" }, async request => {
   if (!name || !slug || !adminEmail) {
     throw new HttpsError("invalid-argument", "Nom, identifiant et email administrateur obligatoires.");
   }
-  if (!/^[a-z0-9][a-z0-9-]{2,80}$/.test(slug)) {
+  if (!/^[a-z0-9][a-z0-9-]{0,79}$/.test(slug)) {
     throw new HttpsError("invalid-argument", "Identifiant de mariage invalide.");
   }
   if (adminPassword.length < 8) {
@@ -165,7 +165,7 @@ exports.createWeddingV2 = onCall({ region: "europe-west1" }, async request => {
     if (!name || !slug || !adminEmail) {
       return { ok: false, stage, code: "invalid-argument", message: "Nom, lien unique et email administrateur obligatoires." };
     }
-    if (!/^[a-z0-9][a-z0-9-]{2,80}$/.test(slug)) {
+    if (!/^[a-z0-9][a-z0-9-]{0,79}$/.test(slug)) {
       return { ok: false, stage, code: "invalid-slug", message: "Le lien unique du mariage est invalide." };
     }
     if (adminPassword.length < 8) {
