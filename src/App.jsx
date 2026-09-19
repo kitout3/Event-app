@@ -332,17 +332,21 @@ const QRCode = ({ value, size = 160 }) => (
 // ============================================================
 const GlobalStyles = () => (
   <style>{`
-    @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Jost:wght@300;400;500&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Inter:wght@400;500;600;700&family=Jost:wght@300;400;500&family=Manrope:wght@400;500;600;700&display=swap');
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
       --cream: #fdf8f4; --blush: #f5ddd4; --rose: #c97a6a;
       --burgundy: #5c2a1e; --gold: #b89a6a; --text: #3d2010;
       --muted: #9e7060; --white: #fffdf9; --shadow: rgba(92,42,30,0.12);
     }
-    html, body { font-family: 'Jost', sans-serif; background: var(--cream); color: var(--text); min-height: 100vh; }
-    h1,h2,h3 { font-family: 'Cormorant Garamond', serif; }
-    button { cursor: pointer; border: none; outline: none; font-family: 'Jost', sans-serif; }
-    input, textarea, select { font-family: 'Jost', sans-serif; outline: none; }
+    html, body { font-family: var(--event-body-font, 'Jost', sans-serif); background: var(--cream); color: var(--text); min-height: 100vh; }
+    h1,h2,h3 { font-family: var(--event-title-font, 'Cormorant Garamond', serif); }
+    button { cursor: pointer; border: none; outline: none; font-family: var(--event-body-font, 'Jost', sans-serif); }
+    input, textarea, select { font-family: var(--event-body-font, 'Jost', sans-serif); outline: none; }
+    .event-shell { background: var(--event-hero, var(--cream)); }
+    .event-card { border-radius: var(--event-radius, 18px)!important; }
+    [data-theme-preset="gala-night"] .event-card { box-shadow: 0 3px 18px rgba(0,0,0,.35)!important; }
+    [data-theme-preset="afterwork-urban"] .event-card { box-shadow: 0 8px 24px rgba(17,20,38,.12)!important; }
     ::-webkit-scrollbar { width: 5px; }
     ::-webkit-scrollbar-thumb { background: var(--blush); border-radius: 3px; }
 
