@@ -5,10 +5,10 @@
   const LANG_KEY = "mariage-lang";
   const IS_LEGACY = EVENT_ID === "quentin-huyen-2026";
   const DEFAULT_EVENT = {
-    name: IS_LEGACY ? "Huyen & Quentin" : "Votre mariage",
+    name: IS_LEGACY ? "Huyen & Quentin" : "Votre événement",
     date: IS_LEGACY ? "13 septembre 2026" : "",
     location: IS_LEGACY ? "La Faisanderie d’Arcueil" : "",
-    coverMessage: "Partagez vos plus beaux souvenirs"
+    coverMessage: IS_LEGACY ? "Partagez vos plus beaux souvenirs" : "Partagez vos meilleurs moments"
   };
 
   const translations = {
@@ -273,14 +273,20 @@
   }
 
   function addLiveCard() {
+    const event = window.__WEDDING_EVENT__ || {};
+    if (event.modules?.live === false) {
+      document.getElementById("wedding-live-card")?.remove();
+      return;
+    }
     if (document.getElementById("wedding-live-card")) return;
-    const adminButton = [...document.querySelectorAll("button")].find(button => /Administration|Quản trị/.test(button.textContent));
+    const adminButton = document.querySelector("[data-event-admin-card='true']")
+      || [...document.querySelectorAll("button")].find(button => /Administration|Espace organisateur|Organisation|Quản trị/i.test(button.textContent));
     const grid = adminButton?.parentElement;
     if (!grid || getComputedStyle(grid).display !== "grid") return;
     const card = document.createElement("button");
-    card.id = "wedding-live-card"; card.type = "button"; card.className = "btn";
-    card.innerHTML = '<div style="font-family:\'Cormorant Garamond\',serif;font-size:1.25rem;color:var(--burgundy);margin-bottom:2px">Regarder le live</div><div style="color:var(--muted);font-size:.82rem">Suivre la cérémonie en direct</div>';
-    Object.assign(card.style, { background:"#fffdf9", border:"1.5px solid #f5ddd4", borderRadius:"18px", padding:"1.5rem 1.25rem", textAlign:"left", boxShadow:"0 3px 16px rgba(92,42,30,.12)", cursor:"pointer" });
+    card.id = "wedding-live-card"; card.type = "button"; card.className = "btn event-card";
+    card.innerHTML = '<div style="font-family:var(--event-title-font);font-size:1.2rem;color:var(--burgundy);margin-bottom:2px">🔴 Live de l’événement</div><div style="color:var(--muted);font-size:.82rem">Suivre la diffusion en direct</div>';
+    Object.assign(card.style, { background:"var(--white)", border:"1.5px solid var(--blush)", borderRadius:"var(--event-radius)", padding:"1.35rem 1.2rem", textAlign:"left", boxShadow:"0 3px 16px var(--shadow)", cursor:"pointer" });
     card.onclick = openLivePanel;
     grid.insertBefore(card, adminButton);
     translatePage(card);
