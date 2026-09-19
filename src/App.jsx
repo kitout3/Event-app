@@ -287,8 +287,8 @@ const DB = {
   },
   onGuestbookMessages: (cb) => {
     if (!_firebaseReady) return () => {};
-    const { collection, query, orderBy, onSnapshot } = window.__fb;
-    const q = query(collection(_db, "events", EVENT_ID, "guestbookMessages"), orderBy("createdAt", "desc"));
+    const { collection, query, where, orderBy, onSnapshot } = window.__fb;
+    const q = query(collection(_db, "events", EVENT_ID, "guestbookMessages"), where("status", "==", "approved"), orderBy("createdAt", "desc"));
     return onSnapshot(q, snap => cb(snap.docs.map(d => {
       const data = d.data();
       return { id:d.id, ...data, createdAt:data.createdAt?.toDate?.()?.toISOString?.() || new Date().toISOString() };
