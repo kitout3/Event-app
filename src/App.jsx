@@ -435,7 +435,7 @@ function HomeButton({ setView, dark = false }) {
 // ============================================================
 // NAVIGATION
 // ============================================================
-const VIEWS = { HOME: "home", UPLOAD: "upload", GALLERY: "gallery", LIVE: "live", SCHEDULE: "schedule", INFO: "info", ADMIN: "admin" };
+const VIEWS = { HOME: "home", UPLOAD: "upload", GALLERY: "gallery", TV: "tv", SCHEDULE: "schedule", INFO: "info", GUESTBOOK: "guestbook", ADMIN: "admin" };
 
 export default function App() {
   const [view, setView] = useState(VIEWS.HOME);
@@ -453,7 +453,7 @@ export default function App() {
   useEffect(() => {
     let unsubscribeAuth = null;
     const hash = window.location.hash.slice(1).toLowerCase();
-    const map = { upload: VIEWS.UPLOAD, gallery: VIEWS.GALLERY, live: VIEWS.LIVE, schedule: VIEWS.SCHEDULE, info: VIEWS.INFO, admin: VIEWS.ADMIN };
+    const map = { upload: VIEWS.UPLOAD, gallery: VIEWS.GALLERY, tv: VIEWS.TV, schedule: VIEWS.SCHEDULE, info: VIEWS.INFO, guestbook: VIEWS.GUESTBOOK, admin: VIEWS.ADMIN };
     if (map[hash]) setView(map[hash]);
 
     if (isRealConfig && TENANT.isValid) {
@@ -507,7 +507,7 @@ export default function App() {
     </div></>
   );
 
-  if (view === VIEWS.LIVE)     return <><GlobalStyles /><LiveTV setView={setView2} /></>;
+  if (view === VIEWS.TV)     return <><GlobalStyles /><LiveTV setView={setView2} /></>;
   if (view === VIEWS.UPLOAD)   return <><GlobalStyles /><UploadPage setView={setView2} /></>;
   if (view === VIEWS.GALLERY)  return <><GlobalStyles /><GalleryPage setView={setView2} /></>;
   if (view === VIEWS.SCHEDULE) return <><GlobalStyles /><EventTextPage setView={setView2} mode="schedule" /></>;
@@ -534,7 +534,7 @@ function HomePage({ setView }) {
   const navigation = [
     modules.photoUpload && { icon:"📸", title:labels.uploadTitle, desc:labels.uploadSubtitle, v:VIEWS.UPLOAD },
     modules.gallery && { icon:"🖼️", title:labels.galleryTitle, desc:labels.gallerySubtitle, v:VIEWS.GALLERY },
-    modules.tvDisplay && { icon:"📺", title:labels.tvTitle, desc:"Diaporama plein écran", v:VIEWS.LIVE },
+    modules.tvDisplay && { icon:"📺", title:labels.tvTitle, desc:"Diaporama plein écran", v:VIEWS.TV },
     modules.schedule && { icon:"🗓️", title:"Programme", desc:"Horaires et temps forts", v:VIEWS.SCHEDULE },
     modules.practicalInfo && { icon:"ℹ️", title:"Informations pratiques", desc:"Lieu, accès et informations utiles", v:VIEWS.INFO },
     { icon:"⚙️", title:labels.adminTitle || "Administration", desc:labels.adminSubtitle || "Gérer l’événement", v:VIEWS.ADMIN, admin:true },
@@ -1776,7 +1776,7 @@ function AdminSettings({ event, onUpdate }) {
       <div style={cardStyle}>
         <h3 style={{fontFamily:"var(--event-title-font)",fontSize:"1.35rem",color:"var(--burgundy)",marginBottom:12}}>Liens & QR Codes</h3>
         <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12}}>
-          {[["Participants","upload"],["Galerie","gallery"],["Écran TV","live"]].map(([label,hash])=>{const url=`${APP_URL}#${hash}`;return <div key={hash} style={{textAlign:"center"}}><p style={{fontSize:".7rem",color:"var(--muted)",marginBottom:8}}>{label}</p><div style={{display:"flex",justifyContent:"center"}}><QRCode value={url} size={84}/></div><button onClick={()=>navigator.clipboard?.writeText(url)} className="btn" style={{marginTop:7,background:"var(--blush)",color:"var(--burgundy)",borderRadius:50,padding:"4px 12px",fontSize:".68rem"}}>Copier</button></div>})}
+          {[["Participants","upload"],["Galerie","gallery"],["Écran TV","tv"]].map(([label,hash])=>{const url=`${APP_URL}#${hash}`;return <div key={hash} style={{textAlign:"center"}}><p style={{fontSize:".7rem",color:"var(--muted)",marginBottom:8}}>{label}</p><div style={{display:"flex",justifyContent:"center"}}><QRCode value={url} size={84}/></div><button onClick={()=>navigator.clipboard?.writeText(url)} className="btn" style={{marginTop:7,background:"var(--blush)",color:"var(--burgundy)",borderRadius:50,padding:"4px 12px",fontSize:".68rem"}}>Copier</button></div>})}
         </div>
       </div>
 
