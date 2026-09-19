@@ -854,7 +854,7 @@ function GalleryPage({ setView }) {
   const [lightbox, setLightbox] = useState(null);
   const [sort, setSort] = useState("recent"); // recent | popular
   const pendingLikes = useRef(new Set());
-  const event = DB.getEvent();
+  const event = normalizeEventConfig(DB.getEvent());
 
   useEffect(() => DB.onPhotos(all => setPhotos(all.filter(p => p.status === "approved"))), []);
   useEffect(() => {
@@ -905,17 +905,17 @@ function GalleryPage({ setView }) {
       <div style={{ background: "var(--white)", borderBottom: "1px solid var(--blush)", padding: "1rem 1.25rem", display: "flex", alignItems: "center", gap: 10, position: "sticky", top: 0, zIndex: 50 }}>
         <button onClick={() => setView(VIEWS.HOME)} style={{ background: "none", color: "var(--muted)", fontSize: "1.3rem", padding: "4px 8px" }}>←</button>
         <div style={{ flex: 1 }}>
-          <h1 style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: "1.45rem", color: "var(--burgundy)" }}>Galerie</h1>
+          <h1 style={{ fontFamily: "var(--event-title-font)", fontSize: "1.45rem", color: "var(--burgundy)" }}>{event.labels?.galleryPage || event.labels?.galleryTitle || "Galerie"}</h1>
           <p style={{ color: "var(--muted)", fontSize: ".75rem" }}>{photos.length} photo{photos.length > 1 ? "s" : ""} · {event.name}</p>
         </div>
-        <button onClick={() => setView(VIEWS.UPLOAD)} className="btn" style={{ background: "var(--rose)", color: "white", padding: "7px 16px", borderRadius: 50, fontSize: ".82rem" }}>
+        {event.modules?.photoUpload && <button onClick={() => setView(VIEWS.UPLOAD)} className="btn" style={{ background: "var(--rose)", color: "white", padding: "7px 16px", borderRadius: 50, fontSize: ".82rem" }}>
           + Ajouter
-        </button>
+        </button>}
       </div>
 
       {/* Tri */}
       <div style={{ display: "flex", gap: 8, padding: "12px 14px", background: "var(--white)", borderBottom: "1px solid var(--blush)" }}>
-        {[["recent","🕐 Récentes"],["popular","❤️ Populaires"]].map(([v,l]) => (
+        {[["recent","🕐 Récentes"], ...(event.modules?.reactions ? [["popular","❤️ Populaires"]] : [])].map(([v,l]) => (
           <button key={v} onClick={() => setSort(v)} className="btn" style={{
             padding: "6px 16px", borderRadius: 50, fontSize: ".82rem",
             background: sort === v ? "var(--burgundy)" : "var(--cream)",
@@ -937,7 +937,7 @@ function GalleryPage({ setView }) {
                 <img src={latest.url} alt="" style={{ width: "100%", aspectRatio: "4/3", objectFit: "cover", display: "block" }} />
                 <div style={{ position: "absolute", inset: 0, background: "linear-gradient(0deg,rgba(0,0,0,.6) 0%,transparent 55%)" }} />
                 <span style={{ position: "absolute", top: 9, left: 9, background: "rgba(201,122,106,.92)", color: "white", borderRadius: 50, padding: "3px 11px", fontSize: ".7rem", animation: "newBadge .4s ease" }}>
-                  ✨ Dernière
+                  ✨ {event.labels?.latest || "Nouveau"}
                 </span>
                 {latest.author && <p style={{ position: "absolute", bottom: 9, left: 11, color: "white", fontFamily: "'Cormorant Garamond',serif", fontSize: "1rem", fontStyle: "italic" }}>{latest.author}</p>}
                 {/* Bouton like inline */}
