@@ -61,7 +61,7 @@ async function initFirebase() {
   try {
     const [
       { initializeApp, getApps },
-      { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy, serverTimestamp, getDoc, setDoc },
+      { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, where, orderBy, serverTimestamp, getDoc, setDoc },
       { getStorage, ref, uploadString, uploadBytes, getDownloadURL },
       { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut },
       { getFunctions, httpsCallable }
@@ -89,7 +89,7 @@ async function initFirebase() {
     window.__WEDDING_EVENT__ = currentEvent;
     window.__WEDDING_EVENT_EXISTS__ = _eventExists;
     window.__fb = {
-      collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy, serverTimestamp, getDoc, setDoc,
+      collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, where, orderBy, serverTimestamp, getDoc, setDoc,
       ref, uploadString, uploadBytes, getDownloadURL,
       onAuthStateChanged, signInWithEmailAndPassword, signOut, httpsCallable
     };
@@ -197,30 +197,57 @@ const DB = {
       createdAt: serverTimestamp(),
     });
   },
-  onPhotos: (cb) => {
+  onPhotos: (cb, includeAll = false) => {
     if (!_firebaseReady) return MockDB.onPhotos(cb);
-    const { collection, query, orderBy, onSnapshot } = window.__fb;
-    const q = query(collection(_db, "events", EVENT_ID, "photos"), orderBy("createdAt", "desc"));
-    return onSnapshot(q, snap => {
-      const records = snap.docs.map(d => {
-        const data = d.data();
-        return {
-          id: d.id,
-          ...data,
-          createdAt: data.createdAt?.toDate?.()?.toISOString() ?? new Date().toISOString(),
-        };
-      });
+    const { collection, query, where, orderBy, onSnapshot } = window.__fb;
+    const photosRef = collection(_db, "events", EVENT_ID, "photos");
+
+    const normalizeDocs = snap => snap.docs.map(d => {
+      const data = d.data();
+      return {
+        id: d.id,
+        ...data,
+        createdAt: data.createdAt?.toDate?.()?.toISOString() ?? new Date().toISOString(),
+      };
+    });
+
+    const emit = records => {
       const likesByPhoto = records.reduce((totals, record) => {
         if (record.type === "photoLike" && record.photoId) {
           totals.set(record.photoId, (totals.get(record.photoId) || 0) + 1);
         }
         return totals;
       }, new Map());
-      cb(records.filter(record => record.type !== "photoLike" && record.type !== "tvSettings").map(data => ({
-        ...data,
-        likes: getLikeCount(data.likes) + (likesByPhoto.get(data.id) || 0),
-      })));
-    });
+
+      const visible = records
+        .filter(record => record.type !== "photoLike" && record.type !== "tvSettings")
+        .map(data => ({
+          ...data,
+          likes: getLikeCount(data.likes) + (likesByPhoto.get(data.id) || 0),
+        }))
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      cb(visible);
+    };
+
+    if (includeAll) {
+      const q = query(photosRef, orderBy("createdAt", "desc"));
+      return onSnapshot(q, snap => emit(normalizeDocs(snap)));
+    }
+
+    // Public views deliberately query only approved photos and like records.
+    // This keeps pending/rejected media unreadable at the Firestore rule level.
+    let approved = [];
+    let likes = [];
+    const emitPublic = () => emit([...approved, ...likes]);
+    const unsubPhotos = onSnapshot(
+      query(photosRef, where("status", "==", "approved")),
+      snap => { approved = normalizeDocs(snap); emitPublic(); }
+    );
+    const unsubLikes = onSnapshot(
+      query(photosRef, where("type", "==", "photoLike")),
+      snap => { likes = normalizeDocs(snap); emitPublic(); }
+    );
+    return () => { unsubPhotos(); unsubLikes(); };
   },
   getEvent: () => _firebaseReady ? ({ ...currentEvent }) : MockDB.getEvent(),
   updateEvent: async (u) => {
@@ -280,6 +307,7 @@ const compressImage = (file, maxWidth = 1400, quality = 0.85) =>
 
 // URL réelle de la page (sans hash) — QR codes pointent vers ici
 const APP_URL = TENANT.baseUrl || `${window.location.origin}${window.location.pathname}?w=${encodeURIComponent(EVENT_ID)}`;
+const PHOTO_LIKES_KEY = `wedding-photo-likes-v2:${EVENT_ID}`;
 
 const QRCode = ({ value, size = 160 }) => (
   <img
@@ -810,7 +838,7 @@ function UploadPage({ setView }) {
 // ============================================================
 function GalleryPage({ setView }) {
   const [photos, setPhotos] = useState([]);
-  const [liked, setLiked] = useState(() => { try { return JSON.parse(localStorage.getItem("wedding-photo-likes-v2") || "{}"); } catch { return {}; } });
+  const [liked, setLiked] = useState(() => { try { return JSON.parse(localStorage.getItem(PHOTO_LIKES_KEY) || "{}"); } catch { return {}; } });
   const [likeError, setLikeError] = useState("");
   const [lightbox, setLightbox] = useState(null);
   const [sort, setSort] = useState("recent"); // recent | popular
@@ -828,7 +856,7 @@ function GalleryPage({ setView }) {
     setLikeError("");
     setLiked(current => {
       const next = { ...current, [photo.id]: true };
-      try { localStorage.setItem("wedding-photo-likes-v2", JSON.stringify(next)); } catch {}
+      try { localStorage.setItem(PHOTO_LIKES_KEY, JSON.stringify(next)); } catch {}
       return next;
     });
     setPhotos(current => current.map(item => item.id === photo.id ? { ...item, likes: getLikeCount(item.likes) + 1 } : item));
@@ -841,7 +869,7 @@ function GalleryPage({ setView }) {
       setLiked(current => {
         const next = { ...current };
         delete next[photo.id];
-        try { localStorage.setItem("wedding-photo-likes-v2", JSON.stringify(next)); } catch {}
+        try { localStorage.setItem(PHOTO_LIKES_KEY, JSON.stringify(next)); } catch {}
         return next;
       });
       setLikeError("Le like n'a pas pu être enregistré. Vérifie ta connexion puis réessaie.");
@@ -1364,7 +1392,7 @@ function AdminPage({ auth, user, setAuth, setEventExists, setView }) {
   const [event, setEvent] = useState(DB.getEvent());
   const [toast, showToast] = useToast();
 
-  useEffect(() => { if (!auth) return; return DB.onPhotos(setPhotos); }, [auth]);
+  useEffect(() => { if (!auth) return; return DB.onPhotos(setPhotos, true); }, [auth]);
 
   const login = async () => {
     setError("");

@@ -16,11 +16,29 @@ service firebase.storage {
       return event(eventId).data.active == true;
     }
 
-    match /events/{eventId}/{allPaths=**} {
+    match /events/{eventId}/photos/{allPaths=**} {
       allow read: if active(eventId) || owns(eventId) || platformAdmin();
       allow create: if active(eventId)
-        && request.resource.size < 500 * 1024 * 1024;
+        && request.resource.size < 40 * 1024 * 1024
+        && request.resource.contentType != null
+        && request.resource.contentType.matches('^image/.*');
       allow update, delete: if owns(eventId) || platformAdmin();
+    }
+
+    match /events/{eventId}/videos/{fileName} {
+      allow read: if active(eventId) || owns(eventId) || platformAdmin();
+      allow create: if active(eventId)
+        && request.resource.size < 500 * 1024 * 1024
+        && request.resource.contentType != null
+        && request.resource.contentType.matches('^video/(mp4|quicktime|webm)')
+        && request.resource.metadata.eventId == eventId;
+      allow update, delete: if owns(eventId) || platformAdmin();
+    }
+
+    // Other tenant files are never guest-writable.
+    match /events/{eventId}/{allPaths=**} {
+      allow read: if active(eventId) || owns(eventId) || platformAdmin();
+      allow create, update, delete: if owns(eventId) || platformAdmin();
     }
   }
 }
