@@ -565,7 +565,6 @@ function HomePage({ setView }) {
     modules.tvDisplay && { icon:"📺", title:labels.tvTitle, desc:"Diaporama plein écran", v:VIEWS.TV },
     modules.schedule && { icon:"🗓️", title:"Programme", desc:"Horaires et temps forts", v:VIEWS.SCHEDULE },
     modules.practicalInfo && { icon:"ℹ️", title:"Informations pratiques", desc:"Lieu, accès et informations utiles", v:VIEWS.INFO },
-    modules.guestbook && { icon:"✍️", title:"Livre d’or", desc:"Laisser un message à l’organisateur", v:VIEWS.GUESTBOOK },
     { icon:"⚙️", title:labels.adminTitle || "Administration", desc:labels.adminSubtitle || "Gérer l’événement", v:VIEWS.ADMIN, admin:true },
   ].filter(Boolean);
 

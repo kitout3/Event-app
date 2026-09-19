@@ -112,7 +112,6 @@ export const MODULE_META = {
   tvDisplay: { label:"Affichage TV", icon:"📺" },
   schedule: { label:"Programme", icon:"🗓️" },
   practicalInfo: { label:"Informations pratiques", icon:"ℹ️" },
-  guestbook: { label:"Livre d'or", icon:"✍️" },
   qrCode: { label:"QR Code", icon:"▦" },
 };
 
