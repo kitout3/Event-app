@@ -201,3 +201,16 @@ test("temporary pricing is flat at 50 EUR for every event plan and segment",()=>
   assert.match(client,/privateAmount:\s*5000/);
   assert.match(server,/corporateAmount:\s*5000/);
 });
+
+
+test("event home keeps video message, video gallery and live entry points",()=>{
+  const app=read("src/App.jsx");
+  const video=read("public/video-testimonials-v2.js");
+  assert.match(app,/modules\.videoTestimonials\s*&&\s*\{\s*id:"vt-home-card"/);
+  assert.match(app,/modules\.videoTestimonials\s*&&\s*\{\s*id:"vt-gallery-card"/);
+  assert.match(app,/modules\.live\s*&&\s*\{\s*id:"wedding-live-card"/);
+  assert.match(app,/hash:"video"/);
+  assert.match(app,/hash:"video-gallery"/);
+  assert.match(app,/hash:"live"/);
+  assert.match(video,/addEventListener\("hashchange",refresh\)/);
+});
