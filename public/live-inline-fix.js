@@ -10,9 +10,9 @@
   }
 
   const TXT = {
-    fr: { back: "Retour à l’accueil", title: "Cérémonie en direct", loading: "Chargement du direct…", empty: "Le direct n’est pas encore configuré.", hint: "Ajoutez le lien du direct dans Administration → Paramètres.", error: "Impossible de charger le direct pour le moment.", open: "Ouvrir le direct" },
-    en: { back: "Back to home", title: "Live ceremony", loading: "Loading live stream…", empty: "The live stream is not configured yet.", hint: "Add the live link in Administration → Settings.", error: "The live stream cannot be loaded right now.", open: "Open live stream" },
-    vi: { back: "Về trang chủ", title: "Lễ cưới trực tiếp", loading: "Đang tải buổi phát trực tiếp…", empty: "Buổi phát trực tiếp chưa được cấu hình.", hint: "Thêm liên kết trực tiếp trong Quản trị → Cài đặt.", error: "Hiện không thể tải buổi phát trực tiếp.", open: "Mở buổi trực tiếp" }
+    fr: { back: "Retour à l’accueil", title: "Événement en direct", loading: "Chargement du direct…", empty: "Le direct n’est pas encore configuré.", hint: "Ajoutez le lien du direct dans Administration → Paramètres.", error: "Impossible de charger le direct pour le moment.", open: "Ouvrir le direct" },
+    en: { back: "Back to home", title: "Live event", loading: "Loading live stream…", empty: "The live stream is not configured yet.", hint: "Add the live link in Administration → Settings.", error: "The live stream cannot be loaded right now.", open: "Open live stream" },
+    vi: { back: "Về trang chủ", title: "Sự kiện trực tiếp", loading: "Đang tải buổi phát trực tiếp…", empty: "Buổi phát trực tiếp chưa được cấu hình.", hint: "Thêm liên kết trực tiếp trong Quản trị → Cài đặt.", error: "Hiện không thể tải buổi phát trực tiếp.", open: "Mở buổi trực tiếp" }
   };
 
   function text() { return TXT[lang()]; }
@@ -72,12 +72,12 @@
     const playerUrl = toPlayerUrl(config);
 
     if (error) {
-      body.innerHTML = `<div style="text-align:center;color:#5c2a1e"><div style="font-size:52px">⚠️</div><h2>${t.error}</h2></div>`;
+      body.innerHTML = `<div style="text-align:center;color:var(--burgundy)"><div style="font-size:52px">⚠️</div><h2>${t.error}</h2></div>`;
       return;
     }
     if (!playerUrl) {
       currentPlayerUrl = "";
-      body.innerHTML = `<div style="text-align:center;color:#5c2a1e;max-width:560px;padding:30px"><div style="font-size:58px">🎥</div><h2 style="font:300 2rem 'Cormorant Garamond',serif;margin:8px 0">${t.empty}</h2><p style="color:#9e7060">${t.hint}</p></div>`;
+      body.innerHTML = `<div style="text-align:center;color:var(--burgundy);max-width:560px;padding:30px"><div style="font-size:58px">🎥</div><h2 style="font:300 2rem 'Cormorant Garamond',serif;margin:8px 0">${t.empty}</h2><p style="color:var(--muted)">${t.hint}</p></div>`;
       return;
     }
     if (currentPlayerUrl === playerUrl && body.querySelector("iframe")) return;
@@ -102,13 +102,13 @@
     const panel = document.createElement("section");
     panel.id = PANEL_ID;
     panel.innerHTML = `
-      <header style="height:68px;display:flex;align-items:center;padding:10px 16px;background:#fffdf9;border-bottom:1px solid #f5ddd4;position:relative;z-index:2">
-        <button data-live-back type="button" style="border:0;background:#5c2a1e;color:white;border-radius:999px;padding:10px 17px;cursor:pointer">← ${t.back}</button>
-        <strong style="position:absolute;left:50%;transform:translateX(-50%);font:400 22px 'Cormorant Garamond',Georgia,serif;color:#5c2a1e;white-space:nowrap">${(window.__WEDDING_EVENT__?.name || "Mariage").replace(/</g,"&lt;")} · Live</strong>
+      <header style="height:68px;display:flex;align-items:center;padding:10px 16px;background:var(--white);border-bottom:1px solid var(--blush);position:relative;z-index:2">
+        <button data-live-back type="button" style="border:0;background:var(--burgundy);color:white;border-radius:999px;padding:10px 17px;cursor:pointer">← ${t.back}</button>
+        <strong style="position:absolute;left:50%;transform:translateX(-50%);font:500 22px var(--event-title-font);color:var(--burgundy);white-space:nowrap">${(window.__WEDDING_EVENT__?.name || "Événement").replace(/</g,"&lt;")} · Live</strong>
       </header>
       <div data-live-main style="position:relative;flex:1;display:flex;min-height:0;min-width:0;overflow:hidden">
-        <div data-live-body style="position:relative;flex:1;display:flex;align-items:center;justify-content:center;background:#fdf8f4;min-height:0;min-width:0">
-          <div style="color:#9e7060">${t.loading}</div>
+        <div data-live-body style="position:relative;flex:1;display:flex;align-items:center;justify-content:center;background:var(--cream);min-height:0;min-width:0">
+          <div style="color:var(--muted)">${t.loading}</div>
         </div>
       </div>`;
     Object.assign(panel.style, { position: "fixed", inset: "0", zIndex: "2147483646", display: "flex", flexDirection: "column", background: "#fdf8f4" });
@@ -124,7 +124,7 @@
     if (control.id === "wedding-live-card" || control.dataset?.action === "live") return true;
     const card = control.closest("button, a, [role='button'], section, article, div");
     const label = `${control.textContent || ""} ${card?.textContent || ""}`.replace(/\s+/g, " ").trim();
-    return /Regarder le live|Suivre la cérémonie en direct|Watch live|Watch the ceremony live|Xem trực tiếp|Theo dõi lễ cưới trực tiếp/i.test(label);
+    return /Live de l’événement|Regarder le live|Suivre la diffusion en direct|Suivre la cérémonie en direct|Watch live|Live event|Xem trực tiếp/i.test(label);
   }
 
   document.addEventListener("click", event => {
