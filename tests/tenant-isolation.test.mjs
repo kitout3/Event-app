@@ -75,3 +75,12 @@ test("Storage validates photo and video MIME types", () => {
   assert.match(source, /contentType\.matches\('\^image\/\.\*'\)/);
   assert.match(source, /contentType\.matches\('\^video\/\(mp4\|quicktime\|webm\)'\)/);
 });
+
+
+test("custom domain build stays portable between GitHub Pages and app.souvenirdemariage.fr", () => {
+  const workflow = read(".github/workflows/deploy.yml");
+  const functions = read("functions/index.js");
+  assert.match(workflow, /VITE_APP_BASE_PATH:\s*\.\//);
+  assert.doesNotMatch(workflow, /VITE_APP_BASE_PATH:\s*\/mariage-app\//);
+  assert.match(functions, /https:\/\/app\.souvenirdemariage\.fr\//);
+});
