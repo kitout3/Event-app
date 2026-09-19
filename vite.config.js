@@ -28,6 +28,7 @@ export default defineConfig(({ mode }) => {
       input: {
         wedding: resolve(__dirname, 'index.html'),
         softwareAdmin: resolve(__dirname, 'admin.html'),
+        clientAccount: resolve(__dirname, 'account.html'),
       },
     },
   },

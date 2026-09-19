@@ -138,3 +138,54 @@ test("legacy wedding-specific controllers are no longer loaded by the app runtim
   assert.doesNotMatch(main,/language-controller-v2/);
   assert.doesNotMatch(main,/account-customization/);
 });
+
+
+test("customer account supports multiple paid events per owner",()=>{
+  const account=read("src/ClientAccount.jsx");
+  const functions=read("functions/index.js");
+  const vite=read("vite.config.js");
+  assert.match(vite,/clientAccount:\s*resolve\(__dirname,\s*'account\.html'\)/);
+  assert.match(account,/createUserWithEmailAndPassword/);
+  assert.match(account,/listMyEvents/);
+  assert.match(account,/createClientEventDraft/);
+  assert.match(account,/createEventCheckoutSession/);
+  assert.match(functions,/exports\.listMyEvents/);
+  assert.match(functions,/where\("ownerUid",\s*"==",\s*request\.auth\.uid\)/);
+  assert.doesNotMatch(functions,/admin-already-used/);
+});
+
+test("self-service drafts stay inactive until a verified Stripe payment",()=>{
+  const functions=read("functions/index.js");
+  assert.match(functions,/exports\.createClientEventDraft/);
+  assert.match(functions,/active:\s*false/);
+  assert.match(functions,/status:\s*"payment_pending"/);
+  assert.match(functions,/billing:\s*\{[\s\S]*source:\s*"stripe"[\s\S]*status:\s*"unpaid"/);
+  assert.match(functions,/exports\.stripeWebhook/);
+  assert.match(functions,/constructEvent\(/);
+  assert.match(functions,/payment_status !== "paid"/);
+  assert.match(functions,/active:\s*true,[\s\S]*status:\s*"active"/);
+});
+
+test("customer browsers cannot forge payment or activation state",()=>{
+  const rules=read("firestore.rules");
+  assert.match(rules,/affectedKeys\(\)\.hasAny\(\[[\s\S]*"active"[\s\S]*"status"[\s\S]*"billing"/);
+  assert.match(rules,/allow delete: if platformAdmin\(\)/);
+});
+
+test("deleting one event does not delete a multi-event customer account",()=>{
+  const functions=read("functions/index.js");
+  const start=functions.indexOf("exports.deleteWedding");
+  const end=functions.indexOf("exports.listWeddings",start);
+  const block=functions.slice(start,end);
+  assert.doesNotMatch(block,/deleteUser\(/);
+});
+
+test("billing amounts are quoted again on the trusted backend",()=>{
+  const functions=read("functions/index.js");
+  const billing=read("functions/billing-config.js");
+  assert.match(functions,/billingConfig\.quote\(event\.billing\?\.planId,\s*event\.eventType\)/);
+  assert.match(billing,/essential/);
+  assert.match(billing,/premium/);
+  assert.match(billing,/signature/);
+  assert.match(billing,/corporateAmount/);
+});

@@ -27,8 +27,19 @@ service cloud.firestore {
       allow update: if manages(eventId)
         && request.resource.data.id == resource.data.id
         && request.resource.data.slug == resource.data.slug
-        && (platformAdmin() || request.resource.data.ownerUid == resource.data.ownerUid);
-      allow delete: if manages(eventId);
+        && (
+          platformAdmin()
+          || (
+            owns(eventId)
+            && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+              "ownerUid", "adminEmail", "active", "status", "billing",
+              "createdAt", "createdBy", "id", "slug"
+            ])
+          )
+        );
+      // Event deletion is server/platform-only so media cleanup and billing
+      // history cannot be bypassed from a customer browser.
+      allow delete: if platformAdmin();
 
       match /photos/{photoId} {
         // Guests may only query approved photos and like records. Pending and

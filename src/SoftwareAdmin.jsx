@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { EVENT_TYPES, THEME_PRESETS, MODULE_META, DEFAULT_MODULES, presetForType } from "./event-config.mjs";
+import { formatEuro } from "./billing-config.mjs";
 
 const PLATFORM_OWNER_UID = "beQK5FNoVla9lnvnzSfqasK93QR2";
-const APP_BASE = new URL(import.meta.env.BASE_URL, window.location.origin).href;
+const APP_BASE = new URL("./", window.location.href).href;
 const eventUrl = (slug, admin = false) => `${APP_BASE}?w=${encodeURIComponent(slug)}${admin ? "#admin" : ""}`;
 const runtimeConfig = window.__FIREBASE_CONFIG__ || {};
 const FIREBASE_CONFIG = {
@@ -199,6 +200,7 @@ export default function SoftwareAdmin(){
   if(!authorized)return <Shell><div style={{maxWidth:390,width:"100%",background:"#fff",padding:30,borderRadius:20,boxShadow:"0 15px 50px #0002"}}><div style={{fontSize:12,letterSpacing:2,textTransform:"uppercase",opacity:.55}}>Administration plateforme</div><h1 style={{fontFamily:"Georgia,serif",fontWeight:400,fontSize:34,margin:"7px 0 20px"}}>Gestion des événements</h1><a href={APP_BASE} style={{display:"inline-block",color:"#632c3b",fontSize:14,marginBottom:20}}>← Retour à l’accueil</a><div style={{display:"grid",gap:10}}><input style={inputStyle} type="email" autoComplete="username" placeholder="Email" value={email} onChange={e=>setEmail(e.target.value)}/><input style={inputStyle} type="password" autoComplete="current-password" placeholder="Mot de passe" value={password} onChange={e=>setPassword(e.target.value)} onKeyDown={e=>e.key==="Enter"&&login()}/>{error&&<p style={{color:"#a33",fontSize:13}}>{error}</p>}<button style={btn(true)} onClick={login}>Se connecter</button></div></div></Shell>;
 
   const countsByType=Object.keys(EVENT_TYPES).map(type=>[type,events.filter(item=>(item.eventType||"wedding")===type).length]).filter(([,count])=>count>0);
+  const paidRevenue=events.reduce((sum,item)=>sum+(item.billing?.status==="paid"?(Number(item.billing?.amount)||0):0),0);
 
   return <div style={{minHeight:"100vh",background:"#f5f3f1",color:"#302824",fontFamily:"Inter,Arial,sans-serif"}}>
     <header style={{background:"#1f1d1c",color:"#fff",padding:"20px clamp(18px,4vw,48px)",display:"flex",gap:12,alignItems:"center",flexWrap:"wrap"}}>
@@ -209,7 +211,7 @@ export default function SoftwareAdmin(){
 
     <main style={{maxWidth:1240,margin:"0 auto",padding:"28px 16px"}}>
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:12,marginBottom:18}}>
-        {[[events.length,"Événements"],[events.filter(e=>e.active).length,"Actifs"],[events.reduce((s,e)=>s+(e.photoCount||0),0),"Photos"],[events.reduce((s,e)=>s+(e.videoCount||0),0),"Vidéos"]].map(([n,l])=><div key={l} style={panel}><div style={{fontSize:11,opacity:.55,textTransform:"uppercase",letterSpacing:1}}>{l}</div><div style={{fontFamily:"Georgia,serif",fontSize:31,marginTop:4}}>{n}</div></div>)}
+        {[[events.length,"Événements"],[events.filter(e=>e.active).length,"Actifs"],[events.reduce((s,e)=>s+(e.photoCount||0),0),"Photos"],[events.reduce((s,e)=>s+(e.videoCount||0),0),"Vidéos"],[formatEuro(paidRevenue),"CA encaissé"]].map(([n,l])=><div key={l} style={panel}><div style={{fontSize:11,opacity:.55,textTransform:"uppercase",letterSpacing:1}}>{l}</div><div style={{fontFamily:"Georgia,serif",fontSize:31,marginTop:4}}>{n}</div></div>)}
       </div>
 
       {showCreate&&<CreateWizard form={form} setForm={setForm} step={createStep} setStep={setCreateStep} slugTouched={slugTouched} setSlugTouched={setSlugTouched} normalize={normalize} nextStep={nextStep} create={create} creating={creating} setType={setType} toggleModule={toggleModule}/>}
@@ -297,7 +299,7 @@ function EventRow({item,onEdit,onToggle,onReset,onDelete,deleting}){
   return <div style={{border:"1px solid #e5ddd8",borderRadius:14,padding:15,display:"flex",gap:14,alignItems:"center",flexWrap:"wrap",background:"#fff"}}>
     <div style={{width:46,height:46,borderRadius:12,display:"grid",placeItems:"center",fontSize:23,background:preset.colors.soft,color:preset.colors.primary}}>{meta.icon}</div>
     <div style={{flex:"1 1 300px"}}><strong style={{fontFamily:"Georgia,serif",fontSize:20}}>{item.name}</strong><div style={{fontSize:13,opacity:.65,marginTop:3}}>{meta.label} · {preset.label} · {item.date||"Date non renseignée"}</div><div style={{fontSize:12,opacity:.55,marginTop:3}}>{item.location?item.location+" · ":""}Admin : {item.adminEmail||"—"} · <strong>{item.active?"Actif":"Désactivé"}</strong></div></div>
-    <div style={{fontSize:13}}>{item.photoCount||0} photos · {item.videoCount||0} vidéos</div>
+    <div style={{fontSize:13,textAlign:"right"}}>{item.photoCount||0} photos · {item.videoCount||0} vidéos<div style={{fontSize:11,opacity:.62,marginTop:4}}>{item.billing?.status==="paid"?"Payé · "+formatEuro(item.billing?.amount):item.billing?.status==="manual"?"Gestion manuelle":"Paiement en attente"}</div></div>
     <button style={btn()} onClick={onEdit}>Modifier</button><button style={btn()} onClick={onToggle}>{item.active?"Désactiver":"Activer"}</button><button style={btn()} onClick={onReset}>Réinitialiser accès</button><button style={btn()} onClick={()=>window.open(eventUrl(item.slug),"_blank","noopener,noreferrer")}>Application</button><button style={btn(true)} onClick={()=>window.open(eventUrl(item.slug,true),"_blank","noopener,noreferrer")}>Admin</button><button style={{...btn(),background:"#fff0ed",color:"#a33"}} disabled={deleting} onClick={onDelete}>{deleting?"Suppression…":"Supprimer"}</button>
   </div>;
 }
