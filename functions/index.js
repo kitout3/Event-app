@@ -124,10 +124,6 @@ exports.deleteWedding = onCall({ region: "europe-west1" }, async request => {
 
   const eventId = normalizeSlug(request.data?.eventId);
   if (!eventId) throw new HttpsError("invalid-argument", "Mariage invalide.");
-  if (eventId === "quentin-huyen-2026") {
-    throw new HttpsError("failed-precondition", "Le mariage historique Huyen & Quentin est protégé.");
-  }
-
   const db = getFirestore();
   const eventRef = db.collection("events").doc(eventId);
   const eventSnap = await eventRef.get();
