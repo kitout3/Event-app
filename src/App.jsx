@@ -585,7 +585,7 @@ function HomePage({ setView }) {
         <p style={{ color:heroMuted, fontSize:".88rem", letterSpacing:2.2, textTransform:"uppercase" }}>
           {[event.date,event.location].filter(Boolean).join(" · ")}
         </p>
-        {(event.coverMessage || labels.heroSubtitle) && <p style={{color:heroMuted,maxWidth:620,margin:"14px auto 0",fontSize:".95rem"}}>{event.coverMessage || labels.heroSubtitle}</p>}
+        {(event.coverMessage || labels.heroSubtitle) && <p style={{color:heroMuted,maxWidth:620,margin:"14px auto 0",fontSize:".95rem"}}>{labels.heroSubtitle || event.coverMessage}</p>}
         {photos.length>0 && <div style={{marginTop:18,display:"flex",justifyContent:"center",gap:8,flexWrap:"wrap"}}>
           <span style={{background:"rgba(255,255,255,.86)",color:"var(--text)",borderRadius:50,padding:"6px 14px",fontSize:".8rem",backdropFilter:"blur(8px)"}}>📸 {photos.length} photo{photos.length>1?"s":""}</span>
           {modules.reactions && <span style={{background:"rgba(255,255,255,.86)",color:"var(--text)",borderRadius:50,padding:"6px 14px",fontSize:".8rem",backdropFilter:"blur(8px)"}}>❤️ {totalLikes} réaction{totalLikes>1?"s":""}</span>}
