@@ -479,7 +479,7 @@ export default function App() {
   if (!fbReady && isRealConfig && !firebaseError) return (
     <><GlobalStyles />
       <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 16 }}>
-        <div style={{ fontSize: 48, animation: "spin 1.4s linear infinite", display: "inline-block" }}>💍</div>
+        <div style={{ fontSize: 48, animation: "spin 1.4s linear infinite", display: "inline-block" }}>✨</div>
         <p style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: "1.5rem", color: "var(--burgundy)" }}>Connexion…</p>
       </div>
     </>
@@ -821,7 +821,7 @@ function UploadPage({ setView }) {
               </button>
               <input placeholder="Votre prénom (optionnel)" value={firstName} onChange={e => setFirstName(e.target.value)}
                 style={{ width: "100%", padding: "11px 14px", borderRadius: 11, marginBottom: 10, border: "1.5px solid var(--blush)", background: "var(--cream)", fontSize: ".93rem" }} />
-              <textarea placeholder="Un message pour les mariés… (optionnel)" value={message} onChange={e => setMessage(e.target.value)} rows={2}
+              <textarea placeholder="Un message pour l’événement… (optionnel)" value={message} onChange={e => setMessage(e.target.value)} rows={2}
                 style={{ width: "100%", padding: "11px 14px", borderRadius: 11, marginBottom: 7, border: "1.5px solid var(--blush)", background: "var(--cream)", fontSize: ".93rem", resize: "none" }} />
               {selectedFiles.length > 1 && <p style={{ color: "var(--muted)", fontSize: ".72rem", marginBottom: 14 }}>Le prénom et le message seront appliqués aux {selectedFiles.length} photos.</p>}
               <button onClick={upload} className="btn" style={{ width: "100%", padding: "15px", borderRadius: 50, fontSize: "1rem", background: "linear-gradient(135deg, var(--rose), var(--burgundy))", color: "white", fontWeight: 500, boxShadow: "0 5px 22px rgba(92,42,30,.28)" }}>
@@ -1816,7 +1816,7 @@ function AdminExport({ photos, event }) {
     }
     zip.file("recap.txt", photos.map(p => `${p.author||"Anonyme"} | ${p.status} | ❤️${p.likes||0} | ${p.message||""} | ${p.createdAt}`).join("\n"));
     const blob = await zip.generateAsync({ type: "blob" });
-    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `${event.slug||"mariage"}-photos.zip`; a.click();
+    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `${event.slug||"evenement"}-photos.zip`; a.click();
     setExporting(false); setProg(0);
   };
 
