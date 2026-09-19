@@ -1,5 +1,6 @@
 (() => {
-  const STORAGE_KEY = 'wedding-media-selection-v2';
+  const EVENT_ID = window.__WEDDING_TENANT__?.eventId || '__unknown_wedding__';
+  const STORAGE_KEY = `wedding-media-selection-v2:${EVENT_ID}`;
   const MAX_ITEMS = 200;
   const PHOTOS_PER_ZIP = 15;
   const MOBILE_PHOTOS_PER_BATCH = 15;
@@ -317,7 +318,7 @@
       saveButton.onclick = async () => {
         if (!preparedFiles.length || closed) return;
         try {
-          await navigator.share({ files: preparedFiles, title: 'Huyen & Quentin' });
+          await navigator.share({ files: preparedFiles, title: window.__WEDDING_EVENT__?.name || 'Mariage' });
         } catch (error) {
           if (error?.name === 'AbortError') {
             message.textContent = t('mobileRetry');

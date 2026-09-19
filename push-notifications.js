@@ -1,6 +1,7 @@
 (() => {
   const COLLECTION = "pushSubscriptions";
   const EVENT_ID = window.__WEDDING_TENANT__?.eventId || "quentin-huyen-2026";
+  const PUSH_ENABLED_KEY = `video-push-enabled:${EVENT_ID}`;
   const LANG_KEY = "mariage-lang";
   const VAPID_KEY = "BF_FutOslaft75leK3ToH9EwsogNxgvPFzNSyUvTOliqs07nnXpEe7rcn6KnycfJhjUjFyhSjjRhok-bwKLb1Ug";
   const APP_BASE_PATH = "/mariage-app/";
@@ -98,7 +99,7 @@
         const error = new Error(cause?.message || "Firestore write failure"); error.stage = "firestore"; error.code = cause?.code; throw error;
       }
 
-      localStorage.setItem("video-push-enabled", "1");
+      localStorage.setItem(PUSH_ENABLED_KEY, "1");
       button.textContent = "✓ " + t("enabled");
       status.textContent = "";
     } catch (error) {
@@ -115,7 +116,7 @@
     box.id = "push-video-settings";
     box.setAttribute("data-language-dynamic", "true");
     box.style.cssText = "background:#fffdf9;border-radius:18px;padding:1.5rem;box-shadow:0 2px 10px rgba(92,42,30,.12);display:grid;gap:10px;width:100%;";
-    const enabled = localStorage.getItem("video-push-enabled") === "1";
+    const enabled = localStorage.getItem(PUSH_ENABLED_KEY) === "1";
     box.innerHTML = `<h3 style="font:600 1.3rem 'Cormorant Garamond',serif;color:#5c2a1e;margin:0">🔔 ${t("title")}</h3><p style="color:#9e7060;font-size:.84rem;margin:0">${t("desc")}</p><button type="button" data-enable style="border:0;border-radius:999px;padding:12px 18px;background:#5c2a1e;color:#fff;font-weight:600;cursor:pointer;width:100%" ${enabled ? "disabled" : ""}>${enabled ? "✓ " + t("enabled") : t("enable")}</button><p data-status style="min-height:20px;color:#9e7060;font-size:.78rem;margin:0;overflow-wrap:anywhere"></p>`;
     const button = box.querySelector("[data-enable]");
     const status = box.querySelector("[data-status]");

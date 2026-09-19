@@ -60,7 +60,11 @@
   };
 
   const lang = () => I18N[localStorage.getItem(LANG_KEY)] ? localStorage.getItem(LANG_KEY) : "fr";
-  const t = key => I18N[lang()][key] || I18N.fr[key] || key;
+  const eventName = () => window.__WEDDING_EVENT__?.name
+    || (EVENT_ID === "quentin-huyen-2026"
+      ? "Huyen & Quentin"
+      : ({ fr: "les mariés", en: "the couple", de: "das Brautpaar", vi: "cô dâu chú rể" }[lang()] || "les mariés"));
+  const t = key => String(I18N[lang()][key] || I18N.fr[key] || key).replaceAll("Huyen & Quentin", eventName());
   const esc = value => String(value || "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[c]));
 
   const css = `
@@ -90,13 +94,19 @@
     firebasePromise = (async () => {
       const cfg = window.__FIREBASE_CONFIG__ || {};
       if (!cfg.apiKey || !cfg.projectId || !cfg.storageBucket) throw new Error("Firebase config missing");
-      const [{initializeApp,getApps},fs,st] = await Promise.all([
+      const [{initializeApp,getApps},fs,st,fn] = await Promise.all([
         import("https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js"),
         import("https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js"),
-        import("https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js")
+        import("https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js"),
+        import("https://www.gstatic.com/firebasejs/10.7.1/firebase-functions.js")
       ]);
       const app = getApps()[0] || initializeApp(cfg);
-      return {db:fs.getFirestore(app),storage:st.getStorage(app),fs,st};
+      return {
+        db:fs.getFirestore(app),
+        storage:st.getStorage(app),
+        functions:fn.getFunctions(app,"europe-west1"),
+        fs,st,fn
+      };
     })();
     return firebasePromise;
   }
@@ -128,7 +138,19 @@
     return {id:doc.id,url};
   }
 
-  async function listVideos(){const {db,fs}=await firebase();const snap=await fs.getDocs(fs.query(fs.collection(db,"videoTestimonials"),fs.orderBy("createdAt","desc")));return snap.docs.map(d=>({id:d.id,...d.data()}));}
+  async function listVideos(adminMode=false){
+    const {db,fs,functions,fn}=await firebase();
+    if(!adminMode){
+      const call=fn.httpsCallable(functions,"listPublicVideos");
+      const res=await call({eventId:EVENT_ID});
+      return Array.isArray(res.data?.videos)?res.data.videos:[];
+    }
+    const snap=await fs.getDocs(fs.query(
+      fs.collection(db,"events",EVENT_ID,"videoTestimonials"),
+      fs.orderBy("createdAt","desc")
+    ));
+    return snap.docs.map(d=>({id:d.id,...d.data()}));
+  }
   async function updateVideo(id,patch){const {db,fs}=await firebase();await fs.updateDoc(fs.doc(db,"events",EVENT_ID,"videoTestimonials",id),patch);}
   async function deleteVideo(item){const {db,storage,fs,st}=await firebase();if(item.path){try{await st.deleteObject(st.ref(storage,item.path))}catch{}}await fs.deleteDoc(fs.doc(db,"events",EVENT_ID,"videoTestimonials",item.id));}
 
@@ -170,7 +192,7 @@
 
   function startPlaylist(items){if(!items?.length)return alert(t("noApproved"));const tv=document.createElement("div");tv.className="vt-tv";tv.innerHTML=`<button class="vt-close">✕ ${t("tvStop")}</button><video autoplay controls playsinline></video>`;document.body.appendChild(tv);const video=tv.querySelector("video");let i=0;const play=()=>{video.src=items[i%items.length].url;video.muted=false;video.volume=1;video.play().catch(()=>{})};video.onended=()=>{i++;play()};tv.querySelector("button").onclick=()=>tv.remove();play()}
 
-  async function renderAdmin(container){if(container.dataset.vtReadyV2)return;container.dataset.vtReadyV2="1";const box=document.createElement("div");box.className="vt-admin";box.innerHTML=`<h3 style="font:600 1.35rem 'Cormorant Garamond',serif;color:#5c2a1e">🎬 ${t("adminTitle")}</h3><p style="font-size:.8rem;color:#9e7060">${t("moderationNote")}</p><div data-list>${t("uploading")}</div>`;container.appendChild(box);const list=box.querySelector("[data-list]");const refresh=async()=>{try{const items=await listVideos();list.innerHTML=items.length?"":`<p>${t("empty")}</p>`;items.forEach(item=>{const row=document.createElement("div");row.className="vt-item";row.innerHTML=`<video controls preload="metadata" src="${item.url}" style="width:100%;max-height:260px;border-radius:10px;background:#000"></video><div><strong>${esc(item.author)||"—"}</strong> · ${Math.round(item.duration||0)} s · ${Math.round((item.size||0)/1048576)} Mo</div>${item.message?`<p>${esc(item.message)}</p>`:""}<div style="font-size:.8rem;color:#9e7060">${t(item.status||"pending")}</div><div class="vt-actions"><button class="vt-mini" data-ok>✓ ${t("approve")}</button><button class="vt-mini" data-no>✕ ${t("reject")}</button><a class="vt-mini" href="${item.url}" target="_blank" rel="noopener">⬇ ${t("download")}</a><button class="vt-mini" data-del>🗑 ${t("remove")}</button></div>`;row.querySelector("[data-ok]").onclick=async()=>{await updateVideo(item.id,{status:"approved",selectedForTv:true});refresh()};row.querySelector("[data-no]").onclick=async()=>{await updateVideo(item.id,{status:"rejected",selectedForTv:false});refresh()};row.querySelector("[data-del]").onclick=async()=>{if(confirm(`${t("remove")}?`)){await deleteVideo(item);refresh()}};list.appendChild(row)})}catch(e){console.error(e);list.textContent=t("error")}};refresh()}
+  async function renderAdmin(container){if(container.dataset.vtReadyV2)return;container.dataset.vtReadyV2="1";const box=document.createElement("div");box.className="vt-admin";box.innerHTML=`<h3 style="font:600 1.35rem 'Cormorant Garamond',serif;color:#5c2a1e">🎬 ${t("adminTitle")}</h3><p style="font-size:.8rem;color:#9e7060">${t("moderationNote")}</p><div data-list>${t("uploading")}</div>`;container.appendChild(box);const list=box.querySelector("[data-list]");const refresh=async()=>{try{const items=await listVideos(true);list.innerHTML=items.length?"":`<p>${t("empty")}</p>`;items.forEach(item=>{const row=document.createElement("div");row.className="vt-item";row.innerHTML=`<video controls preload="metadata" src="${item.url}" style="width:100%;max-height:260px;border-radius:10px;background:#000"></video><div><strong>${esc(item.author)||"—"}</strong> · ${Math.round(item.duration||0)} s · ${Math.round((item.size||0)/1048576)} Mo</div>${item.message?`<p>${esc(item.message)}</p>`:""}<div style="font-size:.8rem;color:#9e7060">${t(item.status||"pending")}</div><div class="vt-actions"><button class="vt-mini" data-ok>✓ ${t("approve")}</button><button class="vt-mini" data-no>✕ ${t("reject")}</button><a class="vt-mini" href="${item.url}" target="_blank" rel="noopener">⬇ ${t("download")}</a><button class="vt-mini" data-del>🗑 ${t("remove")}</button></div>`;row.querySelector("[data-ok]").onclick=async()=>{await updateVideo(item.id,{status:"approved",selectedForTv:true});refresh()};row.querySelector("[data-no]").onclick=async()=>{await updateVideo(item.id,{status:"rejected",selectedForTv:false});refresh()};row.querySelector("[data-del]").onclick=async()=>{if(confirm(`${t("remove")}?`)){await deleteVideo(item);refresh()}};list.appendChild(row)})}catch(e){console.error(e);list.textContent=t("error")}};refresh()}
 
   function addCards(){
     const admin=[...document.querySelectorAll("button")].find(b=>/Administration|Quản trị/.test(b.textContent));const grid=admin?.parentElement;if(!grid||getComputedStyle(grid).display!=="grid")return;
