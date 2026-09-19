@@ -76,7 +76,15 @@ export default function SoftwareAdmin(){
       setForm({name:"",date:"",slug:"",adminEmail:"",adminPassword:""});
       setSlugTouched(false);
       setShowCreate(false);
-      setNotice(`Mariage créé avec succès : ${payload.name}`);
+      let accessMessage = "";
+      try {
+        await fb.sendPasswordResetEmail(auth, payload.adminEmail);
+        accessMessage = " · email d’activation envoyé";
+      } catch (mailError) {
+        console.warn("Activation email:", mailError);
+        accessMessage = " · mariage créé, email d’activation non envoyé";
+      }
+      setNotice(`Mariage créé avec succès : ${payload.name}${accessMessage}`);
       await load();
       if(res.data?.guestUrl) window.open(res.data.guestUrl,"_blank");
     }catch(e){
@@ -128,6 +136,14 @@ export default function SoftwareAdmin(){
       await load();
     }catch(e){setError(e.message||"Modification impossible");}
   };
+  const resetAccess=async(w)=>{
+    if(!w.adminEmail){setError("Aucun email administrateur n’est associé à ce mariage.");return;}
+    setError("");setNotice("");
+    try{
+      await fb.sendPasswordResetEmail(auth,w.adminEmail);
+      setNotice(`Email de réinitialisation envoyé à ${w.adminEmail}`);
+    }catch(e){setError(e.message||"Impossible d’envoyer l’email de réinitialisation.");}
+  };
 
   const filtered=useMemo(()=>{const q=search.trim().toLowerCase();return weddings.filter(w=>!q||[w.name,w.date,w.slug,w.adminEmail].some(v=>String(v||"").toLowerCase().includes(q)))},[weddings,search]);
   if(!ready)return <Shell><p>Connexion…</p></Shell>;
@@ -149,7 +165,7 @@ export default function SoftwareAdmin(){
       {error&&<div style={{background:"#fff0ed",color:"#a33",padding:12,borderRadius:10,marginBottom:14}}>{error}</div>}
       <section style={{background:"#fff",padding:22,borderRadius:18,border:"1px solid #eaded7"}}>
         <div style={{display:"flex",gap:10,alignItems:"center",flexWrap:"wrap",marginBottom:16}}><div style={{flex:1}}><h2 style={{fontFamily:"Georgia,serif",fontWeight:400}}>Mariages en cours</h2><small>{filtered.length} mariage{filtered.length!==1?"s":""}</small></div><input style={{...inputStyle,maxWidth:350}} placeholder="Rechercher…" value={search} onChange={e=>setSearch(e.target.value)}/><button style={btn()} onClick={load}>{loading?"Actualisation…":"Actualiser"}</button></div>
-        <div style={{display:"grid",gap:10}}>{filtered.map(w=><div key={w.id} style={{border:"1px solid #eaded7",borderRadius:14,padding:15,display:"flex",gap:14,alignItems:"center",flexWrap:"wrap"}}><div style={{flex:"1 1 300px"}}><strong style={{fontFamily:"Georgia,serif",fontSize:20}}>{w.name}</strong><div style={{fontSize:13,opacity:.65,marginTop:3}}>{w.date||"Date non renseignée"} · {w.slug}</div><div style={{fontSize:12,opacity:.55,marginTop:3}}>Admin : {w.adminEmail||"—"} · <strong>{w.active?"Actif":"Désactivé"}</strong></div></div><div style={{fontSize:13}}>{w.photoCount||0} photos · {w.videoCount||0} vidéos</div><button style={btn()} onClick={()=>startEdit(w)}>Modifier</button><button style={btn()} onClick={()=>toggleActive(w)}>{w.active?"Désactiver":"Activer"}</button><button style={btn()} onClick={()=>window.open(w.guestUrl||`${APP_BASE}?w=${encodeURIComponent(w.slug)}`,"_blank")}>Application</button><button style={btn(true)} onClick={()=>window.open(w.adminUrl||`${APP_BASE}?w=${encodeURIComponent(w.slug)}#admin`,"_blank")}>Admin mariage</button><button style={{...btn(),background:"#fff0ed",color:"#a33"}} disabled={deleting===w.id} onClick={()=>removeWedding(w)}>{deleting===w.id?"Suppression…":"Supprimer"}</button></div>)}</div>
+        <div style={{display:"grid",gap:10}}>{filtered.map(w=><div key={w.id} style={{border:"1px solid #eaded7",borderRadius:14,padding:15,display:"flex",gap:14,alignItems:"center",flexWrap:"wrap"}}><div style={{flex:"1 1 300px"}}><strong style={{fontFamily:"Georgia,serif",fontSize:20}}>{w.name}</strong><div style={{fontSize:13,opacity:.65,marginTop:3}}>{w.date||"Date non renseignée"} · {w.slug}</div><div style={{fontSize:12,opacity:.55,marginTop:3}}>Admin : {w.adminEmail||"—"} · <strong>{w.active?"Actif":"Désactivé"}</strong></div></div><div style={{fontSize:13}}>{w.photoCount||0} photos · {w.videoCount||0} vidéos</div><button style={btn()} onClick={()=>startEdit(w)}>Modifier</button><button style={btn()} onClick={()=>toggleActive(w)}>{w.active?"Désactiver":"Activer"}</button><button style={btn()} onClick={()=>resetAccess(w)}>Réinitialiser accès</button><button style={btn()} onClick={()=>window.open(w.guestUrl||`${APP_BASE}?w=${encodeURIComponent(w.slug)}`,"_blank")}>Application</button><button style={btn(true)} onClick={()=>window.open(w.adminUrl||`${APP_BASE}?w=${encodeURIComponent(w.slug)}#admin`,"_blank")}>Admin mariage</button><button style={{...btn(),background:"#fff0ed",color:"#a33"}} disabled={deleting===w.id} onClick={()=>removeWedding(w)}>{deleting===w.id?"Suppression…":"Supprimer"}</button></div>)}</div>
       </section>
     </main>
   </div>;
