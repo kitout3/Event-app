@@ -536,6 +536,7 @@ export default function App() {
   if (view === VIEWS.GALLERY)  return <><GlobalStyles /><GalleryPage setView={setView2} /></>;
   if (view === VIEWS.SCHEDULE) return <><GlobalStyles /><EventTextPage setView={setView2} mode="schedule" /></>;
   if (view === VIEWS.INFO)     return <><GlobalStyles /><EventTextPage setView={setView2} mode="info" /></>;
+  if (view === VIEWS.GUESTBOOK) return <><GlobalStyles /><GuestbookPage setView={setView2} /></>;
   if (view === VIEWS.ADMIN)    return <><GlobalStyles /><AdminPage auth={adminAuth} user={adminUser} setAuth={setAdminAuth} setEventExists={setEventExists} setView={setView2} /></>;
   return <><GlobalStyles /><HomePage setView={setView2} /></>;
 }
@@ -561,6 +562,7 @@ function HomePage({ setView }) {
     modules.tvDisplay && { icon:"📺", title:labels.tvTitle, desc:"Diaporama plein écran", v:VIEWS.TV },
     modules.schedule && { icon:"🗓️", title:"Programme", desc:"Horaires et temps forts", v:VIEWS.SCHEDULE },
     modules.practicalInfo && { icon:"ℹ️", title:"Informations pratiques", desc:"Lieu, accès et informations utiles", v:VIEWS.INFO },
+    modules.guestbook && { icon:"✍️", title:"Livre d’or", desc:"Laisser un message à l’organisateur", v:VIEWS.GUESTBOOK },
     { icon:"⚙️", title:labels.adminTitle || "Administration", desc:labels.adminSubtitle || "Gérer l’événement", v:VIEWS.ADMIN, admin:true },
   ].filter(Boolean);
 
@@ -623,6 +625,52 @@ function HomePage({ setView }) {
       </main>
     </div>
   );
+}
+
+function GuestbookPage({ setView }) {
+  const event = normalizeEventConfig(DB.getEvent());
+  const [messages,setMessages] = useState([]);
+  const [author,setAuthor] = useState("");
+  const [message,setMessage] = useState("");
+  const [sending,setSending] = useState(false);
+  const [notice,setNotice] = useState("");
+  useEffect(()=>DB.onGuestbookMessages(setMessages),[]);
+  const submit=async e=>{
+    e.preventDefault();
+    if(!message.trim())return;
+    setSending(true);setNotice("");
+    try{
+      await DB.addGuestbookMessage({author,message});
+      setMessage("");
+      setNotice("Merci, votre message a été publié.");
+    }catch(error){
+      console.error("Guestbook:",error);
+      setNotice("Impossible d’envoyer le message pour le moment.");
+    }finally{setSending(false);}
+  };
+  return <div style={{minHeight:"100vh",background:"var(--cream)",padding:"2rem 1rem 6rem"}}>
+    <div style={{maxWidth:760,margin:"0 auto"}}>
+      <div style={{textAlign:"center",marginBottom:22}}>
+        <div style={{fontSize:36}}>✍️</div>
+        <h1 style={{fontFamily:"var(--event-title-font)",fontSize:"2.35rem",color:"var(--burgundy)",marginTop:7}}>Livre d’or</h1>
+        <p style={{color:"var(--muted)",marginTop:5}}>{event.name}</p>
+      </div>
+      <form onSubmit={submit} className="event-card" style={{background:"var(--white)",border:"1px solid var(--blush)",borderRadius:"var(--event-radius)",padding:"1.35rem",boxShadow:"0 4px 20px var(--shadow)",display:"grid",gap:9}}>
+        <input value={author} onChange={e=>setAuthor(e.target.value.slice(0,60))} placeholder="Votre prénom (optionnel)" style={{padding:"11px 13px",borderRadius:10,border:"1px solid var(--blush)",background:"var(--cream)",color:"var(--text)"}}/>
+        <textarea value={message} onChange={e=>setMessage(e.target.value.slice(0,800))} placeholder="Votre message…" rows={4} required style={{padding:"11px 13px",borderRadius:10,border:"1px solid var(--blush)",background:"var(--cream)",color:"var(--text)",resize:"vertical"}}/>
+        <button disabled={sending||!message.trim()} className="btn" style={{padding:"11px 16px",borderRadius:50,background:"var(--burgundy)",color:"#fff",fontWeight:600}}>{sending?"Envoi…":"Publier le message"}</button>
+        {notice&&<p style={{fontSize:".8rem",color:"var(--muted)",textAlign:"center"}}>{notice}</p>}
+      </form>
+      <div style={{display:"grid",gap:10,marginTop:16}}>
+        {messages.length===0&&<div style={{textAlign:"center",color:"var(--muted)",padding:"2rem"}}>Aucun message pour le moment.</div>}
+        {messages.map(item=><article key={item.id} className="event-card" style={{background:"var(--white)",border:"1px solid var(--blush)",borderRadius:"var(--event-radius)",padding:"1rem 1.15rem",boxShadow:"0 2px 12px var(--shadow)"}}>
+          <strong style={{color:"var(--burgundy)",fontFamily:"var(--event-title-font)",fontSize:"1.05rem"}}>{item.author||"Invité"}</strong>
+          <p style={{color:"var(--text)",marginTop:5,lineHeight:1.6,whiteSpace:"pre-wrap"}}>{item.message}</p>
+        </article>)}
+      </div>
+    </div>
+    <HomeButton setView={setView}/>
+  </div>;
 }
 
 function EventTextPage({ setView, mode }) {
