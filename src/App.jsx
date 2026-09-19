@@ -270,6 +270,30 @@ const DB = {
     window.dispatchEvent(new CustomEvent("wedding:event-updated", { detail: currentEvent }));
     return { ...currentEvent };
   },
+  addGuestbookMessage: async ({ author, message }) => {
+    if (!_firebaseReady) throw new Error("Firebase indisponible");
+    const { collection, addDoc, serverTimestamp } = window.__fb;
+    const cleanAuthor = String(author || "").trim().slice(0, 60);
+    const cleanMessage = String(message || "").trim().slice(0, 800);
+    if (!cleanMessage) throw new Error("Message vide");
+    const result = await addDoc(collection(_db, "events", EVENT_ID, "guestbookMessages"), {
+      eventId: EVENT_ID,
+      author: cleanAuthor || null,
+      message: cleanMessage,
+      status: "approved",
+      createdAt: serverTimestamp(),
+    });
+    return result.id;
+  },
+  onGuestbookMessages: (cb) => {
+    if (!_firebaseReady) return () => {};
+    const { collection, query, orderBy, onSnapshot } = window.__fb;
+    const q = query(collection(_db, "events", EVENT_ID, "guestbookMessages"), orderBy("createdAt", "desc"));
+    return onSnapshot(q, snap => cb(snap.docs.map(d => {
+      const data = d.data();
+      return { id:d.id, ...data, createdAt:data.createdAt?.toDate?.()?.toISOString?.() || new Date().toISOString() };
+    }).filter(item => item.status === "approved")));
+  },
   uploadBrandAsset: async (file, kind = "cover") => {
     if (!_firebaseReady || !file) throw new Error("Stockage indisponible");
     const { ref, uploadBytes, getDownloadURL } = window.__fb;
