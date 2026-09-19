@@ -117,6 +117,32 @@ exports.createWedding = onCall({ region: "europe-west1" }, async request => {
   }
 });
 
+exports.deleteWedding = onCall({ region: "europe-west1" }, async request => {
+  if (!request.auth || request.auth.uid !== PLATFORM_OWNER_UID) {
+    throw new HttpsError("permission-denied", "Accès réservé à l’administrateur du logiciel.");
+  }
+
+  const eventId = normalizeSlug(request.data?.eventId);
+  if (!eventId) throw new HttpsError("invalid-argument", "Mariage invalide.");
+  if (eventId === "quentin-huyen-2026") {
+    throw new HttpsError("failed-precondition", "Le mariage historique Huyen & Quentin est protégé.");
+  }
+
+  const db = getFirestore();
+  const eventRef = db.collection("events").doc(eventId);
+  const eventSnap = await eventRef.get();
+  if (!eventSnap.exists) throw new HttpsError("not-found", "Mariage introuvable.");
+
+  const data = eventSnap.data() || {};
+  await db.recursiveDelete(eventRef);
+
+  if (data.ownerUid && data.ownerUid !== PLATFORM_OWNER_UID) {
+    try { await getAuth().deleteUser(data.ownerUid); }
+    catch (error) { console.warn("Compte admin non supprimé", data.ownerUid, error?.code || error?.message); }
+  }
+  return { deleted: true, eventId };
+});
+
 exports.listWeddings = onCall({ region: "europe-west1" }, async request => {
   if (!request.auth || request.auth.uid !== PLATFORM_OWNER_UID) {
     throw new HttpsError("permission-denied", "Accès réservé à l’administrateur du logiciel.");
