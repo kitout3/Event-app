@@ -244,3 +244,20 @@ test("mobile gallery shows actions first, languages second, then content",()=>{
   assert.doesNotMatch(app,/title:"Livre d’or"/);
   assert.doesNotMatch(config,/guestbook:\s*\{\s*label:"Livre d'or"/);
 });
+
+
+test("video overlay uses the compact legacy-style language pill",()=>{
+  const video=read("public/video-testimonials-v2.js");
+  assert.match(video,/vt-language-slot\{width:100%;display:flex;justify-content:flex-end\}/);
+  assert.match(video,/width:auto!important/);
+  assert.match(video,/max-width:max-content!important/);
+  assert.match(video,/padding:7px 10px!important;font-size:12px!important/);
+  assert.doesNotMatch(video,/width:100%!important;max-width:none!important;display:flex!important;justify-content:center!important/);
+});
+
+test("media download bar is visible over video gallery and removed outside media views",()=>{
+  const media=read("public/media-selection.js");
+  assert.match(media,/\.ms-bar\{position:fixed;z-index:2147483646/);
+  assert.match(media,/if \(!available\.length\) \{ bar\?\.remove\(\); return; \}/);
+  assert.doesNotMatch(media,/if \(!available\.length && !selected\.size\)/);
+});
