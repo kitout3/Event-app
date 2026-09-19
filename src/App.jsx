@@ -621,7 +621,8 @@ function UploadPage({ setView }) {
   const [error, setError] = useState(null);
   const fileRef = useRef();
   const selectedFilesRef = useRef([]);
-  const event = DB.getEvent();
+  const event = normalizeEventConfig(DB.getEvent());
+  const typeMeta = EVENT_TYPES[event.eventType] || EVENT_TYPES.custom;
 
   useEffect(() => { selectedFilesRef.current = selectedFiles; }, [selectedFiles]);
   useEffect(() => () => {
@@ -737,11 +738,11 @@ function UploadPage({ setView }) {
   };
 
   return (
-    <div style={{ minHeight: "100vh", background: "linear-gradient(160deg, #fdf8f4, #f5ddd4)", display: "flex", flexDirection: "column", alignItems: "center", padding: "2rem 1rem" }}>
+    <div style={{ minHeight:"100vh", background:"var(--cream)", display:"flex", flexDirection:"column", alignItems:"center", padding:"2rem 1rem" }}>
       <div style={{ textAlign: "center", marginBottom: "1.75rem", width: "100%", maxWidth: 460, animation: "fadeUp .5s ease" }}>
-        <div style={{ fontSize: 28, marginBottom: 8 }}>💐</div>
-        <h1 style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: "2rem", fontWeight: 300, color: "var(--burgundy)" }}>{event.name}</h1>
-        <p style={{ color: "var(--muted)", fontSize: ".88rem", marginTop: 4 }}>{event.coverMessage}</p>
+        <div style={{ fontSize: 30, marginBottom: 8 }}>{typeMeta.icon}</div>
+        <h1 style={{ fontFamily: "var(--event-title-font)", fontSize: "2rem", fontWeight: 300, color: "var(--burgundy)" }}>{event.name}</h1>
+        <p style={{ color: "var(--muted)", fontSize: ".88rem", marginTop: 4 }}>{event.labels?.uploadSubtitle || event.coverMessage}</p>
       </div>
 
       <div style={{ width: "100%", maxWidth: 460 }}>
@@ -757,7 +758,7 @@ function UploadPage({ setView }) {
         {step === "success" && (
           <div className="fade-up" style={{ background: "var(--white)", borderRadius: 24, padding: "2.5rem 2rem", textAlign: "center", boxShadow: "0 8px 40px var(--shadow)" }}>
             <div style={{ fontSize: 56, marginBottom: 14, animation: "heartPop .6s ease 2" }}>💖</div>
-            <h2 style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: "1.9rem", color: "var(--burgundy)", marginBottom: 8 }}>Merci !</h2>
+            <h2 style={{ fontFamily: "var(--event-title-font)", fontSize: "1.9rem", color: "var(--burgundy)", marginBottom: 8 }}>Merci !</h2>
             <p style={{ color: "var(--muted)", marginBottom: 20, fontSize: ".9rem" }}>
               {uploadedCount} photo{uploadedCount > 1 ? "s" : ""} envoyée{uploadedCount > 1 ? "s" : ""}. {event.moderationMode === "moderated" ? (uploadedCount > 1 ? "Elles seront visibles après validation." : "Elle sera visible après validation.") : (uploadedCount > 1 ? "Elles sont maintenant en ligne !" : "Elle est maintenant en ligne !")}
             </p>
@@ -766,7 +767,7 @@ function UploadPage({ setView }) {
             </div>
             <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
               <button onClick={reset} className="btn" style={{ background: "var(--rose)", color: "white", padding: "12px 22px", borderRadius: 50, fontSize: ".95rem", fontWeight: 500 }}>
-                📸 Ajouter d'autres photos
+                📸 {event.labels?.uploadTitle || "Ajouter d'autres photos"}
               </button>
               <button onClick={() => setView(VIEWS.GALLERY)} className="btn" style={{ background: "var(--white)", border: "1.5px solid var(--blush)", color: "var(--muted)", padding: "12px 22px", borderRadius: 50, fontSize: ".95rem" }}>
                 🖼️ Voir la galerie
