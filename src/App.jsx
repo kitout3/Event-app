@@ -15,11 +15,15 @@ const FIREBASE_CONFIG = {
 const isRealConfig = !!import.meta.env.VITE_FIREBASE_API_KEY;
 const TENANT = window.__WEDDING_TENANT__ || (() => {
   const url = new URL(window.location.href);
-  const raw = (url.searchParams.get("w") || "quentin-huyen-2026").toLowerCase();
-  const eventId = /^[a-z0-9][a-z0-9-]{2,80}$/.test(raw) ? raw : "quentin-huyen-2026";
+  const requested = url.searchParams.get("w");
+  const raw = String(requested || "").trim().toLowerCase();
+  const valid = /^[a-z0-9][a-z0-9-]{0,79}$/.test(raw);
+  const eventId = requested === null ? "quentin-huyen-2026" : (valid ? raw : "__invalid_wedding__");
   const base = `${window.location.origin}${window.location.pathname}`;
   return {
     eventId,
+    requestedEventId: requested,
+    isValid: eventId !== "__invalid_wedding__",
     baseUrl: `${base}?w=${encodeURIComponent(eventId)}`,
     urlFor: view => `${base}?w=${encodeURIComponent(eventId)}${view ? `#${view}` : ""}`
   };
