@@ -71,8 +71,10 @@ export default function SoftwareAdmin(){
     }catch(e){
       console.error("createWedding UI:", e);
       const details=e?.details;
-      const suffix=details?.sourceCode ? ` [${details.sourceCode}]` : "";
-      setError((e?.message||"Création impossible")+suffix);
+      const sourceCode=details?.sourceCode || e?.code || "";
+      const sourceMessage=details?.sourceMessage ? ` — ${details.sourceMessage}` : "";
+      const suffix=sourceCode ? ` [${sourceCode}]` : "";
+      setError((e?.message||"Création impossible")+suffix+sourceMessage);
     }
     finally{setCreating(false)}
   };
@@ -94,7 +96,7 @@ export default function SoftwareAdmin(){
 
   return <div style={{minHeight:"100vh",background:"#f7f3f0",color:"#38231c",fontFamily:"Arial,sans-serif"}}>
     <header style={{background:"#24140e",color:"#fff",padding:"18px clamp(18px,4vw,48px)",display:"flex",gap:12,alignItems:"center",flexWrap:"wrap"}}>
-      <div style={{flex:1}}><div style={{fontSize:11,letterSpacing:2,textTransform:"uppercase",opacity:.55}}>Administration logiciel</div><h1 style={{fontFamily:"Georgia,serif",fontWeight:400,margin:"4px 0 0"}}>Tous les mariages</h1></div>
+      <div style={{flex:1}}><div style={{fontSize:11,letterSpacing:2,textTransform:"uppercase",opacity:.55}}>Administration logiciel · build 2026.09.19-3</div><h1 style={{fontFamily:"Georgia,serif",fontWeight:400,margin:"4px 0 0"}}>Tous les mariages</h1></div>
       <button style={{...btn(),background:"#fff"}} onClick={()=>setShowCreate(!showCreate)}>{showCreate?"Fermer":"Nouveau mariage"}</button>
       <button style={{...btn(),background:"#ffffff18",color:"#fff",border:"1px solid #ffffff33"}} onClick={()=>fb.signOut(auth)}>Déconnexion</button>
     </header>
