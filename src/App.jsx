@@ -380,7 +380,7 @@ function HomeButton({ setView, dark = false }) {
 // ============================================================
 // NAVIGATION
 // ============================================================
-const VIEWS = { HOME: "home", UPLOAD: "upload", GALLERY: "gallery", LIVE: "live", ADMIN: "admin", PLATFORM: "platform-admin" };
+const VIEWS = { HOME: "home", UPLOAD: "upload", GALLERY: "gallery", LIVE: "live", ADMIN: "admin" };
 
 export default function App() {
   const [view, setView] = useState(VIEWS.HOME);
@@ -392,18 +392,13 @@ export default function App() {
 
   const navigate = useCallback((v) => {
     setView(v);
-    const platformUrl = `${window.location.origin}${window.location.pathname}#platform-admin`;
-    window.history.replaceState(
-      null,
-      "",
-      v === VIEWS.PLATFORM ? platformUrl : (v === VIEWS.HOME ? APP_URL : `${APP_URL}#${v}`)
-    );
+    window.history.replaceState(null, "", v === VIEWS.HOME ? APP_URL : `${APP_URL}#${v}`);
   }, []);
 
   useEffect(() => {
     let unsubscribeAuth = null;
     const hash = window.location.hash.slice(1).toLowerCase();
-    const map = { upload: VIEWS.UPLOAD, gallery: VIEWS.GALLERY, live: VIEWS.LIVE, admin: VIEWS.ADMIN, "platform-admin": VIEWS.PLATFORM, "software-admin": VIEWS.PLATFORM };
+    const map = { upload: VIEWS.UPLOAD, gallery: VIEWS.GALLERY, live: VIEWS.LIVE, admin: VIEWS.ADMIN };
     if (map[hash]) setView(map[hash]);
 
     if (isRealConfig) {
@@ -443,8 +438,6 @@ export default function App() {
   );
 
   const setView2 = (v) => navigate(v);
-
-  if (view === VIEWS.PLATFORM) return <><GlobalStyles /><PlatformAdminPage user={adminUser} setView={setView2} /></>;
 
   if (isRealConfig && !eventExists && view !== VIEWS.ADMIN) return (
     <><GlobalStyles /><div style={{ minHeight: "100vh", display: "grid", placeItems: "center", padding: 24, background: "var(--cream)" }}>
@@ -1414,7 +1407,6 @@ function AdminPage({ auth, user, setAuth, setEventExists, setView }) {
     showToast("Paramètres sauvegardés");
   };
   const pending = photos.filter(p => p.status === "pending").length;
-  const isPlatformOwner = user?.uid === PLATFORM_OWNER_UID;
 
   if (!auth) return (
     <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "linear-gradient(145deg, #1a1008, #3d2010)", padding: "2rem" }}>
@@ -1449,7 +1441,6 @@ function AdminPage({ auth, user, setAuth, setEventExists, setView }) {
         <div style={{ display: "flex", gap: 7, alignItems: "center", flexWrap: "wrap" }}>
           <span style={{ background: "#eafaf1", color: "#1e8449", borderRadius: 9, padding: "4px 12px", fontSize: ".78rem" }}>✓ {photos.filter(p => p.status === "approved").length}</span>
           {pending > 0 && <span style={{ background: "#fef9e7", color: "#b7950b", borderRadius: 9, padding: "4px 12px", fontSize: ".78rem", animation: "pulse 2s ease infinite" }}>⏳ {pending}</span>}
-          {isPlatformOwner && <button onClick={() => setView(VIEWS.PLATFORM)} className="btn" style={{ background: "var(--blush)", color: "var(--burgundy)", fontSize: ".78rem", padding: "6px 14px", borderRadius: 50 }}>Administration logiciel</button>}
           <button onClick={() => setView(VIEWS.HOME)} className="btn" style={{ background: "var(--burgundy)", color: "white", fontSize: ".78rem", padding: "6px 14px", borderRadius: 50 }}>Accueil</button>
           <button onClick={logout} style={{ background: "none", color: "var(--muted)", fontSize: ".78rem", padding: "6px 12px", borderRadius: 8, border: "1px solid var(--blush)" }}>Déconnexion</button>
         </div>
@@ -1476,267 +1467,6 @@ function AdminPage({ auth, user, setAuth, setEventExists, setView }) {
       </div>
 
       <HomeButton setView={setView} />
-    </div>
-  );
-}
-
-function PlatformAdminPage({ user, setView }) {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [loginError, setLoginError] = useState("");
-  const [weddings, setWeddings] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [loadError, setLoadError] = useState("");
-  const [search, setSearch] = useState("");
-  const [showCreate, setShowCreate] = useState(false);
-  const [toast, showToast] = useToast();
-
-  const authorized = user?.uid === PLATFORM_OWNER_UID;
-
-  const loadWeddings = useCallback(async () => {
-    if (!authorized || !_functions || !window.__fb?.httpsCallable) return;
-    setLoading(true);
-    setLoadError("");
-    try {
-      const callable = window.__fb.httpsCallable(_functions, "listWeddings");
-      const response = await callable({});
-      setWeddings(Array.isArray(response.data?.weddings) ? response.data.weddings : []);
-    } catch (error) {
-      console.error("Software admin list:", error);
-      setLoadError(error?.message || "Impossible de charger les mariages.");
-    } finally {
-      setLoading(false);
-    }
-  }, [authorized]);
-
-  useEffect(() => {
-    if (authorized) void loadWeddings();
-  }, [authorized, loadWeddings]);
-
-  const login = async () => {
-    setLoginError("");
-    try {
-      if (!_auth || !window.__fb?.signInWithEmailAndPassword) throw new Error("Firebase Authentication indisponible.");
-      const credential = await window.__fb.signInWithEmailAndPassword(_auth, email.trim(), password);
-      if (credential.user.uid !== PLATFORM_OWNER_UID) {
-        await window.__fb.signOut(_auth);
-        throw new Error("Ce compte n’est pas administrateur du logiciel.");
-      }
-      setPassword("");
-    } catch (error) {
-      const code = error?.code || "";
-      if (code.includes("invalid-credential") || code.includes("wrong-password") || code.includes("user-not-found")) {
-        setLoginError("Email ou mot de passe incorrect.");
-      } else {
-        setLoginError(error?.message || "Connexion impossible.");
-      }
-    }
-  };
-
-  const logout = async () => {
-    try { if (_auth) await window.__fb.signOut(_auth); } catch {}
-    setWeddings([]);
-  };
-
-  const formatDate = value => {
-    if (!value) return "—";
-    const date = new Date(value);
-    return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" });
-  };
-
-  if (!authorized) {
-    return (
-      <div style={{ minHeight: "100vh", display: "grid", placeItems: "center", background: "linear-gradient(145deg,#1a1008,#3d2010)", padding: 24 }}>
-        <div className="fade-up" style={{ width: "100%", maxWidth: 410, background: "var(--white)", borderRadius: 24, padding: "2.5rem", boxShadow: "0 20px 60px rgba(0,0,0,.42)" }}>
-          <p style={{ textTransform: "uppercase", letterSpacing: 2, color: "var(--muted)", fontSize: ".7rem", marginBottom: 8 }}>Administration logiciel</p>
-          <h1 style={{ fontSize: "2.25rem", color: "var(--burgundy)", fontWeight: 400, marginBottom: 8 }}>Gestion des mariages</h1>
-          <p style={{ color: "var(--muted)", fontSize: ".86rem", marginBottom: 22 }}>Connexion réservée à l’administrateur principal de la plateforme.</p>
-          <input type="email" autoComplete="username" value={email} onChange={e => setEmail(e.target.value)} placeholder="Email administrateur"
-            style={{ width: "100%", padding: "13px 15px", border: "1.5px solid var(--blush)", borderRadius: 12, background: "var(--cream)", marginBottom: 10, fontSize: "1rem" }} />
-          <input type="password" autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} onKeyDown={e => e.key === "Enter" && login()} placeholder="Mot de passe"
-            style={{ width: "100%", padding: "13px 15px", border: `1.5px solid ${loginError ? "#c0392b" : "var(--blush)"}`, borderRadius: 12, background: "var(--cream)", marginBottom: 10, fontSize: "1rem" }} />
-          {loginError && <p style={{ color: "#c0392b", fontSize: ".82rem", marginBottom: 10 }}>{loginError}</p>}
-          <button onClick={login} className="btn" style={{ width: "100%", padding: 13, borderRadius: 50, background: "var(--burgundy)", color: "white", fontSize: ".95rem" }}>Se connecter</button>
-          <button onClick={() => setView(VIEWS.HOME)} style={{ width: "100%", marginTop: 10, padding: 10, background: "transparent", color: "var(--muted)" }}>Retour au mariage</button>
-        </div>
-      </div>
-    );
-  }
-
-  const q = search.trim().toLowerCase();
-  const filtered = weddings.filter(wedding => !q || [wedding.name, wedding.date, wedding.slug, wedding.adminEmail].some(value => String(value || "").toLowerCase().includes(q)));
-  const totalPhotos = weddings.reduce((sum, wedding) => sum + Number(wedding.photoCount || 0), 0);
-  const totalVideos = weddings.reduce((sum, wedding) => sum + Number(wedding.videoCount || 0), 0);
-  const activeCount = weddings.filter(wedding => wedding.active).length;
-
-  return (
-    <div style={{ minHeight: "100vh", background: "#f7f2ee" }}>
-      <Toast msg={toast?.msg} type={toast?.type} />
-
-      <header style={{ background: "#24140e", color: "white", padding: "18px clamp(18px,4vw,48px)", display: "flex", alignItems: "center", gap: 18, flexWrap: "wrap", position: "sticky", top: 0, zIndex: 100, boxShadow: "0 4px 20px rgba(0,0,0,.12)" }}>
-        <div style={{ flex: 1, minWidth: 240 }}>
-          <p style={{ opacity: .58, fontSize: ".68rem", textTransform: "uppercase", letterSpacing: 2 }}>Administration logiciel</p>
-          <h1 style={{ fontSize: "1.9rem", fontWeight: 400, marginTop: 2 }}>Tableau de bord mariages</h1>
-        </div>
-        <button onClick={() => { setShowCreate(value => !value); }} className="btn" style={{ padding: "10px 18px", borderRadius: 50, background: "white", color: "#3d2010", fontWeight: 500 }}>
-          {showCreate ? "Fermer la création" : "Nouveau mariage"}
-        </button>
-        <button onClick={logout} style={{ padding: "9px 14px", borderRadius: 50, background: "rgba(255,255,255,.1)", color: "white", border: "1px solid rgba(255,255,255,.18)" }}>Déconnexion</button>
-      </header>
-
-      <main style={{ width: "min(1180px,calc(100% - 28px))", margin: "0 auto", padding: "28px 0 60px" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 12, marginBottom: 20 }}>
-          {[
-            ["Mariages", weddings.length],
-            ["Actifs", activeCount],
-            ["Photos", totalPhotos],
-            ["Vidéos", totalVideos],
-          ].map(([label, value]) => (
-            <div key={label} style={{ background: "white", borderRadius: 18, padding: "20px 22px", boxShadow: "0 4px 18px rgba(92,42,30,.07)", border: "1px solid #eaded7" }}>
-              <div style={{ color: "var(--muted)", fontSize: ".74rem", textTransform: "uppercase", letterSpacing: 1.3 }}>{label}</div>
-              <div style={{ font: "400 2rem 'Cormorant Garamond',serif", color: "var(--burgundy)", marginTop: 5 }}>{value}</div>
-            </div>
-          ))}
-        </div>
-
-        {showCreate && (
-          <div style={{ marginBottom: 22 }}>
-            <PlatformWeddingCreator
-              showToast={showToast}
-              onCreated={() => {
-                setShowCreate(false);
-                void loadWeddings();
-              }}
-            />
-          </div>
-        )}
-
-        <section style={{ background: "white", borderRadius: 22, padding: "clamp(16px,3vw,26px)", boxShadow: "0 5px 24px rgba(92,42,30,.08)", border: "1px solid #eaded7" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 18 }}>
-            <div style={{ flex: 1, minWidth: 220 }}>
-              <h2 style={{ color: "var(--burgundy)", fontSize: "1.65rem", fontWeight: 400 }}>Tous les mariages</h2>
-              <p style={{ color: "var(--muted)", fontSize: ".8rem", marginTop: 2 }}>{filtered.length} affiché{filtered.length > 1 ? "s" : ""}</p>
-            </div>
-            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Rechercher nom, date, lien ou email…"
-              style={{ width: "min(100%,360px)", padding: "10px 13px", borderRadius: 11, border: "1.5px solid var(--blush)", background: "var(--cream)" }} />
-            <button onClick={loadWeddings} disabled={loading} className="btn" style={{ padding: "10px 15px", borderRadius: 50, background: "var(--blush)", color: "var(--burgundy)", opacity: loading ? .6 : 1 }}>
-              {loading ? "Actualisation…" : "Actualiser"}
-            </button>
-          </div>
-
-          {loadError && <div style={{ background: "#fff0ed", color: "#a93226", padding: "12px 14px", borderRadius: 12, marginBottom: 14 }}>{loadError}</div>}
-          {loading && weddings.length === 0 && <div style={{ textAlign: "center", color: "var(--muted)", padding: "40px 10px" }}>Chargement des mariages…</div>}
-          {!loading && filtered.length === 0 && <div style={{ textAlign: "center", color: "var(--muted)", padding: "40px 10px" }}>Aucun mariage trouvé.</div>}
-
-          <div style={{ display: "grid", gap: 10 }}>
-            {filtered.map(wedding => (
-              <article key={wedding.id} style={{ border: "1px solid #eaded7", borderRadius: 16, padding: "16px", display: "grid", gridTemplateColumns: "minmax(220px,1.5fr) repeat(2,minmax(85px,.45fr)) minmax(180px,1fr)", gap: 14, alignItems: "center" }}>
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                    <h3 style={{ color: "var(--burgundy)", fontSize: "1.25rem", fontWeight: 500 }}>{wedding.name}</h3>
-                    <span style={{ fontSize: ".66rem", borderRadius: 50, padding: "3px 8px", background: wedding.active ? "#eaf7ee" : "#f3eeee", color: wedding.active ? "#277a43" : "#8d5f5f" }}>{wedding.active ? "Actif" : "Inactif"}</span>
-                  </div>
-                  <p style={{ color: "var(--muted)", fontSize: ".8rem", marginTop: 3 }}>{wedding.date || "Date non renseignée"} · {wedding.slug}</p>
-                  <p style={{ color: "var(--muted)", fontSize: ".72rem", marginTop: 4 }}>Admin : {wedding.adminEmail || "non renseigné"} · créé le {formatDate(wedding.createdAt)}</p>
-                </div>
-
-                <div style={{ textAlign: "center" }}>
-                  <div style={{ font: "500 1.35rem 'Cormorant Garamond',serif", color: "var(--burgundy)" }}>{wedding.photoCount || 0}</div>
-                  <div style={{ fontSize: ".67rem", color: "var(--muted)" }}>photos</div>
-                  {wedding.pendingPhotoCount > 0 && <div style={{ fontSize: ".62rem", color: "#b7791f", marginTop: 2 }}>{wedding.pendingPhotoCount} à valider</div>}
-                </div>
-
-                <div style={{ textAlign: "center" }}>
-                  <div style={{ font: "500 1.35rem 'Cormorant Garamond',serif", color: "var(--burgundy)" }}>{wedding.videoCount || 0}</div>
-                  <div style={{ fontSize: ".67rem", color: "var(--muted)" }}>vidéos</div>
-                  {wedding.pendingVideoCount > 0 && <div style={{ fontSize: ".62rem", color: "#b7791f", marginTop: 2 }}>{wedding.pendingVideoCount} à valider</div>}
-                </div>
-
-                <div style={{ display: "flex", gap: 6, justifyContent: "flex-end", flexWrap: "wrap" }}>
-                  <button onClick={() => window.open(wedding.guestUrl, "_blank", "noopener,noreferrer")} className="btn" style={{ padding: "7px 11px", borderRadius: 50, background: "var(--blush)", color: "var(--burgundy)", fontSize: ".72rem" }}>Ouvrir</button>
-                  <button onClick={() => window.open(wedding.adminUrl, "_blank", "noopener,noreferrer")} className="btn" style={{ padding: "7px 11px", borderRadius: 50, background: "var(--burgundy)", color: "white", fontSize: ".72rem" }}>Admin mariage</button>
-                  <button onClick={() => { navigator.clipboard?.writeText(wedding.guestUrl); showToast("Lien invités copié"); }} className="btn" style={{ padding: "7px 11px", borderRadius: 50, background: "#f1ece8", color: "var(--text)", fontSize: ".72rem" }}>Copier lien</button>
-                </div>
-              </article>
-            ))}
-          </div>
-        </section>
-      </main>
-
-      <style>{`
-        @media (max-width: 820px) {
-          article[style*="grid-template-columns"] {
-            grid-template-columns: 1fr !important;
-          }
-          article[style*="grid-template-columns"] > div {
-            text-align: left !important;
-          }
-        }
-      `}</style>
-    </div>
-  );
-}
-
-function PlatformWeddingCreator({ showToast, onCreated }) {
-  const [name, setName] = useState("");
-  const [date, setDate] = useState("");
-  const [slug, setSlug] = useState("");
-  const [adminEmail, setAdminEmail] = useState("");
-  const [adminPassword, setAdminPassword] = useState("");
-  const [creating, setCreating] = useState(false);
-  const [result, setResult] = useState(null);
-  const normalizeSlug = value => value.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80);
-
-  const createWedding = async () => {
-    setCreating(true);
-    setResult(null);
-    try {
-      if (!_functions || !window.__fb?.httpsCallable) throw new Error("Fonction Firebase indisponible");
-      const callable = window.__fb.httpsCallable(_functions, "createWedding");
-      const response = await callable({
-        name: name.trim(),
-        date: date.trim(),
-        slug: normalizeSlug(slug || name),
-        adminEmail: adminEmail.trim(),
-        adminPassword
-      });
-      setResult(response.data);
-      showToast("Mariage créé");
-      setAdminPassword("");
-      onCreated?.(response.data);
-    } catch (e) {
-      console.error("Create wedding:", e);
-      showToast(e?.message || "Création impossible", "error");
-    } finally {
-      setCreating(false);
-    }
-  };
-
-  return (
-    <div style={{ maxWidth: 620, display: "grid", gap: 12 }}>
-      <div style={{ background: "var(--white)", borderRadius: 18, padding: "1.5rem", boxShadow: "0 2px 10px var(--shadow)" }}>
-        <h3 style={{ fontSize: "1.4rem", color: "var(--burgundy)", marginBottom: 6 }}>Créer un nouveau mariage</h3>
-        <p style={{ color: "var(--muted)", fontSize: ".82rem", marginBottom: 16 }}>Un espace, un lien et un compte administrateur indépendants seront créés.</p>
-        <div style={{ display: "grid", gap: 10 }}>
-          <input value={name} onChange={e => { setName(e.target.value); if (!slug) setSlug(normalizeSlug(e.target.value)); }} placeholder="Nom, ex. Julie & Paul" style={{ padding: 11, borderRadius: 10, border: "1.5px solid var(--blush)", background: "var(--cream)" }} />
-          <input value={date} onChange={e => setDate(e.target.value)} placeholder="Date, ex. 12 Juin 2027" style={{ padding: 11, borderRadius: 10, border: "1.5px solid var(--blush)", background: "var(--cream)" }} />
-          <input value={slug} onChange={e => setSlug(normalizeSlug(e.target.value))} placeholder="Lien unique, ex. julie-paul-2027" style={{ padding: 11, borderRadius: 10, border: "1.5px solid var(--blush)", background: "var(--cream)" }} />
-          <input type="email" value={adminEmail} onChange={e => setAdminEmail(e.target.value)} placeholder="Email de l’administrateur" style={{ padding: 11, borderRadius: 10, border: "1.5px solid var(--blush)", background: "var(--cream)" }} />
-          <input type="password" value={adminPassword} onChange={e => setAdminPassword(e.target.value)} placeholder="Mot de passe temporaire (8 caractères min.)" style={{ padding: 11, borderRadius: 10, border: "1.5px solid var(--blush)", background: "var(--cream)" }} />
-          <button disabled={creating || !name.trim() || !slug || !adminEmail.trim() || adminPassword.length < 8} onClick={createWedding} className="btn" style={{ padding: 12, borderRadius: 50, background: "var(--burgundy)", color: "white", opacity: creating ? .6 : 1 }}>
-            {creating ? "Création…" : "Créer le mariage"}
-          </button>
-        </div>
-      </div>
-      {result && (
-        <div style={{ background: "var(--white)", borderRadius: 18, padding: "1.5rem", boxShadow: "0 2px 10px var(--shadow)", display: "grid", gap: 8 }}>
-          <h3 style={{ color: "var(--burgundy)" }}>Espace créé</h3>
-          <p style={{ fontSize: ".82rem", color: "var(--muted)" }}>Lien invités</p>
-          <div style={{ display: "flex", gap: 8 }}><input readOnly value={result.guestUrl || ""} style={{ flex: 1, padding: 9, borderRadius: 9, border: "1px solid var(--blush)" }} /><button onClick={() => navigator.clipboard?.writeText(result.guestUrl)} style={{ padding: "8px 12px", borderRadius: 50, background: "var(--blush)" }}>Copier</button></div>
-          <p style={{ fontSize: ".82rem", color: "var(--muted)", marginTop: 5 }}>Lien administration</p>
-          <div style={{ display: "flex", gap: 8 }}><input readOnly value={result.adminUrl || ""} style={{ flex: 1, padding: 9, borderRadius: 9, border: "1px solid var(--blush)" }} /><button onClick={() => navigator.clipboard?.writeText(result.adminUrl)} style={{ padding: "8px 12px", borderRadius: 50, background: "var(--blush)" }}>Copier</button></div>
-        </div>
-      )}
     </div>
   );
 }
