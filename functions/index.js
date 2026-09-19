@@ -9,7 +9,7 @@ const { getStorage } = require("firebase-admin/storage");
 initializeApp();
 
 const PLATFORM_OWNER_UID = "beQK5FNoVla9lnvnzSfqasK93QR2";
-const PUBLIC_APP_BASE = "https://kitout3.github.io/mariage-app/";
+const PUBLIC_APP_BASE = String(process.env.PUBLIC_APP_BASE || "https://app.souvenirdemariage.fr/").replace(/\/?$/, "/");
 
 function normalizeSlug(value) {
   return String(value || "")
