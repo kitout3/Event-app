@@ -263,7 +263,7 @@
         @media(max-width:650px){
           body:has(#vt-overlay) #wedding-language-switcher,
           body:has(#wedding-live-panel) #wedding-language-switcher{
-            top:calc(env(safe-area-inset-top) + 8px)!important;
+            top:calc(env(safe-area-inset-top) + 58px)!important;
             left:10px!important;
             right:10px!important;
             width:auto!important;
