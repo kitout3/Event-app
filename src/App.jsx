@@ -51,7 +51,15 @@ const DEFAULT_EVENT = normalizeEventConfig({
 });
 
 let _firebaseApp = null, _db = null, _storage = null, _auth = null, _functions = null, _firebaseReady = false, _eventExists = false;
-let currentEvent = { ...DEFAULT_EVENT };
+let currentEvent = normalizeEventConfig({ ...DEFAULT_EVENT });
+
+function applyEventTheme(event) {
+  if (typeof document === "undefined") return;
+  const normalized = normalizeEventConfig(event);
+  Object.entries(cssVarsForEvent(normalized)).forEach(([key, value]) => document.documentElement.style.setProperty(key, value));
+  document.documentElement.dataset.eventType = normalized.eventType;
+  document.documentElement.dataset.themePreset = normalized.themePreset;
+}
 
 async function initFirebase() {
   if (!isRealConfig || _firebaseReady) return _firebaseReady;
@@ -77,10 +85,12 @@ async function initFirebase() {
 
     const eventSnap = await getDoc(doc(_db, "events", EVENT_ID));
     if (eventSnap.exists()) {
-      currentEvent = { ...DEFAULT_EVENT, ...eventSnap.data(), id: EVENT_ID, slug: eventSnap.data().slug || EVENT_ID };
+      currentEvent = normalizeEventConfig({ ...DEFAULT_EVENT, ...eventSnap.data(), id: EVENT_ID, slug: eventSnap.data().slug || EVENT_ID });
+      applyEventTheme(currentEvent);
       _eventExists = true;
     } else {
-      currentEvent = { ...DEFAULT_EVENT };
+      currentEvent = normalizeEventConfig({ ...DEFAULT_EVENT });
+      applyEventTheme(currentEvent);
       _eventExists = false;
     }
     window.__WEDDING_EVENT__ = currentEvent;
@@ -254,7 +264,8 @@ const DB = {
     }
     const { doc, updateDoc } = window.__fb;
     await updateDoc(doc(_db, "events", EVENT_ID), u);
-    currentEvent = { ...currentEvent, ...u };
+    currentEvent = normalizeEventConfig({ ...currentEvent, ...u });
+    applyEventTheme(currentEvent);
     window.__WEDDING_EVENT__ = currentEvent;
     window.dispatchEvent(new CustomEvent("wedding:event-updated", { detail: currentEvent }));
     return { ...currentEvent };
@@ -271,7 +282,8 @@ const DB = {
       updatedAt: serverTimestamp(),
     };
     await setDoc(doc(_db, "events", EVENT_ID), payload);
-    currentEvent = { ...DEFAULT_EVENT, ...payload };
+    currentEvent = normalizeEventConfig({ ...DEFAULT_EVENT, ...payload });
+    applyEventTheme(currentEvent);
     _eventExists = true;
     window.__WEDDING_EVENT__ = currentEvent;
     window.__WEDDING_EVENT_EXISTS__ = true;
