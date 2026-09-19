@@ -1,10 +1,13 @@
 (() => {
-  const EVENT_KEY = "mariage-event-settings";
+  const TENANT = window.__WEDDING_TENANT__ || {};
+  const EVENT_ID = TENANT.eventId || "__unknown_wedding__";
+  const EVENT_KEY = `mariage-event-settings:${EVENT_ID}`;
   const LANG_KEY = "mariage-lang";
+  const IS_LEGACY = EVENT_ID === "quentin-huyen-2026";
   const DEFAULT_EVENT = {
-    name: "Huyen & Quentin",
-    date: "13 septembre 2026",
-    location: "La Faisanderie d’Arcueil",
+    name: IS_LEGACY ? "Huyen & Quentin" : "Votre mariage",
+    date: IS_LEGACY ? "13 septembre 2026" : "",
+    location: IS_LEGACY ? "La Faisanderie d’Arcueil" : "",
     coverMessage: "Partagez vos plus beaux souvenirs"
   };
 
@@ -141,19 +144,35 @@
   let currentLanguage = localStorage.getItem(LANG_KEY) || ((navigator.language || "fr").slice(0, 2));
   if (!translations[currentLanguage]) currentLanguage = "fr";
 
+  function runtimeEvent() {
+    const current = window.__WEDDING_EVENT__;
+    if (current && (current.id === EVENT_ID || current.slug === EVENT_ID)) {
+      return {
+        name: current.name || DEFAULT_EVENT.name,
+        date: current.date || DEFAULT_EVENT.date,
+        location: current.location || DEFAULT_EVENT.location,
+        coverMessage: current.coverMessage || DEFAULT_EVENT.coverMessage
+      };
+    }
+    return null;
+  }
+
   function readEvent() {
-    try { return { ...DEFAULT_EVENT, ...(JSON.parse(localStorage.getItem(EVENT_KEY) || "{}")) }; }
-    catch { return { ...DEFAULT_EVENT }; }
+    const live = runtimeEvent();
+    if (live) return live;
+    try {
+      const saved = JSON.parse(localStorage.getItem(EVENT_KEY) || "{}");
+      return { ...DEFAULT_EVENT, ...saved };
+    } catch {
+      return { ...DEFAULT_EVENT };
+    }
   }
 
   function saveEvent(patch) {
     const next = { ...readEvent(), ...patch };
-    if (!next.name || /Marie\s*&\s*Thomas/i.test(next.name)) next.name = DEFAULT_EVENT.name;
-    if (!next.date || /21\s*Juin\s*2025/i.test(next.date)) next.date = DEFAULT_EVENT.date;
     localStorage.setItem(EVENT_KEY, JSON.stringify(next));
     return next;
   }
-  saveEvent(DEFAULT_EVENT);
 
   function applyEventIdentity(root = document.body) {
     if (!root) return;
@@ -299,6 +318,18 @@
   const observer = new MutationObserver(() => { clearTimeout(timer); timer = setTimeout(refresh, 40); });
   document.addEventListener("DOMContentLoaded", () => { refresh(); observer.observe(document.body, { childList:true, subtree:true }); });
   window.addEventListener("load", refresh);
+  window.addEventListener("wedding:event-updated", event => {
+    const detail = event?.detail;
+    if (detail && (detail.id === EVENT_ID || detail.slug === EVENT_ID)) {
+      saveEvent({
+        name: detail.name || DEFAULT_EVENT.name,
+        date: detail.date || DEFAULT_EVENT.date,
+        location: detail.location || DEFAULT_EVENT.location,
+        coverMessage: detail.coverMessage || DEFAULT_EVENT.coverMessage
+      });
+      refresh();
+    }
+  });
   setTimeout(refresh, 100);
   setTimeout(refresh, 800);
 })();
