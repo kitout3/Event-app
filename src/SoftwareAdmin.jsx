@@ -72,7 +72,6 @@ export default function SoftwareAdmin(){
     finally{setCreating(false)}
   };
   const removeWedding=async(w)=>{
-    if(w.slug==="quentin-huyen-2026"){setError("Huyen & Quentin est le mariage historique protégé.");return;}
     if(!window.confirm(`Supprimer définitivement « ${w.name} » et toutes ses données ? Cette action est irréversible.`))return;
     setDeleting(w.id);setError("");setNotice("");
     try{
@@ -103,7 +102,7 @@ export default function SoftwareAdmin(){
       {error&&<div style={{background:"#fff0ed",color:"#a33",padding:12,borderRadius:10,marginBottom:14}}>{error}</div>}
       <section style={{background:"#fff",padding:22,borderRadius:18,border:"1px solid #eaded7"}}>
         <div style={{display:"flex",gap:10,alignItems:"center",flexWrap:"wrap",marginBottom:16}}><div style={{flex:1}}><h2 style={{fontFamily:"Georgia,serif",fontWeight:400}}>Mariages en cours</h2><small>{filtered.length} mariage{filtered.length!==1?"s":""}</small></div><input style={{...inputStyle,maxWidth:350}} placeholder="Rechercher…" value={search} onChange={e=>setSearch(e.target.value)}/><button style={btn()} onClick={load}>{loading?"Actualisation…":"Actualiser"}</button></div>
-        <div style={{display:"grid",gap:10}}>{filtered.map(w=><div key={w.id} style={{border:"1px solid #eaded7",borderRadius:14,padding:15,display:"flex",gap:14,alignItems:"center",flexWrap:"wrap"}}><div style={{flex:"1 1 300px"}}><strong style={{fontFamily:"Georgia,serif",fontSize:20}}>{w.name}</strong><div style={{fontSize:13,opacity:.65,marginTop:3}}>{w.date||"Date non renseignée"} · {w.slug}</div><div style={{fontSize:12,opacity:.55,marginTop:3}}>Admin : {w.adminEmail||"—"}</div></div><div style={{fontSize:13}}>{w.photoCount||0} photos · {w.videoCount||0} vidéos</div><button style={btn()} onClick={()=>window.open(w.guestUrl||`${APP_BASE}?w=${encodeURIComponent(w.slug)}`,"_blank")}>Application</button><button style={btn(true)} onClick={()=>window.open(w.adminUrl||`${APP_BASE}?w=${encodeURIComponent(w.slug)}#admin`,"_blank")}>Admin mariage</button>{w.slug!=="quentin-huyen-2026"&&<button style={{...btn(),background:"#fff0ed",color:"#a33"}} disabled={deleting===w.id} onClick={()=>removeWedding(w)}>{deleting===w.id?"Suppression…":"Supprimer"}</button>}</div>)}</div>
+        <div style={{display:"grid",gap:10}}>{filtered.map(w=><div key={w.id} style={{border:"1px solid #eaded7",borderRadius:14,padding:15,display:"flex",gap:14,alignItems:"center",flexWrap:"wrap"}}><div style={{flex:"1 1 300px"}}><strong style={{fontFamily:"Georgia,serif",fontSize:20}}>{w.name}</strong><div style={{fontSize:13,opacity:.65,marginTop:3}}>{w.date||"Date non renseignée"} · {w.slug}</div><div style={{fontSize:12,opacity:.55,marginTop:3}}>Admin : {w.adminEmail||"—"}</div></div><div style={{fontSize:13}}>{w.photoCount||0} photos · {w.videoCount||0} vidéos</div><button style={btn()} onClick={()=>window.open(w.guestUrl||`${APP_BASE}?w=${encodeURIComponent(w.slug)}`,"_blank")}>Application</button><button style={btn(true)} onClick={()=>window.open(w.adminUrl||`${APP_BASE}?w=${encodeURIComponent(w.slug)}#admin`,"_blank")}>Admin mariage</button><button style={{...btn(),background:"#fff0ed",color:"#a33"}} disabled={deleting===w.id} onClick={()=>removeWedding(w)}>{deleting===w.id?"Suppression…":"Supprimer"}</button></div>)}</div>
       </section>
     </main>
   </div>;
