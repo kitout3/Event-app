@@ -1,15 +1,15 @@
 const PLANS = {
   essential: {
     id:"essential", label:"Essentiel",
-    privateAmount:4900, corporateAmount:14900,
+    privateAmount: 5000, corporateAmount: 5000,
   },
   premium: {
     id:"premium", label:"Premium",
-    privateAmount:8900, corporateAmount:24900,
+    privateAmount: 5000, corporateAmount: 5000,
   },
   signature: {
     id:"signature", label:"Signature",
-    privateAmount:12900, corporateAmount:39900,
+    privateAmount: 5000, corporateAmount: 5000,
   },
 };
 
