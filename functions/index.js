@@ -5,6 +5,7 @@ const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 const { getMessaging } = require("firebase-admin/messaging");
 const { getAuth } = require("firebase-admin/auth");
 const { getStorage } = require("firebase-admin/storage");
+const eventConfig = require("./event-config");
 
 initializeApp();
 
@@ -23,7 +24,7 @@ function normalizeSlug(value) {
 
 exports.createWedding = onCall({ region: "europe-west1" }, async request => {
   if (!request.auth || request.auth.uid !== PLATFORM_OWNER_UID) {
-    throw new HttpsError("permission-denied", "Seul l’administrateur de la plateforme peut créer un mariage.");
+    throw new HttpsError("permission-denied", "Seul l’administrateur de la plateforme peut créer un événement.");
   }
 
   const data = request.data || {};
@@ -37,7 +38,7 @@ exports.createWedding = onCall({ region: "europe-west1" }, async request => {
     throw new HttpsError("invalid-argument", "Nom, identifiant et email administrateur obligatoires.");
   }
   if (!/^[a-z0-9][a-z0-9-]{2,79}$/.test(slug)) {
-    throw new HttpsError("invalid-argument", "Identifiant de mariage invalide.");
+    throw new HttpsError("invalid-argument", "Identifiant d’événement invalide.");
   }
   if (adminPassword.length < 8) {
     throw new HttpsError("invalid-argument", "Le mot de passe temporaire doit contenir au moins 8 caractères.");
@@ -49,7 +50,7 @@ exports.createWedding = onCall({ region: "europe-west1" }, async request => {
     const eventRef = db.collection("events").doc(slug);
     const existingEvent = await eventRef.get();
     if (existingEvent.exists) {
-      throw new HttpsError("already-exists", "Cet identifiant de mariage existe déjà.");
+      throw new HttpsError("already-exists", "Cet identifiant d’événement existe déjà.");
     }
 
     try {
@@ -69,30 +70,44 @@ exports.createWedding = onCall({ region: "europe-west1" }, async request => {
     if (!alreadyOwned.empty) {
       throw new HttpsError(
         "already-exists",
-        "Ce compte admin est déjà associé à un mariage. Utilisez une autre adresse email pour garantir l’indépendance des espaces."
+        "Ce compte admin est déjà associé à un événement. Utilisez une autre adresse email pour garantir l’indépendance des espaces."
       );
     }
 
     const now = FieldValue.serverTimestamp();
+    const eventType = eventConfig.eventType(data.eventType);
+    const themePreset = eventConfig.themePreset(data.themePreset || data.theme?.preset, eventType);
+    const eventModules = eventConfig.modules(data.modules, eventType);
+    const location = String(data.location || "").trim().slice(0, 180);
+    const organiserName = String(data.organiserName || "").trim().slice(0, 120);
     await eventRef.set({
       id: slug,
       slug,
       name,
       date,
+      location,
+      organiserName,
+      eventType,
+      customEventType: eventType === "custom" ? String(data.customEventType || "").trim().slice(0, 120) : "",
+      themePreset,
+      theme: eventConfig.theme(data.theme, themePreset),
+      modules: eventModules,
+      labels: eventConfig.labels(data.labels),
+      branding: eventConfig.branding(data.branding, organiserName),
       ownerUid: adminUser.uid,
       adminEmail,
       active: true,
       moderationMode: "immediate",
       displayMode: "mixed",
-      coverMessage: "Partagez vos plus beaux souvenirs",
+      coverMessage: eventType === "wedding" ? "Partagez vos plus beaux souvenirs" : "Partagez vos meilleurs moments",
       settings: {
-        primary: "#5c2a1e",
-        background: "#fdf8f4",
-        showUpload: true,
-        showGallery: true,
-        showVideo: true,
-        showTv: true,
-        showLive: true,
+        primary: (eventConfig.THEME_COLORS[themePreset] || eventConfig.THEME_COLORS["custom-neutral"]).primary,
+        background: (eventConfig.THEME_COLORS[themePreset] || eventConfig.THEME_COLORS["custom-neutral"]).background,
+        showUpload: eventModules.photoUpload,
+        showGallery: eventModules.gallery,
+        showVideo: eventModules.videoTestimonials,
+        showTv: eventModules.tvDisplay,
+        showLive: eventModules.live,
         videoModerationMode: "moderated",
         videoDelayMinutes: 60,
       },
@@ -137,7 +152,7 @@ exports.createWedding = onCall({ region: "europe-west1" }, async request => {
       throw new HttpsError("failed-precondition", `Firebase Auth refuse la création du compte administrateur (${code}).`);
     }
     if (code.startsWith("firestore/") || code.includes("permission")) {
-      throw new HttpsError("failed-precondition", `Firestore refuse la création du mariage (${code || "erreur Firestore"}).`);
+      throw new HttpsError("failed-precondition", `Firestore refuse la création de l’événement (${code || "erreur Firestore"}).`);
     }
 
     throw new HttpsError(
@@ -167,7 +182,7 @@ exports.createWeddingV2 = onCall({ region: "europe-west1" }, async request => {
       return { ok: false, stage, code: "invalid-argument", message: "Nom, lien unique et email administrateur obligatoires." };
     }
     if (!/^[a-z0-9][a-z0-9-]{2,79}$/.test(slug)) {
-      return { ok: false, stage, code: "invalid-slug", message: "Le lien unique du mariage est invalide." };
+      return { ok: false, stage, code: "invalid-slug", message: "Le lien unique de l’événement est invalide." };
     }
     if (adminPassword.length < 8) {
       return { ok: false, stage, code: "invalid-password", message: "Le mot de passe temporaire doit contenir au moins 8 caractères." };
@@ -177,7 +192,7 @@ exports.createWeddingV2 = onCall({ region: "europe-west1" }, async request => {
     const db = getFirestore();
     const eventRef = db.collection("events").doc(slug);
     if ((await eventRef.get()).exists) {
-      return { ok: false, stage, code: "already-exists", message: "Cet identifiant de mariage existe déjà." };
+      return { ok: false, stage, code: "already-exists", message: "Cet identifiant d’événement existe déjà." };
     }
 
     stage = "auth-user";
@@ -208,31 +223,45 @@ exports.createWeddingV2 = onCall({ region: "europe-west1" }, async request => {
         ok: false,
         stage,
         code: "admin-already-used",
-        message: "Ce compte administrateur est déjà associé à un mariage. Utilisez une autre adresse email.",
+        message: "Ce compte administrateur est déjà associé à un événement. Utilisez une autre adresse email.",
       };
     }
 
     stage = "firestore-create";
     const now = FieldValue.serverTimestamp();
+    const eventType = eventConfig.eventType(data.eventType);
+    const themePreset = eventConfig.themePreset(data.themePreset || data.theme?.preset, eventType);
+    const eventModules = eventConfig.modules(data.modules, eventType);
+    const location = String(data.location || "").trim().slice(0, 180);
+    const organiserName = String(data.organiserName || "").trim().slice(0, 120);
     await eventRef.set({
       id: slug,
       slug,
       name,
       date,
+      location,
+      organiserName,
+      eventType,
+      customEventType: eventType === "custom" ? String(data.customEventType || "").trim().slice(0, 120) : "",
+      themePreset,
+      theme: eventConfig.theme(data.theme, themePreset),
+      modules: eventModules,
+      labels: eventConfig.labels(data.labels),
+      branding: eventConfig.branding(data.branding, organiserName),
       ownerUid: adminUser.uid,
       adminEmail,
       active: true,
       moderationMode: "immediate",
       displayMode: "mixed",
-      coverMessage: "Partagez vos plus beaux souvenirs",
+      coverMessage: "Partagez vos meilleurs moments",
       settings: {
-        primary: "#5c2a1e",
-        background: "#fdf8f4",
-        showUpload: true,
-        showGallery: true,
-        showVideo: true,
-        showTv: true,
-        showLive: true,
+        primary: (eventConfig.THEME_COLORS[themePreset] || eventConfig.THEME_COLORS["custom-neutral"]).primary,
+        background: (eventConfig.THEME_COLORS[themePreset] || eventConfig.THEME_COLORS["custom-neutral"]).background,
+        showUpload: eventModules.photoUpload,
+        showGallery: eventModules.gallery,
+        showVideo: eventModules.videoTestimonials,
+        showTv: eventModules.tvDisplay,
+        showLive: eventModules.live,
         videoModerationMode: "moderated",
         videoDelayMinutes: 60,
       },
@@ -268,7 +297,7 @@ exports.createWeddingV2 = onCall({ region: "europe-west1" }, async request => {
 exports.listPublicVideos = onCall({ region: "europe-west1" }, async request => {
   const eventId = normalizeSlug(request.data?.eventId);
   if (!eventId) {
-    throw new HttpsError("invalid-argument", "Mariage invalide.");
+    throw new HttpsError("invalid-argument", "Événement invalide.");
   }
 
   const db = getFirestore();
@@ -321,27 +350,38 @@ exports.updateWedding = onCall({ region: "europe-west1" }, async request => {
   }
 
   const eventId = normalizeSlug(request.data?.eventId);
-  if (!eventId) throw new HttpsError("invalid-argument", "Mariage invalide.");
+  if (!eventId) throw new HttpsError("invalid-argument", "Événement invalide.");
 
   const patch = {};
   if (typeof request.data?.name === "string") {
     const name = request.data.name.trim();
-    if (!name) throw new HttpsError("invalid-argument", "Le nom du mariage est obligatoire.");
+    if (!name) throw new HttpsError("invalid-argument", "Le nom de l’événement est obligatoire.");
     patch.name = name.slice(0, 120);
   }
-  if (typeof request.data?.date === "string") {
-    patch.date = request.data.date.trim().slice(0, 120);
+  if (typeof request.data?.date === "string") patch.date = request.data.date.trim().slice(0, 120);
+  if (typeof request.data?.location === "string") patch.location = request.data.location.trim().slice(0, 180);
+  if (typeof request.data?.organiserName === "string") patch.organiserName = request.data.organiserName.trim().slice(0, 120);
+  if (typeof request.data?.active === "boolean") patch.active = request.data.active;
+
+  if (typeof request.data?.eventType === "string") {
+    patch.eventType = eventConfig.eventType(request.data.eventType);
+    patch.customEventType = patch.eventType === "custom" ? String(request.data?.customEventType || "").trim().slice(0, 120) : "";
   }
-  if (typeof request.data?.active === "boolean") {
-    patch.active = request.data.active;
+  const configType = patch.eventType || eventConfig.eventType(request.data?.currentEventType);
+  if (request.data?.themePreset || request.data?.theme) {
+    patch.themePreset = eventConfig.themePreset(request.data?.themePreset || request.data?.theme?.preset, configType);
+    patch.theme = eventConfig.theme(request.data?.theme, patch.themePreset);
   }
+  if (request.data?.modules && typeof request.data.modules === "object") patch.modules = eventConfig.modules(request.data.modules, configType);
+  if (request.data?.labels && typeof request.data.labels === "object") patch.labels = eventConfig.labels(request.data.labels);
+  if (request.data?.branding && typeof request.data.branding === "object") patch.branding = eventConfig.branding(request.data.branding, request.data?.organiserName);
   if (!Object.keys(patch).length) {
     throw new HttpsError("invalid-argument", "Aucune modification fournie.");
   }
 
   const ref = getFirestore().collection("events").doc(eventId);
   const snap = await ref.get();
-  if (!snap.exists) throw new HttpsError("not-found", "Mariage introuvable.");
+  if (!snap.exists) throw new HttpsError("not-found", "Événement introuvable.");
 
   await ref.update({ ...patch, updatedAt: FieldValue.serverTimestamp() });
   return { updated: true, eventId, ...patch };
@@ -353,11 +393,11 @@ exports.deleteWedding = onCall({ region: "europe-west1" }, async request => {
   }
 
   const eventId = normalizeSlug(request.data?.eventId);
-  if (!eventId) throw new HttpsError("invalid-argument", "Mariage invalide.");
+  if (!eventId) throw new HttpsError("invalid-argument", "Événement invalide.");
   const db = getFirestore();
   const eventRef = db.collection("events").doc(eventId);
   const eventSnap = await eventRef.get();
-  if (!eventSnap.exists) throw new HttpsError("not-found", "Mariage introuvable.");
+  if (!eventSnap.exists) throw new HttpsError("not-found", "Événement introuvable.");
 
   const data = eventSnap.data() || {};
 
@@ -367,7 +407,7 @@ exports.deleteWedding = onCall({ region: "europe-west1" }, async request => {
     await getStorage().bucket().deleteFiles({ prefix: `events/${eventId}/` });
   } catch (error) {
     console.error("deleteWedding storage:", eventId, error);
-    throw new HttpsError("internal", "Impossible de supprimer les fichiers du mariage. Réessayez.");
+    throw new HttpsError("internal", "Impossible de supprimer les fichiers de l’événement. Réessayez.");
   }
 
   await db.recursiveDelete(eventRef);
@@ -442,6 +482,13 @@ exports.listWeddings = onCall({ region: "europe-west1" }, async request => {
       slug,
       name: data.name || (isLegacyWedding ? "Huyen & Quentin" : slug),
       date: data.date || (isLegacyWedding ? "12 – 13 Septembre 2026" : ""),
+      location: data.location || "",
+      organiserName: data.organiserName || data.branding?.organisationName || "",
+      eventType: eventConfig.eventType(data.eventType || (isLegacyWedding ? "wedding" : "custom")),
+      customEventType: data.customEventType || "",
+      themePreset: eventConfig.themePreset(data.themePreset || data.theme?.preset, data.eventType || (isLegacyWedding ? "wedding" : "custom")),
+      theme: data.theme || null,
+      modules: data.modules || null,
       active: data.active !== false,
       ownerUid: data.ownerUid || (isLegacyWedding ? PLATFORM_OWNER_UID : null),
       adminEmail,

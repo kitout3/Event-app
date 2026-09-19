@@ -318,7 +318,7 @@
       saveButton.onclick = async () => {
         if (!preparedFiles.length || closed) return;
         try {
-          await navigator.share({ files: preparedFiles, title: window.__WEDDING_EVENT__?.name || 'Mariage' });
+          await navigator.share({ files: preparedFiles, title: window.__WEDDING_EVENT__?.name || 'Événement' });
         } catch (error) {
           if (error?.name === 'AbortError') {
             message.textContent = t('mobileRetry');
@@ -373,7 +373,8 @@
   async function downloadToDirectory(items, status) {
     setText(status, t('chooseFolder'));
     const selectedDirectory = await window.showDirectoryPicker({ mode: 'readwrite' });
-    const directory = await selectedDirectory.getDirectoryHandle('Mariage Huyen et Quentin', { create: true });
+    const eventFolder = cleanName(window.__WEDDING_EVENT__?.name || 'Evenement', 'Evenement');
+      const directory = await selectedDirectory.getDirectoryHandle(eventFolder, { create: true });
     const usedNames = new Set();
 
     for (let index = 0; index < items.length; index++) {

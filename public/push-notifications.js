@@ -115,9 +115,9 @@
     const box = document.createElement("section");
     box.id = "push-video-settings";
     box.setAttribute("data-language-dynamic", "true");
-    box.style.cssText = "background:#fffdf9;border-radius:18px;padding:1.5rem;box-shadow:0 2px 10px rgba(92,42,30,.12);display:grid;gap:10px;width:100%;";
+    box.style.cssText = "background:var(--white);border-radius:18px;padding:1.5rem;box-shadow:0 2px 10px rgba(92,42,30,.12);display:grid;gap:10px;width:100%;";
     const enabled = localStorage.getItem(PUSH_ENABLED_KEY) === "1";
-    box.innerHTML = `<h3 style="font:600 1.3rem 'Cormorant Garamond',serif;color:#5c2a1e;margin:0">🔔 ${t("title")}</h3><p style="color:#9e7060;font-size:.84rem;margin:0">${t("desc")}</p><button type="button" data-enable style="border:0;border-radius:999px;padding:12px 18px;background:#5c2a1e;color:#fff;font-weight:600;cursor:pointer;width:100%" ${enabled ? "disabled" : ""}>${enabled ? "✓ " + t("enabled") : t("enable")}</button><p data-status style="min-height:20px;color:#9e7060;font-size:.78rem;margin:0;overflow-wrap:anywhere"></p>`;
+    box.innerHTML = `<h3 style="font:600 1.3rem 'Cormorant Garamond',serif;color:var(--burgundy);margin:0">🔔 ${t("title")}</h3><p style="color:var(--muted);font-size:.84rem;margin:0">${t("desc")}</p><button type="button" data-enable style="border:0;border-radius:999px;padding:12px 18px;background:var(--burgundy);color:#fff;font-weight:600;cursor:pointer;width:100%" ${enabled ? "disabled" : ""}>${enabled ? "✓ " + t("enabled") : t("enable")}</button><p data-status style="min-height:20px;color:var(--muted);font-size:.78rem;margin:0;overflow-wrap:anywhere"></p>`;
     const button = box.querySelector("[data-enable]");
     const status = box.querySelector("[data-status]");
     button.addEventListener("click", () => enable(button, status));

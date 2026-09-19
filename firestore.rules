@@ -72,6 +72,20 @@ service cloud.firestore {
         allow update, delete: if manages(eventId);
       }
 
+      match /guestbookMessages/{messageId} {
+        allow read: if manages(eventId)
+          || (active(eventId) && resource.data.status == "approved");
+        allow create: if active(eventId)
+          && request.resource.data.keys().hasAll(["eventId", "message", "status"])
+          && request.resource.data.eventId == eventId
+          && request.resource.data.status == "approved"
+          && request.resource.data.message is string
+          && request.resource.data.message.size() > 0
+          && request.resource.data.message.size() <= 800
+          && (!request.resource.data.keys().hasAny(["author"]) || request.resource.data.author == null || request.resource.data.author is string);
+        allow update, delete: if manages(eventId);
+      }
+
       match /liveChatMessages/{messageId} {
         allow read, create: if active(eventId);
         allow update, delete: if manages(eventId);

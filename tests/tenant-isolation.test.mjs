@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import vm from 'node:vm';
 import {invitationSlug,weddingLink} from '../src/wedding-links.mjs';
+import {EVENT_TYPES,THEME_PRESETS,eventDefaults,normalizeEventConfig} from '../src/event-config.mjs';
 
 const read = path => fs.readFileSync(path, "utf8");
 
@@ -83,4 +84,57 @@ test("custom domain build stays portable between GitHub Pages and app.souvenirde
   assert.match(workflow, /VITE_APP_BASE_PATH:\s*\.\//);
   assert.doesNotMatch(workflow, /VITE_APP_BASE_PATH:\s*\/mariage-app\//);
   assert.match(functions, /https:\/\/app\.souvenirdemariage\.fr\//);
+});
+
+
+test("multi-event presets produce distinct visual and functional defaults",()=>{
+  for(const type of ["wedding","afterwork","christmas","corporate","birthday","gala","team_building","custom"]) {
+    assert.ok(EVENT_TYPES[type], `missing event type ${type}`);
+    const config=eventDefaults(type);
+    assert.ok(THEME_PRESETS[config.themePreset], `missing preset for ${type}`);
+    assert.equal(config.eventType,type);
+    assert.equal(typeof config.modules.photoUpload,"boolean");
+    assert.equal(typeof config.labels.galleryTitle,"string");
+  }
+  assert.notEqual(eventDefaults("wedding").theme.primary,eventDefaults("afterwork").theme.primary);
+  assert.notEqual(eventDefaults("christmas").theme.primary,eventDefaults("corporate").theme.primary);
+  assert.equal(eventDefaults("corporate").modules.schedule,true);
+  assert.equal(eventDefaults("birthday").modules.live,false);
+});
+
+test("legacy Huyen and Quentin remains a wedding while other untyped events stay generic",()=>{
+  assert.equal(normalizeEventConfig({slug:"quentin-huyen-2026"}).eventType,"wedding");
+  assert.equal(normalizeEventConfig({slug:"legacy-company-party"}).eventType,"custom");
+});
+
+test("software admin exposes type, theme, module and preview creation steps",()=>{
+  const source=read("src/SoftwareAdmin.jsx");
+  assert.match(source,/Nouvel événement/);
+  assert.match(source,/Créer un espace/);
+  assert.match(source,/Style & modules/);
+  assert.match(source,/EventPreview/);
+  assert.match(source,/eventType/);
+  assert.match(source,/themePreset/);
+});
+
+test("event app separates TV and live routes and supports optional guestbook",()=>{
+  const source=read("src/App.jsx");
+  assert.match(source,/TV: "tv"/);
+  assert.match(source,/GUESTBOOK: "guestbook"/);
+  assert.match(source,/modules\.guestbook/);
+  assert.match(source,/guestbookMessages/);
+});
+
+test("guestbook is isolated under each event and public reads require approved status",()=>{
+  const rules=read("firestore.rules");
+  assert.match(rules,/match \/guestbookMessages\/\{messageId\}/);
+  assert.match(rules,/resource\.data\.status == "approved"/);
+  const app=read("src/App.jsx");
+  assert.match(app,/collection\(_db, "events", EVENT_ID, "guestbookMessages"\)/);
+});
+
+test("legacy wedding-specific controllers are no longer loaded by the app runtime",()=>{
+  const main=read("src/main.jsx");
+  assert.doesNotMatch(main,/language-controller-v2/);
+  assert.doesNotMatch(main,/account-customization/);
 });
