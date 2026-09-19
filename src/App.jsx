@@ -559,12 +559,28 @@ function HomePage({ setView }) {
   const navigation = [
     modules.photoUpload && { icon:"📸", title:labels.uploadTitle, desc:labels.uploadSubtitle, v:VIEWS.UPLOAD },
     modules.gallery && { icon:"🖼️", title:labels.galleryTitle, desc:labels.gallerySubtitle, v:VIEWS.GALLERY },
+    modules.videoTestimonials && { id:"vt-home-card", icon:"🎥", title:labels.videoTitle || "Laisser un message vidéo", desc:"Enregistrer ou envoyer un message vidéo", hash:"video" },
+    modules.videoTestimonials && { id:"vt-gallery-card", icon:"🎞️", title:"Galerie vidéos", desc:"Regarder les messages vidéo publiés", hash:"video-gallery" },
+    modules.live && { id:"wedding-live-card", icon:"🔴", title:"Live de l’événement", desc:"Suivre la diffusion en direct", hash:"live", action:"live" },
     modules.tvDisplay && { icon:"📺", title:labels.tvTitle, desc:"Diaporama plein écran", v:VIEWS.TV },
     modules.schedule && { icon:"🗓️", title:"Programme", desc:"Horaires et temps forts", v:VIEWS.SCHEDULE },
     modules.practicalInfo && { icon:"ℹ️", title:"Informations pratiques", desc:"Lieu, accès et informations utiles", v:VIEWS.INFO },
     modules.guestbook && { icon:"✍️", title:"Livre d’or", desc:"Laisser un message à l’organisateur", v:VIEWS.GUESTBOOK },
     { icon:"⚙️", title:labels.adminTitle || "Administration", desc:labels.adminSubtitle || "Gérer l’événement", v:VIEWS.ADMIN, admin:true },
   ].filter(Boolean);
+
+  const openNavigationCard = card => {
+    if (card.hash) {
+      const nextUrl = `${APP_URL}#${card.hash}`;
+      if (window.location.href === nextUrl) {
+        window.dispatchEvent(new HashChangeEvent("hashchange"));
+      } else {
+        window.location.hash = card.hash;
+      }
+      return;
+    }
+    setView(card.v);
+  };
 
   const heroBackground = event.branding?.coverUrl
     ? `linear-gradient(180deg,rgba(10,10,10,.12),rgba(10,10,10,.62)),url("${event.branding.coverUrl}") center/cover`
@@ -610,7 +626,7 @@ function HomePage({ setView }) {
         )}
 
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(210px,1fr))",gap:10}}>
-          {navigation.map((card,index)=><button key={card.v} data-event-admin-card={card.admin?"true":undefined} onClick={()=>setView(card.v)} className="btn event-card" style={{background:"var(--white)",border:"1.5px solid var(--blush)",borderRadius:"var(--event-radius)",padding:"1.35rem 1.2rem",textAlign:"left",boxShadow:"0 3px 16px var(--shadow)",animation:`fadeUp .5s ${.05*index}s ease both`}}>
+          {navigation.map((card,index)=><button key={card.id || card.v || card.hash} id={card.id} data-action={card.action} data-event-admin-card={card.admin?"true":undefined} onClick={()=>openNavigationCard(card)} className="btn event-card" style={{background:"var(--white)",border:"1.5px solid var(--blush)",borderRadius:"var(--event-radius)",padding:"1.35rem 1.2rem",textAlign:"left",boxShadow:"0 3px 16px var(--shadow)",animation:`fadeUp .5s ${.05*index}s ease both`}}>
             <div style={{fontSize:22,marginBottom:7}}>{card.icon}</div>
             <div style={{fontFamily:"var(--event-title-font)",fontSize:"1.18rem",fontWeight:preset.titleFont.includes("Cormorant")?400:650,color:"var(--burgundy)",marginBottom:3}}>{card.title}</div>
             <div style={{color:"var(--muted)",fontSize:".8rem"}}>{card.desc}</div>
