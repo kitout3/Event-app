@@ -41,13 +41,15 @@ service cloud.firestore {
           && request.resource.data.eventId == eventId
           && (
             (
-              request.resource.data.type == "photoLike"
+              request.resource.data.keys().hasAll(["eventId", "type", "photoId", "status"])
+              && request.resource.data.type == "photoLike"
               && request.resource.data.status == "like"
               && request.resource.data.photoId is string
             )
             ||
             (
-              request.resource.data.url is string
+              request.resource.data.keys().hasAll(["eventId", "url", "status"])
+              && request.resource.data.url is string
               && request.resource.data.status in ["pending", "approved"]
             )
           );
