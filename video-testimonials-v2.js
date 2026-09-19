@@ -129,7 +129,7 @@
     const snap=await new Promise((resolve,reject)=>task.on("state_changed",s=>onProgress(Math.round(s.bytesTransferred/s.totalBytes*100)),reject,()=>resolve(task.snapshot)));
     const url=await st.getDownloadURL(snap.ref);
     const duration=Math.round(await getDuration(file));
-    const prefs={...(window.__WEDDING_EVENT__?.settings||{}),...(()=>{try{return JSON.parse(localStorage.getItem(`mariage-account-preferences:${EVENT_ID}`)||"{}")}catch{return {}}})()};
+    const prefs={...(window.__WEDDING_EVENT__?.settings||{})};
     const videoMode=prefs.videoModerationMode||"moderated";
     const delayMinutes=Math.max(1,Number(prefs.videoDelayMinutes)||60);
     const status=videoMode==="immediate"?"approved":"pending";
