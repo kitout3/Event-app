@@ -227,3 +227,19 @@ test("mobile video gallery reserves top controls and keeps vertical scrolling",(
   assert.match(video,/\.vt-gallery-item video\{pointer-events:none/);
   assert.match(enhancer,/body:has\(#vt-overlay\) #wedding-language-switcher/);
 });
+
+
+test("mobile gallery keeps actions above languages and supports forced touch scrolling",()=>{
+  const video=read("public/video-testimonials-v2.js");
+  const enhancer=read("public/app-enhancer.js");
+  const app=read("src/App.jsx");
+  const config=read("src/event-config.mjs");
+  assert.match(video,/vt-overlay-actions/);
+  assert.match(video,/enableMobileOverlayScroll/);
+  assert.match(video,/el\.scrollTop\+=delta/);
+  assert.match(video,/touchmove/);
+  assert.match(video,/overflow-y:scroll!important/);
+  assert.match(enhancer,/top:calc\(env\(safe-area-inset-top\) \+ 58px\)!important/);
+  assert.doesNotMatch(app,/title:"Livre d’or"/);
+  assert.doesNotMatch(config,/guestbook:\s*\{\s*label:"Livre d'or"/);
+});
