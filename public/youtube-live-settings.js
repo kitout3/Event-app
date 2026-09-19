@@ -88,12 +88,10 @@
 
   async function addPanel() {
     if (document.getElementById(PANEL_ID)) return;
-    const headings = [...document.querySelectorAll("h3")];
-    const tvHeading = headings.find(h => /Affichage TV|TV display|Màn hình trình chiếu/i.test(h.textContent));
-    if (!tvHeading) return;
-    const tvCard = tvHeading.parentElement;
-    const parent = tvCard?.parentElement;
-    if (!tvCard || !parent) return;
+    if ((window.__WEDDING_EVENT__?.modules?.live) === false) return;
+    const saveButton = [...document.querySelectorAll("button")].find(button => /Sauvegarder toutes les modifications|Sauvegarder|Save|Lưu/i.test(button.textContent || ""));
+    const container = saveButton?.parentElement;
+    if (!container || !document.querySelector("[data-event-admin-root='true']")) return;
 
     const tr = text();
     const panel = document.createElement("div");
@@ -109,7 +107,7 @@
         <button data-remove-live type="button" style="padding:11px 15px;border-radius:999px;background:var(--blush,var(--blush));color:var(--burgundy,var(--burgundy))">${tr.remove}</button>
       </div>
       <p data-live-status style="min-height:20px;font-size:.8rem;margin:0"></p>`;
-    tvCard.insertAdjacentElement("afterend", panel);
+    container.insertBefore(panel, saveButton);
 
     const input = panel.querySelector("[data-live-url]");
     const status = panel.querySelector("[data-live-status]");
