@@ -98,15 +98,15 @@
     const tr = text();
     const panel = document.createElement("div");
     panel.id = PANEL_ID;
-    panel.style.cssText = "background:var(--white,#fffdf9);border-radius:18px;padding:1.5rem;box-shadow:0 2px 10px rgba(92,42,30,.12);display:grid;gap:10px";
+    panel.style.cssText = "background:var(--white,var(--white));border-radius:18px;padding:1.5rem;box-shadow:0 2px 10px rgba(92,42,30,.12);display:grid;gap:10px";
     panel.innerHTML = `
-      <h3 style="font-family:'Cormorant Garamond',serif;font-size:1.3rem;color:var(--burgundy,#5c2a1e);margin:0">🎥 ${tr.title}</h3>
-      <label style="font-size:.75rem;color:var(--muted,#9e7060);display:block">${tr.label}</label>
-      <input data-live-url type="url" inputmode="url" placeholder="https://vdo.ninja/?view=..." style="width:100%;padding:11px 13px;border-radius:10px;border:1.5px solid var(--blush,#f5ddd4);background:var(--cream,#fdf8f4);font-size:.93rem" />
-      <p style="font-size:.76rem;color:var(--muted,#9e7060);margin:0">${tr.help}</p>
+      <h3 style="font-family:'Cormorant Garamond',serif;font-size:1.3rem;color:var(--burgundy,var(--burgundy));margin:0">🎥 ${tr.title}</h3>
+      <label style="font-size:.75rem;color:var(--muted,var(--muted));display:block">${tr.label}</label>
+      <input data-live-url type="url" inputmode="url" placeholder="https://vdo.ninja/?view=..." style="width:100%;padding:11px 13px;border-radius:10px;border:1.5px solid var(--blush,var(--blush));background:var(--cream,var(--cream));font-size:.93rem" />
+      <p style="font-size:.76rem;color:var(--muted,var(--muted));margin:0">${tr.help}</p>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button data-save-live type="button" style="flex:1;min-width:210px;padding:11px 15px;border-radius:999px;background:linear-gradient(135deg,var(--rose,#c97a6a),var(--burgundy,#5c2a1e));color:#fff;font-weight:500">💾 ${tr.save}</button>
-        <button data-remove-live type="button" style="padding:11px 15px;border-radius:999px;background:var(--blush,#f5ddd4);color:var(--burgundy,#5c2a1e)">${tr.remove}</button>
+        <button data-save-live type="button" style="flex:1;min-width:210px;padding:11px 15px;border-radius:999px;background:linear-gradient(135deg,var(--rose,var(--rose)),var(--burgundy,var(--burgundy)));color:#fff;font-weight:500">💾 ${tr.save}</button>
+        <button data-remove-live type="button" style="padding:11px 15px;border-radius:999px;background:var(--blush,var(--blush));color:var(--burgundy,var(--burgundy))">${tr.remove}</button>
       </div>
       <p data-live-status style="min-height:20px;font-size:.8rem;margin:0"></p>`;
     tvCard.insertAdjacentElement("afterend", panel);
@@ -121,7 +121,7 @@
     save.onclick = async () => {
       const parsed = parseLiveUrl(input.value);
       if (!parsed) { status.textContent = tr.invalid; status.style.color = "#b83232"; return; }
-      save.disabled = true; status.textContent = tr.saving; status.style.color = "var(--muted,#9e7060)";
+      save.disabled = true; status.textContent = tr.saving; status.style.color = "var(--muted,var(--muted))";
       try { await writeRemote(parsed); input.value = parsed.liveUrl; status.textContent = tr.saved; status.style.color = "#1e8449"; }
       catch (error) { console.error(error); status.textContent = tr.error; status.style.color = "#b83232"; }
       finally { save.disabled = false; }
