@@ -24,21 +24,49 @@ service cloud.firestore {
       allow create: if platformAdmin()
         && request.resource.data.id == eventId
         && request.resource.data.slug == eventId;
-      allow update, delete: if manages(eventId);
+      allow update: if manages(eventId)
+        && request.resource.data.id == resource.data.id
+        && request.resource.data.slug == resource.data.slug
+        && (platformAdmin() || request.resource.data.ownerUid == resource.data.ownerUid);
+      allow delete: if manages(eventId);
 
       match /photos/{photoId} {
-        allow read: if active(eventId) || manages(eventId);
+        // Guests may only query approved photos and like records. Pending and
+        // rejected media stay private to the wedding administrator.
+        allow read: if manages(eventId)
+          || (active(eventId)
+            && (resource.data.status == "approved" || resource.data.type == "photoLike"));
+
         allow create: if active(eventId)
-          && request.resource.data.eventId == eventId;
+          && request.resource.data.eventId == eventId
+          && (
+            (
+              request.resource.data.type == "photoLike"
+              && request.resource.data.status == "like"
+              && request.resource.data.photoId is string
+            )
+            ||
+            (
+              request.resource.data.url is string
+              && request.resource.data.status in ["pending", "approved"]
+            )
+          );
         allow update, delete: if manages(eventId);
       }
 
       match /videoTestimonials/{videoId} {
-        // Guest gallery loads the tenant collection and filters moderation
-        // client-side; tenant isolation is still enforced by the event path.
-        allow read: if active(eventId) || manages(eventId);
+        // Public video metadata is served through listPublicVideos(), which
+        // returns only approved/due media. Direct Firestore reads are admin-only.
+        allow read: if manages(eventId);
         allow create: if active(eventId)
-          && request.resource.data.eventId == eventId;
+          && request.resource.data.eventId == eventId
+          && request.resource.data.url is string
+          && request.resource.data.path is string
+          && request.resource.data.size is int
+          && request.resource.data.size <= 500 * 1024 * 1024
+          && request.resource.data.mimeType is string
+          && request.resource.data.mimeType.matches('^video/(mp4|quicktime|webm)')
+          && request.resource.data.status in ["pending", "approved"];
         allow update, delete: if manages(eventId);
       }
 
