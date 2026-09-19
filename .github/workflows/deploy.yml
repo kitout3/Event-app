@@ -27,7 +27,11 @@ jobs:
         run: npm ci
 
       - name: Run tenant isolation tests
-        run: npm test
+        run: |
+          npm test
+          node --check functions/index.js
+          node --check functions/event-config.js
+          node --check functions/billing-config.js
 
       - name: Build
         run: npm run build
