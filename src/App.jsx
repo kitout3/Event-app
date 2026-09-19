@@ -1737,6 +1737,11 @@ function AdminSettings({ event, onUpdate }) {
     practicalInfoText:normalized.practicalInfoText || "",
     moderationMode:normalized.moderationMode || "immediate",
     displayMode:normalized.displayMode || "mixed",
+    settings:{
+      ...(normalized.settings || {}),
+      videoModerationMode: normalized.settings?.videoModerationMode || "moderated",
+      videoDelayMinutes: Number(normalized.settings?.videoDelayMinutes) || 60,
+    },
   }));
   const [uploadingAsset,setUploadingAsset] = useState("");
 
@@ -1778,6 +1783,16 @@ function AdminSettings({ event, onUpdate }) {
     practicalInfoText:form.practicalInfoText,
     moderationMode:form.moderationMode,
     displayMode:form.displayMode,
+    settings:{
+      ...form.settings,
+      primary:form.theme.primary,
+      background:form.theme.background,
+      showUpload:!!form.modules.photoUpload,
+      showGallery:!!form.modules.gallery,
+      showVideo:!!form.modules.videoTestimonials,
+      showTv:!!form.modules.tvDisplay,
+      showLive:!!form.modules.live,
+    },
     coverMessage:form.labels.heroSubtitle,
   });
 
@@ -1842,6 +1857,7 @@ function AdminSettings({ event, onUpdate }) {
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(240px,1fr))",gap:14}}>
           <div><label style={labelStyle}>Photos</label>{[["immediate","Immédiate"],["moderated","Validation manuelle"],["delayed","Différée"]].map(([value,label])=><button key={value} onClick={()=>setField("moderationMode",value)} style={{display:"block",width:"100%",padding:"10px",marginTop:5,borderRadius:10,textAlign:"left",border:`1.5px solid ${form.moderationMode===value?"var(--rose)":"var(--blush)"}`,background:form.moderationMode===value?"var(--cream)":"var(--white)",color:"var(--text)"}}>{form.moderationMode===value?"◉":"○"} {label}</button>)}</div>
           <div><label style={labelStyle}>Mode TV</label>{[["wall","Mur"],["slideshow","Diaporama"],["mixed","Mixte"]].map(([value,label])=><button key={value} onClick={()=>setField("displayMode",value)} style={{display:"block",width:"100%",padding:"10px",marginTop:5,borderRadius:10,textAlign:"left",border:`1.5px solid ${form.displayMode===value?"var(--rose)":"var(--blush)"}`,background:form.displayMode===value?"var(--cream)":"var(--white)",color:"var(--text)"}}>{form.displayMode===value?"◉":"○"} {label}</button>)}</div>
+          {form.modules.videoTestimonials&&<div><label style={labelStyle}>Publication des vidéos</label>{[["immediate","Immédiate"],["moderated","Validation manuelle"],["delayed","Différée"]].map(([value,label])=><button key={value} onClick={()=>setNested("settings","videoModerationMode",value)} style={{display:"block",width:"100%",padding:"10px",marginTop:5,borderRadius:10,textAlign:"left",border:`1.5px solid ${form.settings.videoModerationMode===value?"var(--rose)":"var(--blush)"}`,background:form.settings.videoModerationMode===value?"var(--cream)":"var(--white)",color:"var(--text)"}}>{form.settings.videoModerationMode===value?"◉":"○"} {label}</button>)}{form.settings.videoModerationMode==="delayed"&&<div style={{marginTop:8}}><label style={labelStyle}>Délai automatique (minutes)</label><input type="number" min="1" max="1440" style={fieldStyle} value={form.settings.videoDelayMinutes} onChange={e=>setNested("settings","videoDelayMinutes",Math.max(1,Number(e.target.value)||60))}/></div>}</div>}
         </div>
       </div>
 
