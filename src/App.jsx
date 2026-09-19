@@ -510,110 +510,102 @@ export default function App() {
 // HOME PAGE
 // ============================================================
 function HomePage({ setView }) {
-  const event = DB.getEvent();
+  const event = normalizeEventConfig(DB.getEvent());
+  const typeMeta = EVENT_TYPES[event.eventType] || EVENT_TYPES.custom;
+  const preset = THEME_PRESETS[event.themePreset] || THEME_PRESETS["custom-neutral"];
+  const labels = event.labels || {};
+  const modules = event.modules || {};
   const [photos, setPhotos] = useState([]);
   useEffect(() => DB.onPhotos(all => setPhotos(all.filter(p => p.status === "approved"))), []);
 
   const latest = photos[0];
   const topLiked = [...photos].sort((a, b) => (b.likes || 0) - (a.likes || 0))[0];
+  const totalLikes = photos.reduce((sum, photo) => sum + (photo.likes || 0), 0);
+  const navigation = [
+    modules.photoUpload && { icon:"📸", title:labels.uploadTitle, desc:labels.uploadSubtitle, v:VIEWS.UPLOAD },
+    modules.gallery && { icon:"🖼️", title:labels.galleryTitle, desc:labels.gallerySubtitle, v:VIEWS.GALLERY },
+    modules.tvDisplay && { icon:"📺", title:labels.tvTitle, desc:"Diaporama plein écran", v:VIEWS.LIVE },
+    modules.schedule && { icon:"🗓️", title:"Programme", desc:"Horaires et temps forts", v:VIEWS.SCHEDULE },
+    modules.practicalInfo && { icon:"ℹ️", title:"Informations pratiques", desc:"Lieu, accès et informations utiles", v:VIEWS.INFO },
+    { icon:"⚙️", title:labels.adminTitle || "Administration", desc:labels.adminSubtitle || "Gérer l’événement", v:VIEWS.ADMIN, admin:true },
+  ].filter(Boolean);
+
+  const heroBackground = event.branding?.coverUrl
+    ? `linear-gradient(180deg,rgba(10,10,10,.12),rgba(10,10,10,.62)),url("${event.branding.coverUrl}") center/cover`
+    : preset.hero;
+  const heroColor = event.branding?.coverUrl || preset.darkHero ? "#fff" : "var(--burgundy)";
+  const heroMuted = event.branding?.coverUrl || preset.darkHero ? "rgba(255,255,255,.78)" : "var(--muted)";
 
   return (
-    <div style={{
-      minHeight: "100vh",
-      background: "linear-gradient(150deg, #fdf8f4 0%, #f5ddd4 55%, #fdf8f4 100%)",
-      display: "flex", flexDirection: "column", alignItems: "center",
-      padding: "2rem 1.5rem", gap: "1.75rem",
-    }}>
-      {/* Hero */}
-      <div style={{ textAlign: "center", animation: "fadeUp .6s ease" }}>
-        <div style={{ fontSize: 42, marginBottom: 10 }}>💍</div>
-        <h1 style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: "clamp(2.4rem,7vw,4.5rem)", fontWeight: 300, color: "var(--burgundy)", lineHeight: 1.05, marginBottom: 6 }}>
+    <div style={{ minHeight:"100vh", background:"var(--cream)", display:"flex", flexDirection:"column", alignItems:"center", paddingBottom:"3rem" }}>
+      <section style={{ width:"100%", background:heroBackground, color:heroColor, padding:"clamp(2.4rem,7vw,5.5rem) 1.5rem 2.7rem", textAlign:"center", boxShadow:"0 8px 35px var(--shadow)" }}>
+        {event.branding?.logoUrl
+          ? <img src={event.branding.logoUrl} alt="" style={{maxWidth:150,maxHeight:70,objectFit:"contain",marginBottom:16}}/>
+          : <div style={{fontSize:44,marginBottom:10}}>{typeMeta.icon}</div>}
+        {event.customEventType && event.eventType==="custom" && <div style={{fontSize:11,letterSpacing:2.5,textTransform:"uppercase",opacity:.74,marginBottom:10}}>{event.customEventType}</div>}
+        <h1 style={{ fontFamily:"var(--event-title-font)", fontSize:"clamp(2.35rem,7vw,4.7rem)", fontWeight: preset.titleFont.includes("Cormorant") ? 300 : 650, lineHeight:1.02, marginBottom:8 }}>
           {event.name}
         </h1>
-        <p style={{ color: "var(--muted)", fontSize: ".95rem", letterSpacing: 3, textTransform: "uppercase" }}>{event.date}</p>
-        {photos.length > 0 && (
-          <div style={{ marginTop: 12, display: "inline-flex", gap: 8 }}>
-            <span style={{ background: "var(--blush)", borderRadius: 50, padding: "4px 14px", fontSize: ".82rem", color: "var(--burgundy)" }}>
-              📸 {photos.length} photo{photos.length > 1 ? "s" : ""}
-            </span>
-            <span style={{ background: "#fce8e8", borderRadius: 50, padding: "4px 14px", fontSize: ".82rem", color: "#b03020" }}>
-              ❤️ {photos.reduce((s, p) => s + (p.likes || 0), 0)} réaction{photos.reduce((s, p) => s + (p.likes || 0), 0) > 1 ? "s" : ""}
-            </span>
+        <p style={{ color:heroMuted, fontSize:".88rem", letterSpacing:2.2, textTransform:"uppercase" }}>
+          {[event.date,event.location].filter(Boolean).join(" · ")}
+        </p>
+        {(event.coverMessage || labels.heroSubtitle) && <p style={{color:heroMuted,maxWidth:620,margin:"14px auto 0",fontSize:".95rem"}}>{event.coverMessage || labels.heroSubtitle}</p>}
+        {photos.length>0 && <div style={{marginTop:18,display:"flex",justifyContent:"center",gap:8,flexWrap:"wrap"}}>
+          <span style={{background:"rgba(255,255,255,.86)",color:"var(--text)",borderRadius:50,padding:"6px 14px",fontSize:".8rem",backdropFilter:"blur(8px)"}}>📸 {photos.length} photo{photos.length>1?"s":""}</span>
+          {modules.reactions && <span style={{background:"rgba(255,255,255,.86)",color:"var(--text)",borderRadius:50,padding:"6px 14px",fontSize:".8rem",backdropFilter:"blur(8px)"}}>❤️ {totalLikes} réaction{totalLikes>1?"s":""}</span>}
+        </div>}
+      </section>
+
+      <main style={{width:"100%",maxWidth:760,padding:"1.4rem 1.25rem 0",display:"grid",gap:"1.25rem"}}>
+        {modules.gallery && (latest || topLiked) && (
+          <div style={{display:"flex",gap:10,width:"100%"}}>
+            {latest && <div className="event-card" style={{flex:1,borderRadius:"var(--event-radius)",overflow:"hidden",position:"relative",aspectRatio:"4/3",background:"#111",cursor:"pointer"}} onClick={()=>setView(VIEWS.GALLERY)}>
+              <img src={latest.url} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>
+              <div style={{position:"absolute",inset:0,background:"linear-gradient(0deg,rgba(0,0,0,.58),transparent 58%)"}}/>
+              <div style={{position:"absolute",top:10,left:10,background:"var(--rose)",color:"#fff",borderRadius:50,padding:"4px 11px",fontSize:".7rem"}}>✨ {labels.latest || "Nouveau"}</div>
+              {latest.author && <p style={{position:"absolute",bottom:10,left:12,color:"#fff",fontFamily:"var(--event-title-font)",fontSize:"1rem"}}>{latest.author}</p>}
+            </div>}
+            {topLiked && topLiked.id!==latest?.id && modules.reactions && (topLiked.likes||0)>0 && <div className="event-card" style={{flex:1,borderRadius:"var(--event-radius)",overflow:"hidden",position:"relative",aspectRatio:"4/3",background:"#111",cursor:"pointer"}} onClick={()=>setView(VIEWS.GALLERY)}>
+              <img src={topLiked.url} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>
+              <div style={{position:"absolute",inset:0,background:"linear-gradient(0deg,rgba(0,0,0,.58),transparent 58%)"}}/>
+              <div style={{position:"absolute",top:10,left:10,background:"rgba(170,48,48,.9)",color:"#fff",borderRadius:50,padding:"4px 11px",fontSize:".7rem"}}>❤️ {topLiked.likes}</div>
+            </div>}
           </div>
         )}
-      </div>
 
-      {/* Aperçu dernière photo + top liked */}
-      {(latest || topLiked) && (
-        <div style={{ display: "flex", gap: 10, width: "100%", maxWidth: 680, animation: "fadeUp .6s .1s ease both" }}>
-          {latest && (
-            <div style={{ flex: 1, borderRadius: 18, overflow: "hidden", position: "relative", aspectRatio: "4/3", background: "#1a1008", cursor: "pointer" }}
-              onClick={() => setView(VIEWS.GALLERY)}>
-              <img src={latest.url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-              <div style={{ position: "absolute", inset: 0, background: "linear-gradient(0deg, rgba(0,0,0,.6) 0%, transparent 55%)" }} />
-              <div style={{ position: "absolute", top: 10, left: 10, background: "rgba(201,122,106,.9)", color: "white", borderRadius: 50, padding: "3px 12px", fontSize: ".72rem", animation: "newBadge .5s ease" }}>
-                ✨ Dernière
-              </div>
-              {latest.author && <p style={{ position: "absolute", bottom: 10, left: 12, color: "white", fontFamily: "'Cormorant Garamond',serif", fontSize: "1.1rem", fontStyle: "italic" }}>{latest.author}</p>}
-            </div>
-          )}
-          {topLiked && topLiked.id !== latest?.id && (topLiked.likes || 0) > 0 && (
-            <div style={{ flex: 1, borderRadius: 18, overflow: "hidden", position: "relative", aspectRatio: "4/3", background: "#1a1008", cursor: "pointer" }}
-              onClick={() => setView(VIEWS.GALLERY)}>
-              <img src={topLiked.url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-              <div style={{ position: "absolute", inset: 0, background: "linear-gradient(0deg, rgba(0,0,0,.6) 0%, transparent 55%)" }} />
-              <div style={{ position: "absolute", top: 10, left: 10, background: "rgba(180,60,60,.85)", color: "white", borderRadius: 50, padding: "3px 12px", fontSize: ".72rem" }}>
-                ❤️ {topLiked.likes} likes
-              </div>
-              {topLiked.author && <p style={{ position: "absolute", bottom: 10, left: 12, color: "white", fontFamily: "'Cormorant Garamond',serif", fontSize: "1.1rem", fontStyle: "italic" }}>{topLiked.author}</p>}
-            </div>
-          )}
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(210px,1fr))",gap:10}}>
+          {navigation.map((card,index)=><button key={card.v} data-event-admin-card={card.admin?"true":undefined} onClick={()=>setView(card.v)} className="btn event-card" style={{background:"var(--white)",border:"1.5px solid var(--blush)",borderRadius:"var(--event-radius)",padding:"1.35rem 1.2rem",textAlign:"left",boxShadow:"0 3px 16px var(--shadow)",animation:`fadeUp .5s ${.05*index}s ease both`}}>
+            <div style={{fontSize:22,marginBottom:7}}>{card.icon}</div>
+            <div style={{fontFamily:"var(--event-title-font)",fontSize:"1.18rem",fontWeight:preset.titleFont.includes("Cormorant")?400:650,color:"var(--burgundy)",marginBottom:3}}>{card.title}</div>
+            <div style={{color:"var(--muted)",fontSize:".8rem"}}>{card.desc}</div>
+          </button>)}
         </div>
-      )}
 
-      {/* Cards navigation */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 10, width: "100%", maxWidth: 680 }}>
-        {[
-          { icon: "", title: "Envoyer une photo", desc: "Partager un souvenir", v: VIEWS.UPLOAD, delay: ".15s" },
-          { icon: "", title: "Galerie & réactions", desc: "Voir toutes les photos", v: VIEWS.GALLERY, delay: ".22s" },
-          { icon: "", title: "Affichage TV", desc: "Diaporama plein écran", v: VIEWS.LIVE, delay: ".29s" },
-          { icon: "", title: "Administration", desc: "Modérer & exporter", v: VIEWS.ADMIN, delay: ".36s" },
-        ].map(c => (
-          <button key={c.v} onClick={() => setView(c.v)} className="btn" style={{
-            background: "var(--white)", border: "1.5px solid var(--blush)", borderRadius: 18,
-            padding: "1.5rem 1.25rem", textAlign: "left",
-            boxShadow: "0 3px 16px var(--shadow)", animation: `fadeUp .55s ${c.delay} ease both`,
-          }}>
-            <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: "1.25rem", color: "var(--burgundy)", marginBottom: 2 }}>{c.title}</div>
-            <div style={{ color: "var(--muted)", fontSize: ".82rem" }}>{c.desc}</div>
-          </button>
-        ))}
-      </div>
-
-      {/* QR Code */}
-      <div style={{
-        background: "var(--white)", borderRadius: 20, padding: "1.5rem",
-        boxShadow: "0 3px 16px var(--shadow)", textAlign: "center",
-        animation: "fadeUp .55s .4s ease both", maxWidth: 280, width: "100%",
-      }}>
-        <p style={{ color: "var(--muted)", fontSize: ".72rem", letterSpacing: 2, textTransform: "uppercase", marginBottom: 12 }}>QR Code invités</p>
-        <div style={{ display: "flex", justifyContent: "center" }}>
-          <QRCode value={`${APP_URL}#upload`} size={140} />
-        </div>
-        <p style={{ color: "var(--muted)", fontSize: ".72rem", marginTop: 10, wordBreak: "break-all", opacity: .65 }}>{APP_URL}#upload</p>
-        <button onClick={() => { navigator.clipboard?.writeText(`${APP_URL}#upload`); }} className="btn"
-          style={{ marginTop: 10, background: "var(--blush)", color: "var(--burgundy)", borderRadius: 50, padding: "6px 18px", fontSize: ".78rem" }}>
-          Copier le lien
-        </button>
-      </div>
-
-      {!isRealConfig && (
-        <p style={{ background: "#fff3cd", border: "1px solid #ffc107", borderRadius: 10, padding: "8px 16px", fontSize: ".78rem", color: "#856404", maxWidth: 500, textAlign: "center" }}>
-          ⚠️ Mode démo — photos locales. Renseigne FIREBASE_CONFIG pour la prod.
-        </p>
-      )}
+        {modules.qrCode && <div className="event-card" style={{background:"var(--white)",borderRadius:"var(--event-radius)",padding:"1.45rem",boxShadow:"0 3px 16px var(--shadow)",textAlign:"center",maxWidth:320,width:"100%",justifySelf:"center"}}>
+          <p style={{color:"var(--muted)",fontSize:".7rem",letterSpacing:2,textTransform:"uppercase",marginBottom:12}}>{labels.qrTitle || "QR Code participants"}</p>
+          <div style={{display:"flex",justifyContent:"center"}}><QRCode value={`${APP_URL}#upload`} size={140}/></div>
+          <button onClick={()=>navigator.clipboard?.writeText(`${APP_URL}#upload`)} className="btn" style={{marginTop:10,background:"var(--blush)",color:"var(--burgundy)",borderRadius:50,padding:"7px 18px",fontSize:".78rem"}}>Copier le lien</button>
+        </div>}
+      </main>
     </div>
   );
+}
+
+function EventTextPage({ setView, mode }) {
+  const event = normalizeEventConfig(DB.getEvent());
+  const typeMeta = EVENT_TYPES[event.eventType] || EVENT_TYPES.custom;
+  const schedule = mode === "schedule";
+  const title = schedule ? "Programme" : "Informations pratiques";
+  const content = schedule ? event.scheduleText : event.practicalInfoText;
+  return <div style={{minHeight:"100vh",background:"var(--cream)",padding:"2rem 1rem 6rem"}}>
+    <div style={{maxWidth:720,margin:"0 auto"}}>
+      <div style={{textAlign:"center",marginBottom:24}}><div style={{fontSize:34}}>{schedule?"🗓️":"ℹ️"}</div><h1 style={{fontFamily:"var(--event-title-font)",fontSize:"2.3rem",color:"var(--burgundy)",marginTop:8}}>{title}</h1><p style={{color:"var(--muted)",marginTop:5}}>{typeMeta.icon} {event.name}</p></div>
+      <div className="event-card" style={{background:"var(--white)",border:"1px solid var(--blush)",borderRadius:"var(--event-radius)",padding:"1.6rem",boxShadow:"0 4px 22px var(--shadow)",whiteSpace:"pre-wrap",lineHeight:1.75,color:"var(--text)"}}>
+        {content?.trim() || (schedule ? "Le programme sera communiqué prochainement." : "Les informations pratiques seront communiquées prochainement.")}
+      </div>
+    </div>
+    <HomeButton setView={setView}/>
+  </div>;
 }
 
 // ============================================================
