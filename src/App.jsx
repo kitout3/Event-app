@@ -1424,7 +1424,7 @@ function AdminPage({ auth, user, setAuth, setEventExists, setView }) {
       if (!_eventExists) {
         if (signedUser.uid !== PLATFORM_OWNER_UID) {
           await window.__fb.signOut(_auth);
-          throw new Error("Cet espace mariage n’existe pas encore.");
+          throw new Error("Cet espace événement n’existe pas encore.");
         }
         const created = await DB.bootstrapEvent();
         setEvent(created);
@@ -1433,7 +1433,7 @@ function AdminPage({ auth, user, setAuth, setEventExists, setView }) {
       const refreshed = DB.getEvent();
       if (signedUser.uid !== refreshed.ownerUid && signedUser.uid !== PLATFORM_OWNER_UID) {
         await window.__fb.signOut(_auth);
-        throw new Error("Ce compte n’est pas administrateur de ce mariage.");
+        throw new Error("Ce compte n’est pas administrateur de cet événement.");
       }
       setEvent(refreshed);
       setAuth(true);
@@ -1483,7 +1483,7 @@ function AdminPage({ auth, user, setAuth, setEventExists, setView }) {
   );
 
   return (
-    <div style={{ minHeight: "100vh", background: "var(--cream)" }}>
+    <div data-event-admin-root="true" style={{ minHeight: "100vh", background: "var(--cream)" }}>
       <Toast msg={toast?.msg} type={toast?.type} />
 
       <div style={{ background: "var(--white)", borderBottom: "1px solid var(--blush)", padding: ".9rem 1.25rem", display: "flex", alignItems: "center", gap: 10, position: "sticky", top: 0, zIndex: 50, flexWrap: "wrap" }}>
@@ -1797,7 +1797,7 @@ function AdminExport({ photos, event }) {
     const h = ["id","author","message","status","likes","createdAt","url"];
     const rows = photos.map(p => h.map(k => JSON.stringify(p[k] ?? "")).join(","));
     const blob = new Blob([[h.join(","), ...rows].join("\n")], { type: "text/csv" });
-    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `${event.slug || "mariage"}-photos.csv`; a.click();
+    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `${event.slug || "evenement"}-photos.csv`; a.click();
   };
 
   const exportZIP = async () => {
