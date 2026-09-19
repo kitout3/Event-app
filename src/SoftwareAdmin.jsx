@@ -36,7 +36,7 @@ export default function SoftwareAdmin(){
   const [weddings,setWeddings]=useState([]),[loading,setLoading]=useState(false),[search,setSearch]=useState("");
   const [showCreate,setShowCreate]=useState(false);
   const [form,setForm]=useState({name:"",date:"",slug:"",adminEmail:"",adminPassword:""});
-  const [creating,setCreating]=useState(false);
+  const [creating,setCreating]=useState(false),[notice,setNotice]=useState(""),[deleting,setDeleting]=useState("");
 
   useEffect(()=>{ let unsub; initFirebase().then(()=>{unsub=fb.onAuthStateChanged(auth,u=>{setUser(u);setReady(true);});}).catch(e=>{setError(e.message);setReady(true)}); return()=>unsub?.();},[]);
   const authorized=user?.uid===PLATFORM_OWNER_UID;
@@ -55,7 +55,34 @@ export default function SoftwareAdmin(){
 
   const login=async()=>{setError("");try{const c=await fb.signInWithEmailAndPassword(auth,email.trim(),password);if(c.user.uid!==PLATFORM_OWNER_UID){await fb.signOut(auth);throw new Error("Ce compte n’est pas administrateur du logiciel.");}}catch(e){setError(e.message||"Connexion impossible");}};
   const normalize=v=>v.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"").slice(0,80);
-  const create=async()=>{setCreating(true);setError("");try{const call=fb.httpsCallable(functionsApi,"createWedding");await call({...form,slug:normalize(form.slug||form.name)});setForm({name:"",date:"",slug:"",adminEmail:"",adminPassword:""});setShowCreate(false);await load();}catch(e){setError(e.message||"Création impossible");}finally{setCreating(false)}};
+  const create=async()=>{
+    setCreating(true); setError(""); setNotice("");
+    const payload={...form,name:form.name.trim(),date:form.date.trim(),adminEmail:form.adminEmail.trim(),slug:normalize(form.slug||form.name)};
+    if(!payload.name||!payload.adminEmail||!payload.slug){setError("Nom, lien unique et email administrateur sont obligatoires.");setCreating(false);return;}
+    if(payload.adminPassword.length<8){setError("Le mot de passe temporaire doit contenir au moins 8 caractères.");setCreating(false);return;}
+    try{
+      const call=fb.httpsCallable(functionsApi,"createWedding");
+      const res=await call(payload);
+      setForm({name:"",date:"",slug:"",adminEmail:"",adminPassword:""});
+      setShowCreate(false);
+      setNotice(`Mariage créé avec succès : ${payload.name}`);
+      await load();
+      if(res.data?.guestUrl) window.open(res.data.guestUrl,"_blank");
+    }catch(e){setError(e.message||"Création impossible");}
+    finally{setCreating(false)}
+  };
+  const removeWedding=async(w)=>{
+    if(w.slug==="quentin-huyen-2026"){setError("Huyen & Quentin est le mariage historique protégé.");return;}
+    if(!window.confirm(`Supprimer définitivement « ${w.name} » et toutes ses données ? Cette action est irréversible.`))return;
+    setDeleting(w.id);setError("");setNotice("");
+    try{
+      const call=fb.httpsCallable(functionsApi,"deleteWedding");
+      await call({eventId:w.id});
+      setNotice(`Mariage supprimé : ${w.name}`);
+      await load();
+    }catch(e){setError(e.message||"Suppression impossible");}
+    finally{setDeleting("");}
+  };
 
   const filtered=useMemo(()=>{const q=search.trim().toLowerCase();return weddings.filter(w=>!q||[w.name,w.date,w.slug,w.adminEmail].some(v=>String(v||"").toLowerCase().includes(q)))},[weddings,search]);
   if(!ready)return <Shell><p>Connexion…</p></Shell>;
@@ -72,10 +99,11 @@ export default function SoftwareAdmin(){
         {[[weddings.length,"Mariages"],[weddings.filter(w=>w.active).length,"Actifs"],[weddings.reduce((s,w)=>s+(w.photoCount||0),0),"Photos"],[weddings.reduce((s,w)=>s+(w.videoCount||0),0),"Vidéos"]].map(([n,l])=><div key={l} style={{background:"#fff",padding:20,borderRadius:16,border:"1px solid #eaded7"}}><div style={{fontSize:12,opacity:.6,textTransform:"uppercase"}}>{l}</div><div style={{fontFamily:"Georgia,serif",fontSize:30,marginTop:4}}>{n}</div></div>)}
       </div>
       {showCreate&&<section style={{background:"#fff",padding:22,borderRadius:18,border:"1px solid #eaded7",marginBottom:18}}><h2 style={{fontFamily:"Georgia,serif",fontWeight:400}}>Créer un mariage</h2><div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))",gap:10,marginTop:14}}><input style={inputStyle} placeholder="Nom · Julie & Paul" value={form.name} onChange={e=>setForm({...form,name:e.target.value,slug:form.slug||normalize(e.target.value)})}/><input style={inputStyle} placeholder="Date" value={form.date} onChange={e=>setForm({...form,date:e.target.value})}/><input style={inputStyle} placeholder="Lien unique" value={form.slug} onChange={e=>setForm({...form,slug:normalize(e.target.value)})}/><input style={inputStyle} type="email" placeholder="Email administrateur" value={form.adminEmail} onChange={e=>setForm({...form,adminEmail:e.target.value})}/><input style={inputStyle} type="password" placeholder="Mot de passe temporaire" value={form.adminPassword} onChange={e=>setForm({...form,adminPassword:e.target.value})}/><button style={btn(true)} disabled={creating} onClick={create}>{creating?"Création…":"Créer le mariage"}</button></div></section>}
+      {notice&&<div style={{background:"#eef8ef",color:"#286335",padding:12,borderRadius:10,marginBottom:14}}>{notice}</div>}
       {error&&<div style={{background:"#fff0ed",color:"#a33",padding:12,borderRadius:10,marginBottom:14}}>{error}</div>}
       <section style={{background:"#fff",padding:22,borderRadius:18,border:"1px solid #eaded7"}}>
         <div style={{display:"flex",gap:10,alignItems:"center",flexWrap:"wrap",marginBottom:16}}><div style={{flex:1}}><h2 style={{fontFamily:"Georgia,serif",fontWeight:400}}>Mariages en cours</h2><small>{filtered.length} mariage{filtered.length!==1?"s":""}</small></div><input style={{...inputStyle,maxWidth:350}} placeholder="Rechercher…" value={search} onChange={e=>setSearch(e.target.value)}/><button style={btn()} onClick={load}>{loading?"Actualisation…":"Actualiser"}</button></div>
-        <div style={{display:"grid",gap:10}}>{filtered.map(w=><div key={w.id} style={{border:"1px solid #eaded7",borderRadius:14,padding:15,display:"flex",gap:14,alignItems:"center",flexWrap:"wrap"}}><div style={{flex:"1 1 300px"}}><strong style={{fontFamily:"Georgia,serif",fontSize:20}}>{w.name}</strong><div style={{fontSize:13,opacity:.65,marginTop:3}}>{w.date||"Date non renseignée"} · {w.slug}</div><div style={{fontSize:12,opacity:.55,marginTop:3}}>Admin : {w.adminEmail||"—"}</div></div><div style={{fontSize:13}}>{w.photoCount||0} photos · {w.videoCount||0} vidéos</div><button style={btn()} onClick={()=>window.open(w.guestUrl||`${APP_BASE}?w=${encodeURIComponent(w.slug)}`,"_blank")}>Application</button><button style={btn(true)} onClick={()=>window.open(w.adminUrl||`${APP_BASE}?w=${encodeURIComponent(w.slug)}#admin`,"_blank")}>Admin mariage</button></div>)}</div>
+        <div style={{display:"grid",gap:10}}>{filtered.map(w=><div key={w.id} style={{border:"1px solid #eaded7",borderRadius:14,padding:15,display:"flex",gap:14,alignItems:"center",flexWrap:"wrap"}}><div style={{flex:"1 1 300px"}}><strong style={{fontFamily:"Georgia,serif",fontSize:20}}>{w.name}</strong><div style={{fontSize:13,opacity:.65,marginTop:3}}>{w.date||"Date non renseignée"} · {w.slug}</div><div style={{fontSize:12,opacity:.55,marginTop:3}}>Admin : {w.adminEmail||"—"}</div></div><div style={{fontSize:13}}>{w.photoCount||0} photos · {w.videoCount||0} vidéos</div><button style={btn()} onClick={()=>window.open(w.guestUrl||`${APP_BASE}?w=${encodeURIComponent(w.slug)}`,"_blank")}>Application</button><button style={btn(true)} onClick={()=>window.open(w.adminUrl||`${APP_BASE}?w=${encodeURIComponent(w.slug)}#admin`,"_blank")}>Admin mariage</button>{w.slug!=="quentin-huyen-2026"&&<button style={{...btn(),background:"#fff0ed",color:"#a33"}} disabled={deleting===w.id} onClick={()=>removeWedding(w)}>{deleting===w.id?"Suppression…":"Supprimer"}</button>}</div>)}</div>
       </section>
     </main>
   </div>;
