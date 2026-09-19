@@ -227,6 +227,11 @@
 
   function installTab() {
     ensureStyles();
+    if (window.__WEDDING_EVENT__?.modules?.videoTestimonials === false) {
+      document.getElementById("admin-video-tab")?.remove();
+      document.getElementById("admin-video-panel")?.remove();
+      return;
+    }
     if (!isAuthenticated()) {
       document.getElementById("admin-video-tab")?.remove();
       document.getElementById("admin-video-panel")?.remove();
