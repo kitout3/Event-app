@@ -270,6 +270,16 @@ const DB = {
     window.dispatchEvent(new CustomEvent("wedding:event-updated", { detail: currentEvent }));
     return { ...currentEvent };
   },
+  uploadBrandAsset: async (file, kind = "cover") => {
+    if (!_firebaseReady || !file) throw new Error("Stockage indisponible");
+    const { ref, uploadBytes, getDownloadURL } = window.__fb;
+    const extension = (file.name.split(".").pop() || "jpg").replace(/[^a-z0-9]/gi, "").toLowerCase() || "jpg";
+    const safeKind = kind === "logo" ? "logo" : "cover";
+    const path = `events/${EVENT_ID}/branding/${safeKind}_${Date.now()}.${extension}`;
+    const assetRef = ref(_storage, path);
+    await uploadBytes(assetRef, file, { contentType: file.type || "image/jpeg", customMetadata: { eventId: EVENT_ID, kind: safeKind } });
+    return getDownloadURL(assetRef);
+  },
   bootstrapEvent: async () => {
     if (!_firebaseReady || _eventExists) return { ...currentEvent };
     const { doc, setDoc, serverTimestamp } = window.__fb;
