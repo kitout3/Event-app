@@ -42,15 +42,15 @@ exports.createWedding = onCall({ region: "europe-west1" }, async request => {
     throw new HttpsError("invalid-argument", "Le mot de passe temporaire doit contenir au moins 8 caractères.");
   }
 
-  const db = getFirestore();
-  const eventRef = db.collection("events").doc(slug);
-  const existingEvent = await eventRef.get();
-  if (existingEvent.exists) {
-    throw new HttpsError("already-exists", "Cet identifiant de mariage existe déjà.");
-  }
-
   let adminUser = null;
   try {
+    const db = getFirestore();
+    const eventRef = db.collection("events").doc(slug);
+    const existingEvent = await eventRef.get();
+    if (existingEvent.exists) {
+      throw new HttpsError("already-exists", "Cet identifiant de mariage existe déjà.");
+    }
+
     try {
       adminUser = await getAuth().getUserByEmail(adminEmail);
     } catch (error) {
@@ -140,8 +140,8 @@ exports.createWedding = onCall({ region: "europe-west1" }, async request => {
     }
 
     throw new HttpsError(
-      "internal",
-      "Création du mariage impossible côté serveur.",
+      "failed-precondition",
+      `Création impossible côté serveur (${code || "unknown"}): ${message.slice(0, 180) || "erreur inconnue"}`,
       { sourceCode: code || "unknown", sourceMessage: message.slice(0, 180) }
     );
   }
