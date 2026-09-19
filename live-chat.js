@@ -42,14 +42,14 @@
         flex: 0 0 var(--wedding-chat-width);
         height: 100%;
         min-height: 0;
-        background: #fffdf9;
-        border-left: 1px solid #f5ddd4;
+        background: var(--white);
+        border-left: 1px solid var(--blush);
         padding: 12px;
         display: grid;
         grid-template-rows: auto minmax(80px, 1fr) auto;
         gap: 9px;
         box-sizing: border-box;
-        color: #3d2010;
+        color: var(--text);
         overflow: hidden;
         opacity: 1;
         transform: translateX(0);
@@ -133,7 +133,7 @@
           width: var(--wedding-chat-width);
           flex-basis: var(--wedding-chat-width);
           padding: 12px;
-          border-left: 1px solid #f5ddd4;
+          border-left: 1px solid var(--blush);
           transform: translateX(100%);
         }
         #wedding-live-panel #${TOGGLE_ID} {
@@ -195,14 +195,14 @@
 
     host.innerHTML = `
       <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
-        <h2 style="margin:0;font:600 1.25rem 'Cormorant Garamond',Georgia,serif;color:#5c2a1e">💬 ${t("title")}</h2>
-        <span data-chat-count style="font-size:.75rem;color:#9e7060"></span>
+        <h2 style="margin:0;font:600 1.25rem 'Cormorant Garamond',Georgia,serif;color:var(--burgundy)">💬 ${t("title")}</h2>
+        <span data-chat-count style="font-size:.75rem;color:var(--muted)"></span>
       </div>
-      <div data-chat-list style="overflow:auto;display:grid;align-content:start;gap:8px;padding:2px 2px 4px"><p style="margin:auto;color:#9e7060">${t("empty")}</p></div>
+      <div data-chat-list style="overflow:auto;display:grid;align-content:start;gap:8px;padding:2px 2px 4px"><p style="margin:auto;color:var(--muted)">${t("empty")}</p></div>
       <form data-chat-form>
-        <input data-chat-name maxlength="30" placeholder="${t("name")}" autocomplete="name" style="min-width:0;padding:10px 11px;border:1px solid #f5ddd4;border-radius:12px;background:#fdf8f4;font:inherit" />
-        <input data-chat-message maxlength="300" placeholder="${t("message")}" required autocomplete="off" style="min-width:0;padding:10px 11px;border:1px solid #f5ddd4;border-radius:12px;background:#fdf8f4;font:inherit" />
-        <button data-chat-send type="submit" style="border:0;border-radius:999px;padding:10px 15px;background:#5c2a1e;color:white;font-weight:600;cursor:pointer">${t("send")}</button>
+        <input data-chat-name maxlength="30" placeholder="${t("name")}" autocomplete="name" style="min-width:0;padding:10px 11px;border:1px solid var(--blush);border-radius:12px;background:var(--cream);font:inherit" />
+        <input data-chat-message maxlength="300" placeholder="${t("message")}" required autocomplete="off" style="min-width:0;padding:10px 11px;border:1px solid var(--blush);border-radius:12px;background:var(--cream);font:inherit" />
+        <button data-chat-send type="submit" style="border:0;border-radius:999px;padding:10px 15px;background:var(--burgundy);color:white;font-weight:600;cursor:pointer">${t("send")}</button>
       </form>`;
 
     const list = host.querySelector("[data-chat-list]");
@@ -258,13 +258,13 @@
         renderUnread();
         list.innerHTML = "";
         if (!messages.length) {
-          list.innerHTML = `<p style="margin:auto;color:#9e7060">${t("empty")}</p>`;
+          list.innerHTML = `<p style="margin:auto;color:var(--muted)">${t("empty")}</p>`;
           return;
         }
         messages.forEach(item => {
           const row = document.createElement("article");
-          row.style.cssText = "background:#fdf8f4;border:1px solid #f5ddd4;border-radius:12px;padding:8px 10px";
-          row.innerHTML = `<div style="display:flex;justify-content:space-between;gap:10px"><strong style="color:#5c2a1e;font-size:.88rem">${escapeHtml(item.name || "Invité")}</strong><time style="color:#9e7060;font-size:.7rem">${formatTime(item.createdAt)}</time></div><p style="margin:3px 0 0;white-space:pre-wrap;overflow-wrap:anywhere;font-size:.88rem">${escapeHtml(item.message)}</p>`;
+          row.style.cssText = "background:var(--cream);border:1px solid var(--blush);border-radius:12px;padding:8px 10px";
+          row.innerHTML = `<div style="display:flex;justify-content:space-between;gap:10px"><strong style="color:var(--burgundy);font-size:.88rem">${escapeHtml(item.name || "Invité")}</strong><time style="color:var(--muted);font-size:.7rem">${formatTime(item.createdAt)}</time></div><p style="margin:3px 0 0;white-space:pre-wrap;overflow-wrap:anywhere;font-size:.88rem">${escapeHtml(item.message)}</p>`;
           list.appendChild(row);
         });
         list.scrollTop = list.scrollHeight;

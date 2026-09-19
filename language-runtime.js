@@ -3,6 +3,26 @@
 
   const LANG_KEY = "mariage-lang";
   const rows = [
+    ["Partager un moment", "Share a moment", "Chia sẻ khoảnh khắc"],
+    ["Ajouter une photo", "Add a photo", "Thêm ảnh"],
+    ["Mur photo", "Photo wall", "Tường ảnh"],
+    ["Galerie de la soirée", "Event gallery", "Thư viện sự kiện"],
+    ["Galerie de l’événement", "Event gallery", "Thư viện sự kiện"],
+    ["Galerie officielle", "Official gallery", "Thư viện chính thức"],
+    ["Espace organisateur", "Organizer area", "Khu vực ban tổ chức"],
+    ["Organisation", "Organisation", "Tổ chức"],
+    ["Gérer l’événement", "Manage the event", "Quản lý sự kiện"],
+    ["Programme", "Schedule", "Chương trình"],
+    ["Horaires et temps forts", "Schedule and highlights", "Lịch trình và điểm nổi bật"],
+    ["Informations pratiques", "Practical information", "Thông tin hữu ích"],
+    ["Lieu, accès et informations utiles", "Venue, access and useful information", "Địa điểm và thông tin hữu ích"],
+    ["Live de l’événement", "Live event", "Sự kiện trực tiếp"],
+    ["Suivre la diffusion en direct", "Watch the live stream", "Xem trực tiếp"],
+    ["QR Code participants", "Participant QR code", "Mã QR người tham dự"],
+    ["Événement en direct", "Live event", "Sự kiện trực tiếp"],
+    ["Nom de l’événement", "Event name", "Tên sự kiện"],
+    ["Organisateur", "Organiser", "Ban tổ chức"],
+    ["Lieu", "Venue", "Địa điểm"],
     ["Envoyer une photo", "Upload a photo", "Gửi ảnh"],
     ["Partager un souvenir", "Share a memory", "Chia sẻ kỷ niệm"],
     ["Galerie & réactions", "Gallery & reactions", "Thư viện ảnh và cảm xúc"],
@@ -133,8 +153,8 @@
       document.documentElement.lang = language;
       document.querySelectorAll("#wedding-language-switcher button").forEach(button => {
         const active = button.dataset.lang === language;
-        button.style.background = active ? "#5c2a1e" : "transparent";
-        button.style.color = active ? "white" : "#5c2a1e";
+        button.style.background = active ? "var(--burgundy)" : "transparent";
+        button.style.color = active ? "white" : "var(--burgundy)";
         button.setAttribute("aria-pressed", String(active));
       });
     } finally {
