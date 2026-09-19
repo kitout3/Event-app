@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { EVENT_TYPES, THEME_PRESETS, MODULE_META, eventDefaults, normalizeEventConfig, cssVarsForEvent, presetForType } from "./event-config.mjs";
 
 // ============================================================
 // FIREBASE CONFIG — remplace par tes vraies clés Firebase
@@ -31,28 +32,23 @@ const TENANT = window.__WEDDING_TENANT__ || (() => {
 })();
 const EVENT_ID = TENANT.eventId;
 const PLATFORM_OWNER_UID = "beQK5FNoVla9lnvnzSfqasK93QR2";
-const DEFAULT_EVENT = {
+const DEFAULT_EVENT = normalizeEventConfig({
+  ...eventDefaults(EVENT_ID === "quentin-huyen-2026" ? "wedding" : "custom"),
   id: EVENT_ID,
   slug: EVENT_ID,
-  name: EVENT_ID === "quentin-huyen-2026" ? "Huyen & Quentin" : "Votre mariage",
+  name: EVENT_ID === "quentin-huyen-2026" ? "Huyen & Quentin" : "Votre événement",
   date: EVENT_ID === "quentin-huyen-2026" ? "12 – 13 Septembre 2026" : "",
   ownerUid: EVENT_ID === "quentin-huyen-2026" ? PLATFORM_OWNER_UID : null,
   moderationMode: "immediate",
   displayMode: "mixed",
   active: true,
-  coverMessage: "Partagez vos plus beaux souvenirs",
+  coverMessage: EVENT_ID === "quentin-huyen-2026" ? "Partagez vos plus beaux souvenirs" : "Partagez vos meilleurs moments",
   settings: {
-    primary: "#5c2a1e",
-    background: "#fdf8f4",
-    showUpload: true,
-    showGallery: true,
-    showVideo: true,
-    showTv: true,
-    showLive: true,
-    videoModerationMode: "moderated",
-    videoDelayMinutes: 60,
+    primary: "#5c2a1e", background: "#fdf8f4",
+    showUpload: true, showGallery: true, showVideo: true, showTv: true, showLive: true,
+    videoModerationMode: "moderated", videoDelayMinutes: 60,
   },
-};
+});
 
 let _firebaseApp = null, _db = null, _storage = null, _auth = null, _functions = null, _firebaseReady = false, _eventExists = false;
 let currentEvent = { ...DEFAULT_EVENT };
