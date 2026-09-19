@@ -219,5 +219,5 @@
   }
   function refresh(){addCards();if(location.hash==="#admin")addAdmin();if(location.hash==="#video"&&!document.getElementById("vt-overlay"))openGuest();if(location.hash==="#video-gallery"&&!document.getElementById("vt-overlay"))openGallery()}
   document.addEventListener("click",e=>{if(e.target.closest("#wedding-language-switcher"))setTimeout(()=>{document.getElementById("vt-home-card")?.remove();document.getElementById("vt-gallery-card")?.remove();document.querySelectorAll(".vt-admin").forEach(x=>x.remove());refresh()},40)});
-  const obs=new MutationObserver(()=>setTimeout(refresh,30));document.addEventListener("DOMContentLoaded",()=>{refresh();obs.observe(document.body,{childList:true,subtree:true})});window.addEventListener("load",refresh);setTimeout(refresh,400);
+  const obs=new MutationObserver(()=>setTimeout(refresh,30));document.addEventListener("DOMContentLoaded",()=>{refresh();obs.observe(document.body,{childList:true,subtree:true})});window.addEventListener("load",refresh);window.addEventListener("hashchange",refresh);setTimeout(refresh,400);
 })();
