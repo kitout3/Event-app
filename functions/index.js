@@ -126,7 +126,9 @@ exports.listWeddings = onCall({ region: "europe-west1" }, async request => {
   const snapshot = await db.collection("events").get();
   const eventDocs = snapshot.docs.filter(doc => {
     const data = doc.data();
-    return Boolean(data.ownerUid && (data.slug || data.id));
+    // Legacy Huyen & Quentin data predates the SaaS owner/slug metadata.
+    // Include every actual event document and normalize missing metadata below.
+    return Boolean(doc.id && data);
   });
 
   const weddings = await Promise.all(eventDocs.map(async eventDoc => {
@@ -156,15 +158,16 @@ exports.listWeddings = onCall({ region: "europe-west1" }, async request => {
     const createdAt = data.createdAt?.toDate?.()?.toISOString?.() || null;
     const updatedAt = data.updatedAt?.toDate?.()?.toISOString?.() || null;
     const slug = data.slug || eventDoc.id;
+    const isLegacyWedding = slug === "quentin-huyen-2026";
     const guestUrl = `${PUBLIC_APP_BASE}?w=${encodeURIComponent(slug)}`;
 
     return {
       id: eventDoc.id,
       slug,
-      name: data.name || slug,
-      date: data.date || "",
+      name: data.name || (isLegacyWedding ? "Huyen & Quentin" : slug),
+      date: data.date || (isLegacyWedding ? "12 – 13 Septembre 2026" : ""),
       active: data.active !== false,
-      ownerUid: data.ownerUid,
+      ownerUid: data.ownerUid || (isLegacyWedding ? PLATFORM_OWNER_UID : null),
       adminEmail,
       photoCount: photoDocs.length,
       pendingPhotoCount: pendingPhotos,
