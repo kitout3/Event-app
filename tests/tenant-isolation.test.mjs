@@ -214,3 +214,16 @@ test("event home keeps video message, video gallery and live entry points",()=>{
   assert.match(app,/hash:"live"/);
   assert.match(video,/addEventListener\("hashchange",refresh\)/);
 });
+
+
+test("mobile video gallery reserves top controls and keeps vertical scrolling",()=>{
+  const video=read("public/video-testimonials-v2.js");
+  const enhancer=read("public/app-enhancer.js");
+  assert.match(video,/height:100dvh/);
+  assert.match(video,/overflow-y:auto/);
+  assert.match(video,/-webkit-overflow-scrolling:touch/);
+  assert.match(video,/touch-action:pan-y/);
+  assert.match(video,/padding:calc\(env\(safe-area-inset-top\) \+ 76px\)/);
+  assert.match(video,/\.vt-gallery-item video\{pointer-events:none/);
+  assert.match(enhancer,/body:has\(#vt-overlay\) #wedding-language-switcher/);
+});
