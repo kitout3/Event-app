@@ -117,11 +117,11 @@ test("software admin exposes type, theme, module and preview creation steps",()=
   assert.match(source,/themePreset/);
 });
 
-test("event app separates TV and live routes and supports optional guestbook",()=>{
+test("event app separates TV and live routes while guestbook is hidden from home",()=>{
   const source=read("src/App.jsx");
   assert.match(source,/TV: "tv"/);
   assert.match(source,/GUESTBOOK: "guestbook"/);
-  assert.match(source,/modules\.guestbook/);
+  assert.doesNotMatch(source,/modules\.guestbook\s*&&\s*\{/);
   assert.match(source,/guestbookMessages/);
 });
 
@@ -220,10 +220,10 @@ test("mobile video gallery reserves top controls and keeps vertical scrolling",(
   const video=read("public/video-testimonials-v2.js");
   const enhancer=read("public/app-enhancer.js");
   assert.match(video,/height:100dvh/);
-  assert.match(video,/overflow-y:auto/);
+  assert.match(video,/overflow-y:scroll!important/);
   assert.match(video,/-webkit-overflow-scrolling:touch/);
   assert.match(video,/touch-action:pan-y/);
-  assert.match(video,/padding:calc\(env\(safe-area-inset-top\) \+ 76px\)/);
+  assert.match(video,/padding:calc\(env\(safe-area-inset-top\) \+ 126px\)/);
   assert.match(video,/\.vt-gallery-item video\{pointer-events:none/);
   assert.match(enhancer,/body:has\(#vt-overlay\) #wedding-language-switcher/);
 });
