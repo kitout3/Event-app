@@ -24,7 +24,7 @@ function normalizeSlug(value) {
 
 exports.createWedding = onCall({ region: "europe-west1" }, async request => {
   if (!request.auth || request.auth.uid !== PLATFORM_OWNER_UID) {
-    throw new HttpsError("permission-denied", "Seul l’administrateur de la plateforme peut créer un mariage.");
+    throw new HttpsError("permission-denied", "Seul l’administrateur de la plateforme peut créer un événement.");
   }
 
   const data = request.data || {};
@@ -38,7 +38,7 @@ exports.createWedding = onCall({ region: "europe-west1" }, async request => {
     throw new HttpsError("invalid-argument", "Nom, identifiant et email administrateur obligatoires.");
   }
   if (!/^[a-z0-9][a-z0-9-]{2,79}$/.test(slug)) {
-    throw new HttpsError("invalid-argument", "Identifiant de mariage invalide.");
+    throw new HttpsError("invalid-argument", "Identifiant d’événement invalide.");
   }
   if (adminPassword.length < 8) {
     throw new HttpsError("invalid-argument", "Le mot de passe temporaire doit contenir au moins 8 caractères.");
@@ -50,7 +50,7 @@ exports.createWedding = onCall({ region: "europe-west1" }, async request => {
     const eventRef = db.collection("events").doc(slug);
     const existingEvent = await eventRef.get();
     if (existingEvent.exists) {
-      throw new HttpsError("already-exists", "Cet identifiant de mariage existe déjà.");
+      throw new HttpsError("already-exists", "Cet identifiant d’événement existe déjà.");
     }
 
     try {
@@ -70,7 +70,7 @@ exports.createWedding = onCall({ region: "europe-west1" }, async request => {
     if (!alreadyOwned.empty) {
       throw new HttpsError(
         "already-exists",
-        "Ce compte admin est déjà associé à un mariage. Utilisez une autre adresse email pour garantir l’indépendance des espaces."
+        "Ce compte admin est déjà associé à un événement. Utilisez une autre adresse email pour garantir l’indépendance des espaces."
       );
     }
 
@@ -152,7 +152,7 @@ exports.createWedding = onCall({ region: "europe-west1" }, async request => {
       throw new HttpsError("failed-precondition", `Firebase Auth refuse la création du compte administrateur (${code}).`);
     }
     if (code.startsWith("firestore/") || code.includes("permission")) {
-      throw new HttpsError("failed-precondition", `Firestore refuse la création du mariage (${code || "erreur Firestore"}).`);
+      throw new HttpsError("failed-precondition", `Firestore refuse la création de l’événement (${code || "erreur Firestore"}).`);
     }
 
     throw new HttpsError(
@@ -182,7 +182,7 @@ exports.createWeddingV2 = onCall({ region: "europe-west1" }, async request => {
       return { ok: false, stage, code: "invalid-argument", message: "Nom, lien unique et email administrateur obligatoires." };
     }
     if (!/^[a-z0-9][a-z0-9-]{2,79}$/.test(slug)) {
-      return { ok: false, stage, code: "invalid-slug", message: "Le lien unique du mariage est invalide." };
+      return { ok: false, stage, code: "invalid-slug", message: "Le lien unique de l’événement est invalide." };
     }
     if (adminPassword.length < 8) {
       return { ok: false, stage, code: "invalid-password", message: "Le mot de passe temporaire doit contenir au moins 8 caractères." };
@@ -192,7 +192,7 @@ exports.createWeddingV2 = onCall({ region: "europe-west1" }, async request => {
     const db = getFirestore();
     const eventRef = db.collection("events").doc(slug);
     if ((await eventRef.get()).exists) {
-      return { ok: false, stage, code: "already-exists", message: "Cet identifiant de mariage existe déjà." };
+      return { ok: false, stage, code: "already-exists", message: "Cet identifiant d’événement existe déjà." };
     }
 
     stage = "auth-user";
@@ -223,7 +223,7 @@ exports.createWeddingV2 = onCall({ region: "europe-west1" }, async request => {
         ok: false,
         stage,
         code: "admin-already-used",
-        message: "Ce compte administrateur est déjà associé à un mariage. Utilisez une autre adresse email.",
+        message: "Ce compte administrateur est déjà associé à un événement. Utilisez une autre adresse email.",
       };
     }
 
@@ -407,7 +407,7 @@ exports.deleteWedding = onCall({ region: "europe-west1" }, async request => {
     await getStorage().bucket().deleteFiles({ prefix: `events/${eventId}/` });
   } catch (error) {
     console.error("deleteWedding storage:", eventId, error);
-    throw new HttpsError("internal", "Impossible de supprimer les fichiers du mariage. Réessayez.");
+    throw new HttpsError("internal", "Impossible de supprimer les fichiers de l’événement. Réessayez.");
   }
 
   await db.recursiveDelete(eventRef);
