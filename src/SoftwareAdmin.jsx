@@ -68,7 +68,12 @@ export default function SoftwareAdmin(){
       setNotice(`Mariage créé avec succès : ${payload.name}`);
       await load();
       if(res.data?.guestUrl) window.open(res.data.guestUrl,"_blank");
-    }catch(e){setError(e.message||"Création impossible");}
+    }catch(e){
+      console.error("createWedding UI:", e);
+      const details=e?.details;
+      const suffix=details?.sourceCode ? ` [${details.sourceCode}]` : "";
+      setError((e?.message||"Création impossible")+suffix);
+    }
     finally{setCreating(false)}
   };
   const removeWedding=async(w)=>{

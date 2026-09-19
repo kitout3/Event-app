@@ -108,12 +108,42 @@ exports.createWedding = onCall({ region: "europe-west1" }, async request => {
       adminUrl: `${guestUrl}#admin`,
     };
   } catch (error) {
-    console.error("createWedding:", error);
-    if (error instanceof HttpsError) throw error;
-    if (error.code === "auth/email-already-exists") {
+    const code = String(error?.code || "");
+    const message = String(error?.message || "");
+    console.error("createWedding:", { code, message, stack: error?.stack });
+
+    // Preserve business errors raised above.
+    if (error instanceof HttpsError || [
+      "invalid-argument", "already-exists", "permission-denied",
+      "failed-precondition", "not-found", "unauthenticated"
+    ].includes(code)) {
+      throw error;
+    }
+
+    if (code === "auth/email-already-exists") {
       throw new HttpsError("already-exists", "Cette adresse email est déjà utilisée.");
     }
-    throw new HttpsError("internal", "Création du mariage impossible.");
+    if (code === "auth/invalid-email") {
+      throw new HttpsError("invalid-argument", "L’adresse email administrateur n’est pas valide.");
+    }
+    if (code === "auth/invalid-password" || code === "auth/password-does-not-meet-requirements") {
+      throw new HttpsError("invalid-argument", "Le mot de passe temporaire ne respecte pas les règles Firebase. Utilisez au moins 8 caractères avec lettres et chiffres.");
+    }
+    if (code === "auth/uid-already-exists") {
+      throw new HttpsError("already-exists", "Ce compte administrateur existe déjà.");
+    }
+    if (code.startsWith("auth/")) {
+      throw new HttpsError("failed-precondition", `Firebase Auth refuse la création du compte administrateur (${code}).`);
+    }
+    if (code.startsWith("firestore/") || code.includes("permission")) {
+      throw new HttpsError("failed-precondition", `Firestore refuse la création du mariage (${code || "erreur Firestore"}).`);
+    }
+
+    throw new HttpsError(
+      "internal",
+      "Création du mariage impossible côté serveur.",
+      { sourceCode: code || "unknown", sourceMessage: message.slice(0, 180) }
+    );
   }
 });
 
