@@ -96,6 +96,7 @@
   }
 
   function openPanel() {
+    if (window.__WEDDING_EVENT__?.modules?.live === false) return;
     closePanel();
     history.replaceState(null, "", `${location.pathname}${location.search}#live`);
     const t = text();
