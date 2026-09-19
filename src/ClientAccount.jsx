@@ -140,8 +140,9 @@ export default function ClientAccount(){
     </div>
   </div>;
 
-  const paidEvents=events.filter(item=>item.billing?.status==="paid");
-  const pendingEvents=events.filter(item=>item.billing?.status!=="paid");
+  const isSettled=item=>item.billing?.status==="paid"||item.billing?.status==="manual"||(item.active===true&&!item.billing);
+  const paidEvents=events.filter(isSettled);
+  const pendingEvents=events.filter(item=>!isSettled(item));
 
   return <div className="account-shell">
     <header className="account-topbar"><a className="account-brand" href={APP_BASE}>souvenir <em>events</em></a><div className="account-topbar-spacer"/><span style={{fontSize:12,color:"var(--muted)"}}>{user.displayName||user.email}</span><button className="account-button light" onClick={()=>fb.signOut(auth)}>Déconnexion</button></header>
@@ -184,12 +185,12 @@ function CreateWizard({form,setForm,step,setStep,changeType,segment,amount,creat
 }
 
 function EventCard({item,pay}){
-  const meta=typeMeta(item.eventType),paid=item.billing?.status==="paid",active=item.active===true;
+  const meta=typeMeta(item.eventType),paid=item.billing?.status==="paid"||item.billing?.status==="manual"||(item.active===true&&!item.billing),active=item.active===true;
   return <article className="event-card"><div className="event-card-head"><div className="event-icon">{meta.icon}</div><div><h3>{item.name}</h3><div className="event-meta">{[item.date,item.location].filter(Boolean).join(" · ")||"Date à définir"}</div></div></div><div className="status-row"><span className="pill">{meta.label}</span><span className={"pill "+(paid?"paid":"pending")}>{paid?"Payé":"Paiement à terminer"}</span><span className={"pill "+(active?"paid":"pending")}>{active?"Actif":"Non publié"}</span>{item.billing?.planLabel&&<span className="pill">{item.billing.planLabel}</span>}</div><div className="event-actions">{!paid&&<button className="primary" onClick={pay}>Payer {formatEuro(item.billing?.amount)}</button>}{paid&&<a className="primary" href={EVENT_URL(item.slug)+"#admin"}>Gérer</a>}{active&&<a href={EVENT_URL(item.slug)} target="_blank" rel="noreferrer">Voir l’événement</a>}{item.billing?.invoiceUrl&&<a href={item.billing.invoiceUrl} target="_blank" rel="noreferrer">Facture</a>}</div></article>;
 }
 
 function Billing({events,pay}){
   const rows=useMemo(()=>[...events].sort((a,b)=>String(b.createdAt||"").localeCompare(String(a.createdAt||""))),[events]);
   if(!rows.length)return <div className="empty-state">Aucune opération pour le moment.</div>;
-  return <table className="billing-table"><thead><tr><th>Événement</th><th>Formule</th><th>Montant</th><th>Statut</th><th>Document</th></tr></thead><tbody>{rows.map(item=><tr key={item.id}><td><strong>{item.name}</strong><br/><span style={{color:"var(--muted)",fontSize:11}}>{item.date||"—"}</span></td><td>{item.billing?.planLabel||item.billing?.planId||"—"}</td><td>{formatEuro(item.billing?.amount)}</td><td>{item.billing?.status==="paid"?"Payé":"À payer"}</td><td>{item.billing?.invoiceUrl?<a href={item.billing.invoiceUrl} target="_blank" rel="noreferrer">Ouvrir la facture</a>:item.billing?.status!=="paid"?<button className="account-button light" style={{padding:"7px 10px"}} onClick={()=>pay(item.id)}>Payer</button>:"—"}</td></tr>)}</tbody></table>;
+  return <table className="billing-table"><thead><tr><th>Événement</th><th>Formule</th><th>Montant</th><th>Statut</th><th>Document</th></tr></thead><tbody>{rows.map(item=><tr key={item.id}><td><strong>{item.name}</strong><br/><span style={{color:"var(--muted)",fontSize:11}}>{item.date||"—"}</span></td><td>{item.billing?.planLabel||item.billing?.planId||"—"}</td><td>{formatEuro(item.billing?.amount)}</td><td>{item.billing?.status==="paid"?"Payé":item.billing?.status==="manual"||(!item.billing&&item.active)?"Gestion manuelle":"À payer"}</td><td>{item.billing?.invoiceUrl?<a href={item.billing.invoiceUrl} target="_blank" rel="noreferrer">Ouvrir la facture</a>:!(item.billing?.status==="paid"||item.billing?.status==="manual"||(!item.billing&&item.active))?<button className="account-button light" style={{padding:"7px 10px"}} onClick={()=>pay(item.id)}>Payer</button>:"—"}</td></tr>)}</tbody></table>;
 }
