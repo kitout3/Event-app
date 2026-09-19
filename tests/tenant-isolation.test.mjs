@@ -216,30 +216,31 @@ test("event home keeps video message, video gallery and live entry points",()=>{
 });
 
 
-test("mobile video gallery reserves top controls and keeps vertical scrolling",()=>{
+test("mobile video gallery keeps controls in flow and preserves native vertical scrolling",()=>{
   const video=read("public/video-testimonials-v2.js");
   const enhancer=read("public/app-enhancer.js");
   assert.match(video,/height:100dvh/);
-  assert.match(video,/overflow-y:scroll!important/);
+  assert.match(video,/overflow-y:auto!important/);
   assert.match(video,/-webkit-overflow-scrolling:touch/);
   assert.match(video,/touch-action:pan-y/);
-  assert.match(video,/padding:calc\(env\(safe-area-inset-top\) \+ 126px\)/);
-  assert.match(video,/\.vt-gallery-item video\{pointer-events:none/);
-  assert.match(enhancer,/body:has\(#vt-overlay\) #wedding-language-switcher/);
+  assert.match(video,/vt-toolbar/);
+  assert.match(video,/vt-language-slot/);
+  assert.match(video,/dockLanguageSwitcher/);
+  assert.match(video,/\.vt-overlay #wedding-language-switcher\{position:static!important/);
+  assert.match(video,/\.vt-gallery-item video\{pointer-events:none!important/);
+  assert.doesNotMatch(enhancer,/body:has\(#vt-overlay\) #wedding-language-switcher/);
 });
 
 
-test("mobile gallery keeps actions above languages and supports forced touch scrolling",()=>{
+test("mobile gallery shows actions first, languages second, then content",()=>{
   const video=read("public/video-testimonials-v2.js");
-  const enhancer=read("public/app-enhancer.js");
   const app=read("src/App.jsx");
   const config=read("src/event-config.mjs");
-  assert.match(video,/vt-overlay-actions/);
-  assert.match(video,/enableMobileOverlayScroll/);
-  assert.match(video,/el\.scrollTop\+=delta/);
-  assert.match(video,/touchmove/);
-  assert.match(video,/overflow-y:scroll!important/);
-  assert.match(enhancer,/top:calc\(env\(safe-area-inset-top\) \+ 58px\)!important/);
+  assert.match(video,/vt-toolbar/);
+  assert.match(video,/vt-overlay-actions[\s\S]*vt-language-slot[\s\S]*vt-panel/);
+  assert.match(video,/restoreLanguageSwitcher/);
+  assert.doesNotMatch(video,/enableMobileOverlayScroll/);
+  assert.doesNotMatch(video,/el\.scrollTop\+=delta/);
   assert.doesNotMatch(app,/title:"Livre d’or"/);
   assert.doesNotMatch(config,/guestbook:\s*\{\s*label:"Livre d'or"/);
 });
