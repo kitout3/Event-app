@@ -61,8 +61,13 @@ export default function SoftwareAdmin(){
     if(!payload.name||!payload.adminEmail||!payload.slug){setError("Nom, lien unique et email administrateur sont obligatoires.");setCreating(false);return;}
     if(payload.adminPassword.length<8){setError("Le mot de passe temporaire doit contenir au moins 8 caractères.");setCreating(false);return;}
     try{
-      const call=fb.httpsCallable(functionsApi,"createWedding");
+      const call=fb.httpsCallable(functionsApi,"createWeddingV2");
       const res=await call(payload);
+      if(res.data?.ok===false){
+        const where=res.data?.stage ? ` [étape: ${res.data.stage}]` : "";
+        const code=res.data?.code ? ` [${res.data.code}]` : "";
+        throw new Error((res.data?.message||"Création impossible")+where+code);
+      }
       setForm({name:"",date:"",slug:"",adminEmail:"",adminPassword:""});
       setShowCreate(false);
       setNotice(`Mariage créé avec succès : ${payload.name}`);
@@ -96,7 +101,7 @@ export default function SoftwareAdmin(){
 
   return <div style={{minHeight:"100vh",background:"#f7f3f0",color:"#38231c",fontFamily:"Arial,sans-serif"}}>
     <header style={{background:"#24140e",color:"#fff",padding:"18px clamp(18px,4vw,48px)",display:"flex",gap:12,alignItems:"center",flexWrap:"wrap"}}>
-      <div style={{flex:1}}><div style={{fontSize:11,letterSpacing:2,textTransform:"uppercase",opacity:.55}}>Administration logiciel · build 2026.09.19-3</div><h1 style={{fontFamily:"Georgia,serif",fontWeight:400,margin:"4px 0 0"}}>Tous les mariages</h1></div>
+      <div style={{flex:1}}><div style={{fontSize:11,letterSpacing:2,textTransform:"uppercase",opacity:.55}}>Administration logiciel · build 2026.09.19-4</div><h1 style={{fontFamily:"Georgia,serif",fontWeight:400,margin:"4px 0 0"}}>Tous les mariages</h1></div>
       <button style={{...btn(),background:"#fff"}} onClick={()=>setShowCreate(!showCreate)}>{showCreate?"Fermer":"Nouveau mariage"}</button>
       <button style={{...btn(),background:"#ffffff18",color:"#fff",border:"1px solid #ffffff33"}} onClick={()=>fb.signOut(auth)}>Déconnexion</button>
     </header>
