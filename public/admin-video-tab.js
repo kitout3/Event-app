@@ -78,17 +78,17 @@
       #admin-video-panel{display:none;padding:1.25rem}
       #admin-video-panel.is-visible{display:block}
       .av-filters{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:14px}
-      .av-filter{padding:6px 14px;border-radius:999px;border:1.5px solid var(--blush,#f5ddd4);background:var(--white,#fffdf9);color:var(--muted,#9e7060);font:inherit}
-      .av-filter.active{background:var(--text,#3d2010);border-color:var(--text,#3d2010);color:#fff}
+      .av-filter{padding:6px 14px;border-radius:999px;border:1.5px solid var(--blush,var(--blush));background:var(--white,var(--white));color:var(--muted,var(--muted));font:inherit}
+      .av-filter.active{background:var(--text,var(--text));border-color:var(--text,var(--text));color:#fff}
       .av-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
-      .av-card{background:var(--white,#fffdf9);border:2px solid transparent;border-radius:16px;overflow:hidden;box-shadow:0 2px 12px rgba(92,42,30,.12)}
+      .av-card{background:var(--white,var(--white));border:2px solid transparent;border-radius:16px;overflow:hidden;box-shadow:0 2px 12px rgba(92,42,30,.12)}
       .av-card.pending{border-color:#f1c40f}.av-card.approved{border-color:#27ae60}.av-card.rejected{border-color:#e74c3c}
       .av-card video{display:block;width:100%;aspect-ratio:16/9;background:#000;object-fit:contain}
-      .av-body{padding:12px;display:grid;gap:8px}.av-meta{font-size:.8rem;color:var(--muted,#9e7060)}
+      .av-body{padding:12px;display:grid;gap:8px}.av-meta{font-size:.8rem;color:var(--muted,var(--muted))}
       .av-status{display:inline-block;width:max-content;border-radius:999px;padding:3px 9px;font-size:.75rem;font-weight:600}
       .av-actions{display:flex;gap:7px;flex-wrap:wrap}.av-action{border:0;border-radius:999px;padding:8px 12px;font:inherit;cursor:pointer}
-      .av-ok{background:#27ae60;color:#fff}.av-no{background:#f39c12;color:#fff}.av-del{background:#e74c3c;color:#fff}.av-download{background:#f5ddd4;color:#5c2a1e;text-decoration:none}
-      .av-empty{text-align:center;padding:3rem;color:var(--muted,#9e7060)}
+      .av-ok{background:#27ae60;color:#fff}.av-no{background:#f39c12;color:#fff}.av-del{background:#e74c3c;color:#fff}.av-download{background:var(--blush);color:var(--burgundy);text-decoration:none}
+      .av-empty{text-align:center;padding:3rem;color:var(--muted,var(--muted))}
     `;
     document.head.appendChild(style);
   }
