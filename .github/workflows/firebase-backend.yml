@@ -1,0 +1,57 @@
+name: Deploy Firebase backend
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "functions/**"
+      - "firestore.rules"
+      - "storage.rules"
+      - "firebase.json"
+      - ".github/workflows/firebase-backend.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Check Firebase deployment credentials
+        id: firebase_auth
+        env:
+          FIREBASE_SERVICE_ACCOUNT_MARIAGE_HQ: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_MARIAGE_HQ }}
+        run: |
+          if [ -n "$FIREBASE_SERVICE_ACCOUNT_MARIAGE_HQ" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "Firebase backend deploy skipped: add the FIREBASE_SERVICE_ACCOUNT_MARIAGE_HQ repository secret to enable automatic deployment."
+          fi
+
+      - name: Write Firebase service account
+        if: steps.firebase_auth.outputs.ready == 'true'
+        env:
+          FIREBASE_SERVICE_ACCOUNT_MARIAGE_HQ: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_MARIAGE_HQ }}
+        run: |
+          printf '%s' "$FIREBASE_SERVICE_ACCOUNT_MARIAGE_HQ" > "$RUNNER_TEMP/firebase-service-account.json"
+
+      - name: Deploy Functions and security rules
+        if: steps.firebase_auth.outputs.ready == 'true'
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/firebase-service-account.json
+        run: |
+          npx --yes firebase-tools@latest deploy \
+            --project mariage-hq \
+            --only functions,firestore:rules,storage \
+            --non-interactive
