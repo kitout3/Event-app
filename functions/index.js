@@ -170,14 +170,6 @@ exports.createWedding = onCall({ region: "europe-west1" }, async request => {
       });
     }
 
-    const alreadyOwned = await db.collection("events").where("ownerUid", "==", adminUser.uid).limit(1).get();
-    if (!alreadyOwned.empty) {
-      throw new HttpsError(
-        "already-exists",
-        "Ce compte admin est déjà associé à un événement. Utilisez une autre adresse email pour garantir l’indépendance des espaces."
-      );
-    }
-
     const now = FieldValue.serverTimestamp();
     const eventType = eventConfig.eventType(data.eventType);
     const themePreset = eventConfig.themePreset(data.themePreset || data.theme?.preset, eventType);
@@ -314,21 +306,6 @@ exports.createWeddingV2 = onCall({ region: "europe-west1" }, async request => {
         displayName: `Admin · ${name}`,
       });
       createdUserUid = adminUser.uid;
-    }
-
-    stage = "ownership-check";
-    const alreadyOwned = await db.collection("events").where("ownerUid", "==", adminUser.uid).limit(1).get();
-    if (!alreadyOwned.empty) {
-      if (createdUserUid) {
-        try { await getAuth().deleteUser(createdUserUid); } catch (_) {}
-        createdUserUid = null;
-      }
-      return {
-        ok: false,
-        stage,
-        code: "admin-already-used",
-        message: "Ce compte administrateur est déjà associé à un événement. Utilisez une autre adresse email.",
-      };
     }
 
     stage = "firestore-create";
@@ -516,10 +493,7 @@ exports.deleteWedding = onCall({ region: "europe-west1" }, async request => {
 
   await db.recursiveDelete(eventRef);
 
-  if (data.ownerUid && data.ownerUid !== PLATFORM_OWNER_UID) {
-    try { await getAuth().deleteUser(data.ownerUid); }
-    catch (error) { console.warn("Compte admin non supprimé", data.ownerUid, error?.code || error?.message); }
-  }
+  // The account is intentionally preserved: one customer can own several events.
   return { deleted: true, eventId };
 });
 
@@ -594,6 +568,8 @@ exports.listWeddings = onCall({ region: "europe-west1" }, async request => {
       theme: data.theme || null,
       modules: data.modules || null,
       active: data.active !== false,
+      status: data.status || (data.active !== false ? "active" : "draft"),
+      billing: data.billing || null,
       ownerUid: data.ownerUid || (isLegacyWedding ? PLATFORM_OWNER_UID : null),
       adminEmail,
       photoCount,
