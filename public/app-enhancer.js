@@ -261,7 +261,6 @@
       responsive.textContent = `
         #wedding-language-switcher{top:max(12px,env(safe-area-inset-top))!important}
         @media(max-width:650px){
-          body:has(#vt-overlay) #wedding-language-switcher,
           body:has(#wedding-live-panel) #wedding-language-switcher{
             top:calc(env(safe-area-inset-top) + 58px)!important;
             left:10px!important;
@@ -272,7 +271,6 @@
             gap:2px!important;
             padding:4px!important;
           }
-          body:has(#vt-overlay) #wedding-language-switcher button,
           body:has(#wedding-live-panel) #wedding-language-switcher button{
             flex:1 1 0!important;
             min-width:0!important;
