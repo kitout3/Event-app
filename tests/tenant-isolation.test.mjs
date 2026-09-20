@@ -338,5 +338,6 @@ test("Firebase rules deploy independently from Stripe-backed functions",()=>{
   const workflow=read(".github/workflows/firebase-backend.yml");
   assert.match(workflow,/jobs:\s*[\s\S]*rules:/);
   assert.match(workflow,/--only firestore:rules,storage/);
-  assert.match(workflow,/functions:[\s\S]*--only functions/);
+  assert.match(workflow,/core_functions:[\s\S]*--only functions:createWedding[\s\S]*functions:listPublicVideos[\s\S]*functions:listMyEvents/);
+  assert.match(workflow,/stripe_functions:[\s\S]*functions:createEventCheckoutSession[\s\S]*functions:stripeWebhook/);
 });
