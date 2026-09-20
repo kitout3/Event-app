@@ -1,16 +1,16 @@
 const PLANS = {
-  essential: {
-    id:"essential", label:"Essentiel",
-    privateAmount: 5000, corporateAmount: 5000,
+  event: {
+    id:"event",
+    label:"Événement",
+    privateAmount:3000,
+    corporateAmount:3000,
   },
-  premium: {
-    id:"premium", label:"Premium",
-    privateAmount: 5000, corporateAmount: 5000,
-  },
-  signature: {
-    id:"signature", label:"Signature",
-    privateAmount: 5000, corporateAmount: 5000,
-  },
+};
+
+const LEGACY_PLAN_ALIASES = {
+  essential:"event",
+  premium:"event",
+  signature:"event",
 };
 
 const CORPORATE_TYPES = new Set(["afterwork","christmas","corporate","gala","team_building"]);
@@ -19,10 +19,14 @@ function segmentForEventType(eventType) {
   return CORPORATE_TYPES.has(String(eventType || "")) ? "corporate" : "private";
 }
 
+function normalizePlanId(planId) {
+  const id = String(planId || "event");
+  if (PLANS[id]) return id;
+  return LEGACY_PLAN_ALIASES[id] || "event";
+}
+
 function plan(planId) {
-  const value = PLANS[String(planId || "")];
-  if (!value) throw new Error("unknown-plan");
-  return value;
+  return PLANS[normalizePlanId(planId)];
 }
 
 function quote(planId, eventType) {
@@ -32,4 +36,4 @@ function quote(planId, eventType) {
   return { planId:item.id, planLabel:item.label, segment, amount, currency:"eur" };
 }
 
-module.exports={PLANS,CORPORATE_TYPES,segmentForEventType,plan,quote};
+module.exports={PLANS,LEGACY_PLAN_ALIASES,CORPORATE_TYPES,segmentForEventType,normalizePlanId,plan,quote};
