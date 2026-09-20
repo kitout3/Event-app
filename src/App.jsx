@@ -87,7 +87,7 @@ async function initFirebase() {
       { initializeApp, getApps },
       { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, where, orderBy, serverTimestamp, getDoc, setDoc },
       { getStorage, ref, uploadString, uploadBytes, getDownloadURL },
-      { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut },
+      { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signInWithCustomToken, signOut },
       { getFunctions, httpsCallable }
     ] = await Promise.all([
       import("https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js"),
@@ -104,7 +104,7 @@ async function initFirebase() {
     window.__fb = {
       collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, where, orderBy, serverTimestamp, getDoc, setDoc,
       ref, uploadString, uploadBytes, getDownloadURL,
-      onAuthStateChanged, signInWithEmailAndPassword, signOut, httpsCallable
+      onAuthStateChanged, signInWithEmailAndPassword, signInWithCustomToken, signOut, httpsCallable
     };
     _firebaseReady = true;
 
@@ -474,7 +474,7 @@ function HomeButton({ setView, dark = false }) {
 const VIEWS = { HOME: "home", UPLOAD: "upload", GALLERY: "gallery", TV: "tv", SCHEDULE: "schedule", INFO: "info", GUESTBOOK: "guestbook", ADMIN: "admin" };
 
 function PrivateEventAccess({ state, error }) {
-  const [email,setEmail]=useState("");
+  const [accessId,setAccessId]=useState("");
   const [password,setPassword]=useState("");
   const [localError,setLocalError]=useState("");
   const [busy,setBusy]=useState(false);
@@ -482,11 +482,14 @@ function PrivateEventAccess({ state, error }) {
   const login=async()=>{
     setBusy(true);setLocalError("");
     try{
-      if(!_auth||!window.__fb?.signInWithEmailAndPassword) throw new Error("Firebase Authentication indisponible.");
-      await window.__fb.signInWithEmailAndPassword(_auth,email.trim(),password);
+      if(!_auth||!_functions||!window.__fb?.signInWithCustomToken) throw new Error("Connexion indisponible.");
+      const authenticate=window.__fb.httpsCallable(_functions,"loginPrivateEvent");
+      const result=await authenticate({eventId:EVENT_ID,accessId:accessId.trim(),password});
+      if(!result.data?.token) throw new Error("Connexion impossible.");
+      await window.__fb.signInWithCustomToken(_auth,result.data.token);
     }catch(e){
       const code=String(e?.code||"");
-      setLocalError(code.includes("invalid-credential")?"Email ou mot de passe incorrect.":(e?.message||"Connexion impossible."));
+      setLocalError(code.includes("failed-precondition")?"L’accès n’a pas encore été configuré par l’administrateur.":"Identifiant ou mot de passe incorrect.");
     }finally{setBusy(false);}
   };
 
@@ -496,8 +499,8 @@ function PrivateEventAccess({ state, error }) {
     <div style={{width:"100%",maxWidth:390,background:"var(--white)",padding:30,borderRadius:22,boxShadow:"0 20px 60px rgba(0,0,0,.35)"}}>
       <div style={{fontSize:11,letterSpacing:2,textTransform:"uppercase",color:"var(--muted)"}}>Espace privé</div>
       <h1 style={{fontFamily:"var(--event-title-font)",fontSize:"2rem",color:"var(--burgundy)",margin:"7px 0 8px"}}>Huyen & Quentin</h1>
-      <p style={{fontSize:".86rem",color:"var(--muted)",lineHeight:1.55,margin:"0 0 20px"}}>Cet espace est privé. Connectez-vous avec un compte autorisé.</p>
-      <input type="email" autoComplete="username" placeholder="Email" value={email} onChange={e=>setEmail(e.target.value)} style={{width:"100%",padding:"12px 14px",borderRadius:11,border:"1.5px solid var(--blush)",background:"var(--cream)",marginBottom:9}}/>
+      <p style={{fontSize:".86rem",color:"var(--muted)",lineHeight:1.55,margin:"0 0 20px"}}>Saisissez l’identifiant et le mot de passe communiqués par les mariés.</p>
+      <input type="text" autoComplete="username" placeholder="Identifiant" value={accessId} onChange={e=>setAccessId(e.target.value)} style={{width:"100%",padding:"12px 14px",borderRadius:11,border:"1.5px solid var(--blush)",background:"var(--cream)",marginBottom:9}}/>
       <input type="password" autoComplete="current-password" placeholder="Mot de passe" value={password} onChange={e=>setPassword(e.target.value)} onKeyDown={e=>e.key==="Enter"&&login()} style={{width:"100%",padding:"12px 14px",borderRadius:11,border:"1.5px solid var(--blush)",background:"var(--cream)",marginBottom:9}}/>
       {(localError||error)&&<p style={{color:"#b83232",fontSize:".82rem",margin:"2px 0 10px"}}>{localError||error}</p>}
       <button type="button" disabled={busy} onClick={login} className="btn" style={{width:"100%",padding:"12px 16px",borderRadius:999,background:"var(--burgundy)",color:"#fff"}}>{busy?"Connexion…":"Se connecter"}</button>
@@ -548,7 +551,8 @@ export default function App() {
             try {
               await loadCurrentEvent();
               setEventExists(_eventExists);
-              const authorized = !!user && (user.uid === currentEvent.ownerUid || user.uid === PLATFORM_OWNER_UID || (Array.isArray(currentEvent.privateAccessEmails) && currentEvent.privateAccessEmails.includes(String(user.email||"").toLowerCase())));
+              const tokenResult = await user.getIdTokenResult();
+              const authorized = !!user && (user.uid === currentEvent.ownerUid || user.uid === PLATFORM_OWNER_UID || tokenResult.claims?.eventAccess === EVENT_ID || (Array.isArray(currentEvent.privateAccessEmails) && currentEvent.privateAccessEmails.includes(String(user.email||"").toLowerCase())));
               if (!authorized) throw new Error("Ce compte n’est pas autorisé à accéder à cet espace.");
               setAdminAuth(user.uid === currentEvent.ownerUid || user.uid === PLATFORM_OWNER_UID);
               setPrivateAccessState("granted");
@@ -1830,6 +1834,8 @@ function AdminSettings({ event, onUpdate }) {
     moderationMode:normalized.moderationMode || "immediate",
     displayMode:normalized.displayMode || "mixed",
     privateAccessEmailsText:Array.isArray(normalized.privateAccessEmails)?normalized.privateAccessEmails.join(", "):"",
+    privateAccessId:normalized.privateAccessId || "",
+    privateAccessPassword:"",
     settings:{
       ...(normalized.settings || {}),
       videoModerationMode: normalized.settings?.videoModerationMode || "moderated",
@@ -1837,6 +1843,8 @@ function AdminSettings({ event, onUpdate }) {
     },
   }));
   const [uploadingAsset,setUploadingAsset] = useState("");
+  const [savingPrivateAccess,setSavingPrivateAccess] = useState(false);
+  const [privateAccessMessage,setPrivateAccessMessage] = useState("");
 
   const preset = THEME_PRESETS[form.themePreset] || THEME_PRESETS["custom-neutral"];
   const typeMeta = EVENT_TYPES[form.eventType] || EVENT_TYPES.custom;
@@ -1858,6 +1866,23 @@ function AdminSettings({ event, onUpdate }) {
       setNested("branding",kind==="logo"?"logoUrl":"coverUrl",url);
     }catch(error){console.error("Brand asset:",error);alert("Impossible d’envoyer cette image.");}
     finally{setUploadingAsset("");}
+  };
+  const savePrivateAccess=async()=>{
+    setPrivateAccessMessage("");
+    if(!form.privateAccessId.trim()||form.privateAccessPassword.length<8){
+      setPrivateAccessMessage("Choisissez un identifiant et un mot de passe d’au moins 8 caractères.");
+      return;
+    }
+    setSavingPrivateAccess(true);
+    try{
+      const configure=window.__fb.httpsCallable(_functions,"setPrivateEventCredentials");
+      const result=await configure({eventId:EVENT_ID,accessId:form.privateAccessId,password:form.privateAccessPassword});
+      setField("privateAccessId",result.data?.accessId||form.privateAccessId.trim().toLowerCase());
+      setField("privateAccessPassword","");
+      setPrivateAccessMessage("Accès privé enregistré.");
+    }catch(error){
+      setPrivateAccessMessage(error?.message||"Impossible d’enregistrer cet accès.");
+    }finally{setSavingPrivateAccess(false);}
   };
 
   const save=()=>onUpdate({
@@ -1911,9 +1936,13 @@ function AdminSettings({ event, onUpdate }) {
 
       {EVENT_ID==="quentin-huyen-2026"&&<div style={cardStyle}>
         <h3 style={{fontFamily:"var(--event-title-font)",fontSize:"1.35rem",color:"var(--burgundy)",marginBottom:5}}>Accès privé</h3>
-        <p style={{fontSize:".78rem",color:"var(--muted)",marginBottom:10}}>Cet événement n’est pas public. Le propriétaire y a toujours accès. Ajoutez ici l’adresse Firebase Auth de Huyen (et uniquement les personnes qui doivent pouvoir ouvrir cet espace).</p>
-        <textarea style={{...fieldStyle,minHeight:82,resize:"vertical"}} value={form.privateAccessEmailsText} onChange={e=>setField("privateAccessEmailsText",e.target.value)} placeholder="huyen@example.com"/>
-        <small style={{display:"block",color:"var(--muted)",marginTop:5}}>Une adresse par ligne ou séparée par une virgule.</small>
+        <p style={{fontSize:".78rem",color:"var(--muted)",marginBottom:10}}>Les invités utiliseront uniquement cet identifiant et ce mot de passe sur le lien de l’événement. Le mot de passe est enregistré de façon sécurisée et ne sera jamais affiché.</p>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))",gap:10}}>
+          <div><label style={labelStyle}>Identifiant invités</label><input style={fieldStyle} autoComplete="off" value={form.privateAccessId} onChange={e=>setField("privateAccessId",e.target.value)} placeholder="huyen-quentin"/></div>
+          <div><label style={labelStyle}>Nouveau mot de passe</label><input style={fieldStyle} type="password" autoComplete="new-password" value={form.privateAccessPassword} onChange={e=>setField("privateAccessPassword",e.target.value)} placeholder="8 caractères minimum"/></div>
+        </div>
+        {privateAccessMessage&&<small style={{display:"block",color:privateAccessMessage.includes("enregistré")?"#26734d":"#b83232",marginTop:8}}>{privateAccessMessage}</small>}
+        <button type="button" disabled={savingPrivateAccess} onClick={savePrivateAccess} className="btn" style={{marginTop:10,padding:"10px 16px",borderRadius:999,background:"var(--burgundy)",color:"#fff"}}>{savingPrivateAccess?"Enregistrement…":"Enregistrer l’accès privé"}</button>
       </div>}
 
       <div style={cardStyle}>

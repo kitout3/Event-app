@@ -320,19 +320,23 @@ test("Event-App root is login/signup and never auto-opens Huyen & Quentin",()=>{
   assert.match(index,/<title>Event-App · Vos événements<\/title>/);
 });
 
-test("Huyen and Quentin event requires an authenticated authorized account",()=>{
+test("Huyen and Quentin event supports private event credentials",()=>{
   const app=read("src/App.jsx");
   const rules=read("firestore.rules");
   const storage=read("storage.rules");
   const functions=read("functions/index.js");
   assert.match(app,/PRIVATE_EVENT_IDS = new Set\(\["quentin-huyen-2026"\]\)/);
   assert.match(app,/PrivateEventAccess/);
-  assert.match(app,/privateAccessEmails/);
+  assert.match(app,/signInWithCustomToken/);
+  assert.match(app,/setPrivateEventCredentials/);
   assert.match(rules,/function privateEvent\(eventId\)/);
   assert.match(rules,/eventId == 'quentin-huyen-2026'/);
   assert.match(rules,/invitedToPrivateEvent/);
+  assert.match(rules,/credentialAccess/);
   assert.match(storage,/function attendeeAccess\(eventId\)/);
   assert.match(functions,/requestCanAccessPrivateEvent/);
+  assert.match(functions,/exports\.loginPrivateEvent/);
+  assert.match(functions,/pbkdf2Sync/);
   assert.match(functions,/throw new HttpsError\("permission-denied", "Cet événement est privé\."\)/);
 });
 

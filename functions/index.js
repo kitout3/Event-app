@@ -8,6 +8,7 @@ const { getStorage } = require("firebase-admin/storage");
 const eventConfig = require("./event-config");
 const billingConfig = require("./billing-config");
 const Stripe = require("stripe");
+const crypto = require("node:crypto");
 
 initializeApp();
 
@@ -27,12 +28,22 @@ function requiredSecret(name) {
 }
 
 function requestCanAccessPrivateEvent(request, event) {
-  if (!PRIVATE_EVENT_IDS.has(String(event?.slug || event?.id || ""))) return true;
+  const eventId = String(event?.slug || event?.id || "");
+  if (!PRIVATE_EVENT_IDS.has(eventId)) return true;
   if (!request.auth) return false;
   if (request.auth.uid === PLATFORM_OWNER_UID || request.auth.uid === event.ownerUid) return true;
+  if (request.auth.token?.eventAccess === eventId) return true;
   const email = String(request.auth.token?.email || "").trim().toLowerCase();
   const allowed = Array.isArray(event.privateAccessEmails) ? event.privateAccessEmails.map(value => String(value || "").trim().toLowerCase()) : [];
   return !!email && allowed.includes(email);
+}
+
+function normalizeAccessId(value) {
+  return String(value || "").normalize("NFKC").trim().toLowerCase();
+}
+
+function hashPrivatePassword(password, salt) {
+  return crypto.pbkdf2Sync(String(password), salt, 210000, 32, "sha256").toString("hex");
 }
 
 function normalizeSlug(value) {
@@ -143,6 +154,71 @@ async function finalizeStripeSession(stripe, sessionId, expectedUid = null) {
   });
   return { paid: true, eventId, billing: billingPatch };
 }
+
+exports.setPrivateEventCredentials = onCall({ region: "europe-west1" }, async request => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Connexion administrateur requise.");
+  const eventId = normalizeSlug(request.data?.eventId);
+  const accessId = normalizeAccessId(request.data?.accessId);
+  const password = String(request.data?.password || "");
+  if (!PRIVATE_EVENT_IDS.has(eventId)) throw new HttpsError("invalid-argument", "Événement privé invalide.");
+  if (!/^[a-z0-9][a-z0-9._-]{2,39}$/.test(accessId)) {
+    throw new HttpsError("invalid-argument", "L’identifiant doit contenir 3 à 40 caractères (lettres, chiffres, point, tiret ou underscore).");
+  }
+  if (password.length < 8 || password.length > 128) {
+    throw new HttpsError("invalid-argument", "Le mot de passe doit contenir entre 8 et 128 caractères.");
+  }
+
+  const db = getFirestore();
+  const eventRef = db.collection("events").doc(eventId);
+  const eventSnap = await eventRef.get();
+  if (!eventSnap.exists) throw new HttpsError("not-found", "Événement introuvable.");
+  const event = eventSnap.data() || {};
+  if (request.auth.uid !== PLATFORM_OWNER_UID && request.auth.uid !== event.ownerUid) {
+    throw new HttpsError("permission-denied", "Seul l’administrateur de l’événement peut modifier cet accès.");
+  }
+
+  const salt = crypto.randomBytes(16).toString("hex");
+  const passwordHash = hashPrivatePassword(password, salt);
+  const batch = db.batch();
+  batch.set(eventRef.collection("privateAccess").doc("credentials"), {
+    accessId,
+    salt,
+    passwordHash,
+    algorithm: "pbkdf2-sha256",
+    iterations: 210000,
+    updatedAt: FieldValue.serverTimestamp(),
+    updatedBy: request.auth.uid,
+  });
+  batch.update(eventRef, { privateAccessId: accessId, updatedAt: FieldValue.serverTimestamp() });
+  await batch.commit();
+  return { configured: true, accessId };
+});
+
+exports.loginPrivateEvent = onCall({ region: "europe-west1" }, async request => {
+  const eventId = normalizeSlug(request.data?.eventId);
+  const accessId = normalizeAccessId(request.data?.accessId);
+  const password = String(request.data?.password || "");
+  if (!PRIVATE_EVENT_IDS.has(eventId) || !accessId || !password || accessId.length > 40 || password.length > 128) {
+    throw new HttpsError("invalid-argument", "Identifiant ou mot de passe incorrect.");
+  }
+
+  const credentialsSnap = await getFirestore()
+    .collection("events").doc(eventId)
+    .collection("privateAccess").doc("credentials").get();
+  if (!credentialsSnap.exists) throw new HttpsError("failed-precondition", "L’accès privé n’a pas encore été configuré.");
+  const credentials = credentialsSnap.data() || {};
+  const actualHash = hashPrivatePassword(password, String(credentials.salt || ""));
+  const expected = Buffer.from(String(credentials.passwordHash || ""), "hex");
+  const actual = Buffer.from(actualHash, "hex");
+  const passwordMatches = expected.length === actual.length && crypto.timingSafeEqual(expected, actual);
+  if (accessId !== credentials.accessId || !passwordMatches) {
+    throw new HttpsError("permission-denied", "Identifiant ou mot de passe incorrect.");
+  }
+
+  const guestUid = `event-guest-${crypto.createHash("sha256").update(eventId).digest("hex").slice(0, 32)}`;
+  const token = await getAuth().createCustomToken(guestUid, { eventAccess: eventId, accessRole: "attendee" });
+  return { token };
+});
 
 exports.createWedding = onCall({ region: "europe-west1" }, async request => {
   if (!request.auth || request.auth.uid !== PLATFORM_OWNER_UID) {

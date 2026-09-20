@@ -25,9 +25,15 @@ service firebase.storage {
         && event(eventId).data.privateAccessEmails is list
         && event(eventId).data.privateAccessEmails.hasAny([request.auth.token.email]);
     }
+    function credentialAccess(eventId) {
+      return signedIn()
+        && request.auth.token.eventAccess is string
+        && request.auth.token.eventAccess == eventId;
+    }
     function attendeeAccess(eventId) {
       return owns(eventId)
         || platformAdmin()
+        || credentialAccess(eventId)
         || invitedToPrivateEvent(eventId)
         || (!privateEvent(eventId) && active(eventId));
     }

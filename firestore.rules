@@ -28,14 +28,21 @@ service cloud.firestore {
         && event(eventId).data.privateAccessEmails is list
         && event(eventId).data.privateAccessEmails.hasAny([request.auth.token.email]);
     }
+    function credentialAccess(eventId) {
+      return signedIn()
+        && request.auth.token.eventAccess is string
+        && request.auth.token.eventAccess == eventId;
+    }
     function attendeeAccess(eventId) {
       return manages(eventId)
+        || credentialAccess(eventId)
         || invitedToPrivateEvent(eventId)
         || (!privateEvent(eventId) && active(eventId));
     }
 
     match /events/{eventId} {
       allow read: if manages(eventId)
+        || credentialAccess(eventId)
         || invitedToPrivateEvent(eventId)
         || (!privateEvent(eventId) && resource.data.active == true);
       allow create: if platformAdmin()
@@ -62,6 +69,7 @@ service cloud.firestore {
         // Guests may only query approved photos and like records. Pending and
         // rejected media stay private to the wedding administrator.
         allow read: if manages(eventId)
+          || credentialAccess(eventId)
           || invitedToPrivateEvent(eventId)
           || (!privateEvent(eventId) && active(eventId)
             && (resource.data.status == "approved" || resource.data.type == "photoLike"));
@@ -103,6 +111,7 @@ service cloud.firestore {
 
       match /guestbookMessages/{messageId} {
         allow read: if manages(eventId)
+          || credentialAccess(eventId)
           || invitedToPrivateEvent(eventId)
           || (!privateEvent(eventId) && active(eventId) && resource.data.status == "approved");
         allow create: if attendeeAccess(eventId)
