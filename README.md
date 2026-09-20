@@ -1,6 +1,6 @@
-# Espace Mariage
+# Event-App
 
-Application de partage de photos, de témoignages vidéo et de cérémonie en direct, avec un espace distinct par mariage et une administration de la plateforme séparée.
+Application multi-événements de partage de photos, vidéos et live, avec comptes organisateurs et administration de plateforme séparée.
 
 ## Dépôt et données
 
@@ -10,7 +10,7 @@ Le code complet reste dans **kitout3/mariage-app**. Firebase **mariage-hq** cons
 - Espace invités : `/?w=<identifiant-du-mariage>`.
 - Administration du mariage : `/?w=<identifiant-du-mariage>#admin`.
 - Administration de la plateforme : `/admin.html`, réservée au propriétaire via Firebase Authentication et les contrôles des Cloud Functions.
-- L’ancienne adresse GitHub Pages sans paramètre reste compatible avec le mariage historique. Sur les autres domaines, l’accueil ne sélectionne aucun mariage automatiquement.
+- L’adresse racine affiche désormais l’espace compte Event-App (création de compte ou connexion). Aucun événement n’est sélectionné automatiquement.
 - Un identifiant invalide ne bascule jamais vers un autre mariage. Aucun annuaire public n’est affiché sur l’accueil.
 
 ## Développement
