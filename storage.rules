@@ -15,10 +15,26 @@ service firebase.storage {
     function active(eventId) {
       return event(eventId).data.active == true;
     }
+    function privateEvent(eventId) {
+      return eventId == 'quentin-huyen-2026';
+    }
+    function invitedToPrivateEvent(eventId) {
+      return signedIn()
+        && request.auth.token.email is string
+        && ('privateAccessEmails' in event(eventId).data)
+        && event(eventId).data.privateAccessEmails is list
+        && event(eventId).data.privateAccessEmails.hasAny([request.auth.token.email]);
+    }
+    function attendeeAccess(eventId) {
+      return owns(eventId)
+        || platformAdmin()
+        || invitedToPrivateEvent(eventId)
+        || (!privateEvent(eventId) && active(eventId));
+    }
 
     match /events/{eventId}/photos/{allPaths=**} {
-      allow read: if active(eventId) || owns(eventId) || platformAdmin();
-      allow create: if active(eventId)
+      allow read: if attendeeAccess(eventId);
+      allow create: if attendeeAccess(eventId)
         && request.resource.size < 40 * 1024 * 1024
         && request.resource.contentType != null
         && request.resource.contentType.matches('^image/.*');
@@ -26,8 +42,8 @@ service firebase.storage {
     }
 
     match /events/{eventId}/videos/{fileName} {
-      allow read: if active(eventId) || owns(eventId) || platformAdmin();
-      allow create: if active(eventId)
+      allow read: if attendeeAccess(eventId);
+      allow create: if attendeeAccess(eventId)
         && request.resource.size < 500 * 1024 * 1024
         && request.resource.contentType != null
         && request.resource.contentType.matches('^video/(mp4|quicktime|webm)')
@@ -37,7 +53,7 @@ service firebase.storage {
 
     // Other tenant files are never guest-writable.
     match /events/{eventId}/{allPaths=**} {
-      allow read: if active(eventId) || owns(eventId) || platformAdmin();
+      allow read: if attendeeAccess(eventId);
       allow create, update, delete: if owns(eventId) || platformAdmin();
     }
   }
