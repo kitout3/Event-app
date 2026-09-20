@@ -1,0 +1,1 @@
+import{c as e,j as t,R as o}from"./billing-config-RaPi_uwN.js";import{C as r}from"./account-C6Ovmp9K.js";e.createRoot(document.getElementById("root")).render(t.jsx(o.StrictMode,{children:t.jsx(r,{})}));
