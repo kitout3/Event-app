@@ -87,7 +87,7 @@ async function initFirebase() {
       { initializeApp, getApps },
       { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, where, orderBy, serverTimestamp, getDoc, setDoc },
       { getStorage, ref, uploadString, uploadBytes, getDownloadURL },
-      { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signInWithCustomToken, signOut },
+      { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut },
       { getFunctions, httpsCallable }
     ] = await Promise.all([
       import("https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js"),
@@ -104,7 +104,7 @@ async function initFirebase() {
     window.__fb = {
       collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, where, orderBy, serverTimestamp, getDoc, setDoc,
       ref, uploadString, uploadBytes, getDownloadURL,
-      onAuthStateChanged, signInWithEmailAndPassword, signInWithCustomToken, signOut, httpsCallable
+      onAuthStateChanged, signInWithEmailAndPassword, signOut, httpsCallable
     };
     _firebaseReady = true;
 
@@ -482,11 +482,11 @@ function PrivateEventAccess({ state, error }) {
   const login=async()=>{
     setBusy(true);setLocalError("");
     try{
-      if(!_auth||!_functions||!window.__fb?.signInWithCustomToken) throw new Error("Connexion indisponible.");
+      if(!_auth||!_functions||!window.__fb?.signInWithEmailAndPassword) throw new Error("Connexion indisponible.");
       const authenticate=window.__fb.httpsCallable(_functions,"loginPrivateEvent");
       const result=await authenticate({eventId:EVENT_ID,accessId:accessId.trim(),password});
-      if(!result.data?.token) throw new Error("Connexion impossible.");
-      await window.__fb.signInWithCustomToken(_auth,result.data.token);
+      if(!result.data?.email) throw new Error("Connexion impossible.");
+      await window.__fb.signInWithEmailAndPassword(_auth,result.data.email,password);
     }catch(e){
       const code=String(e?.code||"");
       setLocalError(code.includes("failed-precondition")?"L’accès n’a pas encore été configuré par l’administrateur.":"Identifiant ou mot de passe incorrect.");
@@ -552,7 +552,7 @@ export default function App() {
               await loadCurrentEvent();
               setEventExists(_eventExists);
               const tokenResult = await user.getIdTokenResult();
-              const authorized = !!user && (user.uid === currentEvent.ownerUid || user.uid === PLATFORM_OWNER_UID || tokenResult.claims?.eventAccess === EVENT_ID || (Array.isArray(currentEvent.privateAccessEmails) && currentEvent.privateAccessEmails.includes(String(user.email||"").toLowerCase())));
+              const authorized = !!user && (user.uid === currentEvent.ownerUid || user.uid === PLATFORM_OWNER_UID || user.uid === currentEvent.privateAccessUid || tokenResult.claims?.eventAccess === EVENT_ID || (Array.isArray(currentEvent.privateAccessEmails) && currentEvent.privateAccessEmails.includes(String(user.email||"").toLowerCase())));
               if (!authorized) throw new Error("Ce compte n’est pas autorisé à accéder à cet espace.");
               setAdminAuth(user.uid === currentEvent.ownerUid || user.uid === PLATFORM_OWNER_UID);
               setPrivateAccessState("granted");

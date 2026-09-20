@@ -27,8 +27,10 @@ service firebase.storage {
     }
     function credentialAccess(eventId) {
       return signedIn()
-        && request.auth.token.eventAccess is string
-        && request.auth.token.eventAccess == eventId;
+        && (
+          (('eventAccess' in request.auth.token) && request.auth.token.eventAccess is string && request.auth.token.eventAccess == eventId)
+          || (('privateAccessUid' in event(eventId).data) && event(eventId).data.privateAccessUid == request.auth.uid)
+        );
     }
     function attendeeAccess(eventId) {
       return owns(eventId)

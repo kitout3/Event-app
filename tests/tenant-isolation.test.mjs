@@ -327,7 +327,7 @@ test("Huyen and Quentin event supports private event credentials",()=>{
   const functions=read("functions/index.js");
   assert.match(app,/PRIVATE_EVENT_IDS = new Set\(\["quentin-huyen-2026"\]\)/);
   assert.match(app,/PrivateEventAccess/);
-  assert.match(app,/signInWithCustomToken/);
+  assert.match(app,/signInWithEmailAndPassword\(_auth,result\.data\.email,password\)/);
   assert.match(app,/setPrivateEventCredentials/);
   assert.match(app,/privateAccessState !== "granted" && view !== VIEWS\.ADMIN/);
   assert.match(rules,/function privateEvent\(eventId\)/);
@@ -338,6 +338,8 @@ test("Huyen and Quentin event supports private event credentials",()=>{
   assert.match(functions,/requestCanAccessPrivateEvent/);
   assert.match(functions,/exports\.loginPrivateEvent/);
   assert.match(functions,/pbkdf2Sync/);
+  assert.match(functions,/upsertPrivateEventGuest/);
+  assert.doesNotMatch(functions,/createCustomToken/);
   assert.match(functions,/throw new HttpsError\("permission-denied", "Cet événement est privé\."\)/);
 });
 

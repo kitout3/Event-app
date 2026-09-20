@@ -32,6 +32,7 @@ function requestCanAccessPrivateEvent(request, event) {
   if (!PRIVATE_EVENT_IDS.has(eventId)) return true;
   if (!request.auth) return false;
   if (request.auth.uid === PLATFORM_OWNER_UID || request.auth.uid === event.ownerUid) return true;
+  if (request.auth.uid === event.privateAccessUid) return true;
   if (request.auth.token?.eventAccess === eventId) return true;
   const email = String(request.auth.token?.email || "").trim().toLowerCase();
   const allowed = Array.isArray(event.privateAccessEmails) ? event.privateAccessEmails.map(value => String(value || "").trim().toLowerCase()) : [];
@@ -44,6 +45,26 @@ function normalizeAccessId(value) {
 
 function hashPrivatePassword(password, salt) {
   return crypto.pbkdf2Sync(String(password), salt, 210000, 32, "sha256").toString("hex");
+}
+
+function privateEventGuestUid(eventId) {
+  return `event-guest-${crypto.createHash("sha256").update(eventId).digest("hex").slice(0, 32)}`;
+}
+
+function privateEventGuestEmail(eventId, accessId) {
+  return `${eventId}.${accessId}@event-access.invalid`;
+}
+
+async function upsertPrivateEventGuest(eventId, accessId, password) {
+  const uid = privateEventGuestUid(eventId);
+  const email = privateEventGuestEmail(eventId, accessId);
+  try {
+    await getAuth().updateUser(uid, { email, password, disabled: false, displayName: `Accès invité ${eventId}` });
+  } catch (error) {
+    if (error?.code !== "auth/user-not-found") throw error;
+    await getAuth().createUser({ uid, email, password, disabled: false, displayName: `Accès invité ${eventId}` });
+  }
+  return { uid, email };
 }
 
 function normalizeSlug(value) {
@@ -179,6 +200,7 @@ exports.setPrivateEventCredentials = onCall({ region: "europe-west1" }, async re
 
   const salt = crypto.randomBytes(16).toString("hex");
   const passwordHash = hashPrivatePassword(password, salt);
+  const guest = await upsertPrivateEventGuest(eventId, accessId, password);
   const batch = db.batch();
   batch.set(eventRef.collection("privateAccess").doc("credentials"), {
     accessId,
@@ -189,7 +211,7 @@ exports.setPrivateEventCredentials = onCall({ region: "europe-west1" }, async re
     updatedAt: FieldValue.serverTimestamp(),
     updatedBy: request.auth.uid,
   });
-  batch.update(eventRef, { privateAccessId: accessId, updatedAt: FieldValue.serverTimestamp() });
+  batch.update(eventRef, { privateAccessId: accessId, privateAccessUid: guest.uid, updatedAt: FieldValue.serverTimestamp() });
   await batch.commit();
   return { configured: true, accessId };
 });
@@ -215,9 +237,12 @@ exports.loginPrivateEvent = onCall({ region: "europe-west1" }, async request => 
     throw new HttpsError("permission-denied", "Identifiant ou mot de passe incorrect.");
   }
 
-  const guestUid = `event-guest-${crypto.createHash("sha256").update(eventId).digest("hex").slice(0, 32)}`;
-  const token = await getAuth().createCustomToken(guestUid, { eventAccess: eventId, accessRole: "attendee" });
-  return { token };
+  const guest = await upsertPrivateEventGuest(eventId, accessId, password);
+  await getFirestore().collection("events").doc(eventId).update({
+    privateAccessUid: guest.uid,
+    updatedAt: FieldValue.serverTimestamp(),
+  });
+  return { email: guest.email };
 });
 
 exports.createWedding = onCall({ region: "europe-west1" }, async request => {
