@@ -225,7 +225,7 @@ test("mobile video gallery preserves native vertical scrolling below the global 
   assert.match(video,/touch-action:pan-y/);
   assert.match(video,/vt-toolbar/);
   assert.match(video,/dockLanguageSwitcher/);
-  assert.match(video,/padding:calc\(var\(--event-header-reserve,96px\) \+ 10px\)/);
+  assert.match(video,/padding:calc\(var\(--event-header-reserve,68px\) \+ 10px\)/);
   assert.match(video,/\.vt-gallery-item video\{pointer-events:none!important/);
   assert.match(enhancer,/#wedding-language-switcher\{[\s\S]*width:auto!important[\s\S]*max-width:max-content!important/);
 });
@@ -276,16 +276,18 @@ test("download banner belongs to active gallery and is destroyed on navigation",
 });
 
 
-test("all event pages reserve a compact language header above page content",()=>{
+test("all event pages keep only the compact language pill fixed with a small initial gap",()=>{
   const enhancer=read("public/app-enhancer.js");
   const app=read("src/App.jsx");
   const video=read("public/video-testimonials-v2.js");
-  assert.match(enhancer,/--event-header-reserve:96px/);
+  assert.match(enhancer,/--event-header-reserve:calc\(env\(safe-area-inset-top\) \+ 64px\)/);
   assert.match(enhancer,/body\.event-language-layout #root/);
+  assert.doesNotMatch(enhancer,/body\.event-language-layout::before/);
   assert.match(enhancer,/right:16px!important/);
   assert.match(enhancer,/font-size:11px!important/);
   assert.match(enhancer,/document\.body\.classList\.add\("event-language-layout"\)/);
-  assert.match(app,/top: "var\(--event-header-reserve, 0px\)"/);
-  assert.match(video,/padding:calc\(var\(--event-header-reserve,96px\) \+ 10px\)/);
+  assert.doesNotMatch(app,/position: "sticky"/);
+  assert.doesNotMatch(app,/top: "var\(--event-header-reserve/);
+  assert.match(video,/padding:calc\(var\(--event-header-reserve,68px\) \+ 10px\)/);
   assert.doesNotMatch(video,/vt-language-slot/);
 });
