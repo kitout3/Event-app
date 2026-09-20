@@ -21,11 +21,11 @@
     en: { title: "Live chat", comments: "Comments", name: "Your name", message: "Write a message…", send: "Send", empty: "Be the first to write a message.", error: "The chat could not be loaded.", sending: "Sending…" },
     vi: { title: "Trò chuyện trực tiếp", comments: "Bình luận", name: "Tên của bạn", message: "Viết tin nhắn…", send: "Gửi", empty: "Hãy là người đầu tiên gửi tin nhắn.", error: "Không thể tải trò chuyện.", sending: "Đang gửi…" }
   };
-  const t = key => texts[getLang()][key];
+  const t = key => window.EventI18n?.translate(texts.fr[key]) || texts[getLang()][key];
 
   function formatTime(timestamp) {
     const date = timestamp?.toDate?.() || new Date();
-    const locale = getLang() === "fr" ? "fr-FR" : getLang() === "vi" ? "vi-VN" : "en-GB";
+    const locale = window.EventI18n?.locale || "fr-FR";
     return date.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" });
   }
 
@@ -264,7 +264,7 @@
         messages.forEach(item => {
           const row = document.createElement("article");
           row.style.cssText = "background:var(--cream);border:1px solid var(--blush);border-radius:12px;padding:8px 10px";
-          row.innerHTML = `<div style="display:flex;justify-content:space-between;gap:10px"><strong style="color:var(--burgundy);font-size:.88rem">${escapeHtml(item.name || "Invité")}</strong><time style="color:var(--muted);font-size:.7rem">${formatTime(item.createdAt)}</time></div><p style="margin:3px 0 0;white-space:pre-wrap;overflow-wrap:anywhere;font-size:.88rem">${escapeHtml(item.message)}</p>`;
+          row.innerHTML = `<div style="display:flex;justify-content:space-between;gap:10px"><strong translate="no" style="color:var(--burgundy);font-size:.88rem">${escapeHtml(item.name || window.EventI18n?.translate("Invité") || "Invité")}</strong><time style="color:var(--muted);font-size:.7rem">${formatTime(item.createdAt)}</time></div><p translate="no" style="margin:3px 0 0;white-space:pre-wrap;overflow-wrap:anywhere;font-size:.88rem">${escapeHtml(item.message)}</p>`;
           list.appendChild(row);
         });
         list.scrollTop = list.scrollHeight;

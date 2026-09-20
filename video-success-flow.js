@@ -12,10 +12,11 @@
   const uploadSuccessMessages = new Set([
     "Merci ! Votre témoignage a bien été envoyé.",
     "Thank you! Your video has been uploaded.",
-    "Cảm ơn! Video của bạn đã được gửi."
+    "Cảm ơn! Video của bạn đã được gửi.",
+    "Danke! Ihr Video wurde hochgeladen."
   ]);
 
-  const currentMessage = () => messages[localStorage.getItem(LANG_KEY)] || messages.fr;
+  const currentMessage = () => window.EventI18n?.translate(messages.fr) || messages[localStorage.getItem(LANG_KEY)] || messages.fr;
 
   const reopenVideoSelection = () => {
     document.getElementById(SUCCESS_SCREEN_ID)?.remove();

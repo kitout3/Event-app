@@ -30,7 +30,7 @@
   };
 
   const lang = () => texts[localStorage.getItem(LANG_KEY)] ? localStorage.getItem(LANG_KEY) : "fr";
-  const t = key => texts[lang()][key];
+  const t = key => window.EventI18n?.translate(texts.fr[key]) || texts[lang()][key];
 
   async function getFirebase() {
     const [{ initializeApp, getApps }, fs, msg] = await Promise.all([
@@ -126,7 +126,7 @@
 
   function inject() {
     if (document.getElementById("push-video-settings") || window.location.hash.toLowerCase() !== "#admin") return;
-    const saveButton = [...document.querySelectorAll("button")].find(button => /Sauvegarder|Save|Lưu/i.test((button.textContent || "").trim()));
+    const saveButton = document.querySelector('[data-event-settings-save="true"]');
     if (saveButton?.parentElement) { saveButton.parentElement.insertBefore(createPanel(), saveButton); return; }
     const passwordInput = document.querySelector('input[type="password"]');
     const adminColumn = passwordInput?.closest("div[style*='display: grid']")?.parentElement?.parentElement;
@@ -135,7 +135,8 @@
 
   function refresh() { document.getElementById("push-video-settings")?.remove(); setTimeout(inject, 50); }
   const observer = new MutationObserver(() => setTimeout(inject, 40));
-  document.addEventListener("DOMContentLoaded", () => { inject(); observer.observe(document.body, { childList: true, subtree: true }); setInterval(inject, 800); });
+  function start() { inject(); observer.observe(document.body, { childList: true, subtree: true }); }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start, {once:true}); else start();
   window.addEventListener("hashchange", () => setTimeout(inject, 80));
   window.addEventListener("wedding-language-change", refresh);
 })();

@@ -1,197 +1,201 @@
 (() => {
   "use strict";
-
-  const LANG_KEY = "mariage-lang";
-  const rows = [
-    ["Partager un moment", "Share a moment", "Chia sẻ khoảnh khắc"],
-    ["Ajouter une photo", "Add a photo", "Thêm ảnh"],
-    ["Mur photo", "Photo wall", "Tường ảnh"],
-    ["Galerie de la soirée", "Event gallery", "Thư viện sự kiện"],
-    ["Galerie de l’événement", "Event gallery", "Thư viện sự kiện"],
-    ["Galerie officielle", "Official gallery", "Thư viện chính thức"],
-    ["Espace organisateur", "Organizer area", "Khu vực ban tổ chức"],
-    ["Organisation", "Organisation", "Tổ chức"],
-    ["Gérer l’événement", "Manage the event", "Quản lý sự kiện"],
-    ["Programme", "Schedule", "Chương trình"],
-    ["Horaires et temps forts", "Schedule and highlights", "Lịch trình và điểm nổi bật"],
-    ["Informations pratiques", "Practical information", "Thông tin hữu ích"],
-    ["Lieu, accès et informations utiles", "Venue, access and useful information", "Địa điểm và thông tin hữu ích"],
-    ["Live de l’événement", "Live event", "Sự kiện trực tiếp"],
-    ["Suivre la diffusion en direct", "Watch the live stream", "Xem trực tiếp"],
-    ["QR Code participants", "Participant QR code", "Mã QR người tham dự"],
-    ["Événement en direct", "Live event", "Sự kiện trực tiếp"],
-    ["Nom de l’événement", "Event name", "Tên sự kiện"],
-    ["Organisateur", "Organiser", "Ban tổ chức"],
-    ["Lieu", "Venue", "Địa điểm"],
-    ["Envoyer une photo", "Upload a photo", "Gửi ảnh"],
-    ["Partager un souvenir", "Share a memory", "Chia sẻ kỷ niệm"],
-    ["Galerie & réactions", "Gallery & reactions", "Thư viện ảnh và cảm xúc"],
-    ["Voir toutes les photos", "View all photos", "Xem tất cả ảnh"],
-    ["Affichage TV", "TV display", "Màn hình trình chiếu"],
-    ["Diaporama plein écran", "Full-screen slideshow", "Trình chiếu toàn màn hình"],
-    ["Administration", "Administration", "Quản trị"],
-    ["Modérer et exporter", "Moderate and export", "Kiểm duyệt và xuất dữ liệu"],
-    ["Modérer & exporter", "Moderate and export", "Kiểm duyệt và xuất dữ liệu"],
-    ["Regarder le live", "Watch live", "Xem trực tiếp"],
-    ["Suivre la cérémonie en direct", "Watch the ceremony live", "Theo dõi lễ cưới trực tiếp"],
-    ["QR Code invités", "Guest QR code", "Mã QR dành cho khách"],
-    ["Copier le lien", "Copy link", "Sao chép liên kết"],
-    ["Connexion…", "Connecting…", "Đang kết nối…"],
-    ["Retour à l’accueil", "Back to home", "Về trang chủ"],
-    ["Votre prénom (optionnel)", "Your first name (optional)", "Tên của bạn (không bắt buộc)"],
-    ["Un petit mot (optionnel)", "A short message (optional)", "Lời nhắn ngắn (không bắt buộc)"],
-    ["Choisir une photo", "Choose a photo", "Chọn ảnh"],
-    ["Prendre une photo", "Take a photo", "Chụp ảnh"],
-    ["Envoyer", "Send", "Gửi"],
-    ["Annuler", "Cancel", "Hủy"],
-    ["Réessayer", "Try again", "Thử lại"],
-    ["Merci !", "Thank you!", "Cảm ơn!"],
-    ["Photo envoyée", "Photo uploaded", "Ảnh đã được gửi"],
-    ["Voir la galerie", "View gallery", "Xem thư viện"],
-    ["Toutes", "All", "Tất cả"],
-    ["Publiées", "Published", "Đã đăng"],
-    ["En attente", "Pending", "Đang chờ"],
-    ["Refusées", "Rejected", "Đã từ chối"],
-    ["Aucune photo ici", "No photos here", "Chưa có ảnh"],
-    ["Photo mise à jour", "Photo updated", "Ảnh đã được cập nhật"],
-    ["Supprimée", "Deleted", "Đã xóa"],
-    ["Photos", "Photos", "Ảnh"],
-    ["Statistiques", "Statistics", "Thống kê"],
-    ["Stats", "Statistics", "Thống kê"],
-    ["Paramètres", "Settings", "Cài đặt"],
-    ["Export", "Export", "Xuất dữ liệu"],
-    ["Événement", "Event", "Sự kiện"],
-    ["Nom des mariés", "Couple’s names", "Tên cô dâu và chú rể"],
-    ["Date", "Date", "Ngày"],
-    ["Message d’accueil", "Welcome message", "Lời chào"],
-    ["Message d'accueil", "Welcome message", "Lời chào"],
-    ["Mot de passe administrateur", "Admin password", "Mật khẩu quản trị"],
-    ["Mot de passe admin", "Admin password", "Mật khẩu quản trị"],
-    ["Modération", "Moderation", "Kiểm duyệt"],
-    ["Immédiate", "Immediate", "Ngay lập tức"],
-    ["Photos visibles dès l’envoi", "Photos visible immediately after upload", "Ảnh hiển thị ngay sau khi gửi"],
-    ["Modérée", "Moderated", "Có kiểm duyệt"],
-    ["Validation manuelle", "Manual approval", "Duyệt thủ công"],
-    ["Différée", "Delayed", "Trì hoãn"],
-    ["Affichage automatique après un délai", "Automatic display after a delay", "Tự động hiển thị sau một khoảng thời gian"],
-    ["Mur", "Wall", "Tường ảnh"],
-    ["Diaporama", "Slideshow", "Trình chiếu"],
-    ["Diapo", "Slideshow", "Trình chiếu"],
-    ["Mixte", "Mixed", "Kết hợp"],
-    ["Sauvegarder", "Save", "Lưu"],
-    ["Paramètres sauvegardés", "Settings saved", "Đã lưu cài đặt"],
-    ["Mot de passe", "Password", "Mật khẩu"],
-    ["Se connecter", "Sign in", "Đăng nhập"],
-    ["Mot de passe incorrect", "Incorrect password", "Mật khẩu không đúng"],
-    ["Déconnexion", "Sign out", "Đăng xuất"],
-    ["Déco.", "Sign out", "Đăng xuất"],
-    ["Accueil", "Home", "Trang chủ"],
-    ["Total", "Total", "Tổng cộng"],
-    ["Réactions", "Reactions", "Cảm xúc"],
-    ["Photos par heure", "Photos by hour", "Ảnh theo giờ"],
-    ["Aucune donnée", "No data", "Không có dữ liệu"],
-    ["Photos les plus aimées", "Most liked photos", "Ảnh được yêu thích nhất"],
-    ["Télécharger le CSV", "Download CSV", "Tải tệp CSV"],
-    ["Télécharger les photos", "Download photos", "Tải ảnh"],
-    ["Exporter", "Export", "Xuất dữ liệu"],
-    ["Dernière", "Latest", "Mới nhất"],
-    ["Photo la plus aimée", "Most liked photo", "Ảnh được yêu thích nhất"],
-    ["Cérémonie en direct", "Live ceremony", "Lễ cưới trực tiếp"],
-    ["Le direct n’est pas encore configuré", "The live stream is not configured yet", "Buổi phát trực tiếp chưa được cấu hình"],
-    ["Ouvrir le lecteur", "Open player", "Mở trình phát"],
-    ["Diffusion en direct", "Live streaming", "Phát trực tiếp"],
-    ["Lien YouTube du live", "YouTube live link", "Liên kết YouTube trực tiếp"],
-    ["Sauvegarder le lien du live", "Save live link", "Lưu liên kết trực tiếp"],
-    ["Lien YouTube invalide.", "Invalid YouTube link.", "Liên kết YouTube không hợp lệ."],
-    ["Sauvegarde en cours…", "Saving…", "Đang lưu…"],
-    ["Lien sauvegardé dans Firebase.", "Link saved in Firebase.", "Đã lưu liên kết vào Firebase."]
-  ];
-
-  const languageIndex = { fr: 0, en: 1, vi: 2 };
+  const codes = ["fr", "en", "vi", "de"];
+  const locales = { fr:"fr-FR", en:"en-GB", vi:"vi-VN", de:"de-DE" };
+  const key = "mariage-lang";
+  const normalize = value => String(value).replace(/[’']/g, "'").replace(/\s+/g, " ").trim();
+  const rows = window.EVENT_TRANSLATIONS || [];
   const reverse = new Map();
-  rows.forEach((row, rowIndex) => row.forEach(value => reverse.set(value, rowIndex)));
-
-  let language = localStorage.getItem(LANG_KEY) || (navigator.language || "fr").slice(0, 2).toLowerCase();
-  if (!(language in languageIndex)) language = "fr";
-  let applying = false;
-
-  function translateString(value) {
-    const trimmed = value.trim();
-    if (!trimmed) return value;
-
-    const exactRow = reverse.get(trimmed);
-    if (exactRow !== undefined) {
-      return value.replace(trimmed, rows[exactRow][languageIndex[language]]);
+  const patterns = [];
+  const escape = value => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  rows.forEach(row => {
+    if (row.length !== 4 || row.some(value => typeof value !== "string" || !value)) throw new Error("Incomplete translation: " + row[0]);
+    row.forEach(value => reverse.set(normalize(value), row));
+    if (row[0].includes("{")) {
+      row.forEach(value => {
+        const names = [];
+        const parts = normalize(value).split(/(\{\w+\})/g).map(part => {
+          if (/^\{\w+\}$/.test(part)) {
+            const name = part.slice(1, -1); names.push(name);
+            return ["count","paid","published","done","total"].includes(name) ? "(\\d+)" : "(.+?)";
+          }
+          return escape(part);
+        });
+        patterns.push({ re:new RegExp("^" + parts.join("") + "$"), names, row });
+      });
     }
-
-    for (const [variant, rowIndex] of reverse.entries()) {
-      if (trimmed.startsWith(`${variant} (`) || trimmed.startsWith(`${variant} ·`) || trimmed.startsWith(`${variant} :`)) {
-        return value.replace(variant, rows[rowIndex][languageIndex[language]]);
+  });
+  // Prefer original French keys where translations share a word (Photos, Export, etc.).
+  rows.forEach(row => reverse.set(normalize(row[0]), row));
+  let language;
+  try { language = localStorage.getItem(key); } catch {}
+  if (!codes.includes(language)) language = (navigator.language || "fr").slice(0,2).toLowerCase();
+  if (!codes.includes(language)) language = "fr";
+  const sourceText = new WeakMap();
+  let titleSource = document.title;
+  let titleOutput = document.title;
+  const sourceAttributes = new WeakMap();
+  const ignored = 'script,style,textarea,code,pre,[translate="no"],[data-i18n-ignore],#wedding-language-switcher';
+  function core(value, lang) {
+    const clean = normalize(value);
+    const row = reverse.get(clean);
+    if (row) return row[codes.indexOf(lang)];
+    for (const pattern of patterns) {
+      const match = clean.match(pattern.re);
+      if (match) return pattern.row[codes.indexOf(lang)].replace(/\{(\w+)\}/g, (_, name) => match[pattern.names.indexOf(name) + 1] ?? "");
+    }
+    return null;
+  }
+  function translate(value, lang = language) {
+    if (typeof value !== "string" || !value.trim() || !codes.includes(lang)) return value;
+    const trimmed = value.trim();
+    let result = core(trimmed, lang);
+    if (result === null) {
+      // Icons, counters and punctuation around a complete UI label are preserved.
+      const decorated = trimmed.match(/^([^\p{L}\p{N}]*)(.*?)([^\p{L}\p{N}]*)$/u);
+      if (decorated) {
+        const middle = core(decorated[2], lang);
+        if (middle !== null) result = decorated[1] + middle + decorated[3];
       }
     }
-    return value;
+    if (result === null) {
+      const suffix = trimmed.match(/^(.*?)\s+(\(\d+\)|\d+%|\d+\/\d+)$/);
+      if (suffix) { const label = core(suffix[1], lang); if (label !== null) result = label + " " + suffix[2]; }
+    }
+    if (result === null && trimmed.includes(" · ")) {
+      const parts = trimmed.split(" · ").map(part => translate(part, lang));
+      if (parts.join(" · ") !== trimmed) result = parts.join(" · ");
+    }
+    return result === null ? value : value.replace(trimmed, result);
   }
-
-  function applyLanguage(root = document.body) {
+  function updateText(node) {
+    if (node.parentElement?.closest(ignored)) return;
+    const current = node.nodeValue;
+    const saved = sourceText.get(node);
+    const source = saved && saved.output === current ? saved.source : current;
+    const output = translate(source);
+    sourceText.set(node, {source, output});
+    if (current !== output) node.nodeValue = output;
+  }
+  function updateAttributes(element) {
+    if (element.closest('script,style,[translate="no"],[data-i18n-ignore],#wedding-language-switcher')) return;
+    let saved = sourceAttributes.get(element);
+    if (!saved) { saved = {}; sourceAttributes.set(element, saved); }
+    for (const attr of ["placeholder","title","aria-label","alt"]) {
+      const current = element.getAttribute(attr);
+      if (!current) continue;
+      const source = saved[attr]?.output === current ? saved[attr].source : current;
+      const output = translate(source);
+      saved[attr] = {source, output};
+      if (current !== output) element.setAttribute(attr, output);
+    }
+  }
+  let applying = false;
+  function apply(root = document.body) {
     if (!root || applying) return;
     applying = true;
     try {
-      const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
-      const nodes = [];
-      while (walker.nextNode()) nodes.push(walker.currentNode);
-      nodes.forEach(node => {
-        if (node.parentElement?.closest("script,style")) return;
-        let next = translateString(node.nodeValue);
-        if (next !== node.nodeValue) node.nodeValue = next;
-      });
-
-      root.querySelectorAll?.("input, textarea").forEach(input => {
-        const placeholder = input.getAttribute("placeholder");
-        if (placeholder) input.setAttribute("placeholder", translateString(placeholder));
-      });
-
-      document.documentElement.lang = language;
-      document.querySelectorAll("#wedding-language-switcher button").forEach(button => {
-        const active = button.dataset.lang === language;
-        button.style.background = active ? "var(--burgundy)" : "transparent";
-        button.style.color = active ? "white" : "var(--burgundy)";
-        button.setAttribute("aria-pressed", String(active));
-      });
-    } finally {
-      applying = false;
-    }
+      if (root.nodeType === 3) updateText(root);
+      else {
+        const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+        while (walker.nextNode()) updateText(walker.currentNode);
+        if (root.nodeType === 1) updateAttributes(root);
+        root.querySelectorAll?.("[placeholder],[title],[aria-label],[alt]").forEach(updateAttributes);
+      }
+      if (document.documentElement.lang !== language) document.documentElement.lang = language;
+    } finally { applying = false; }
   }
-
-  function setLanguage(nextLanguage) {
-    if (!(nextLanguage in languageIndex)) return;
-    language = nextLanguage;
-    localStorage.setItem(LANG_KEY, language);
-    applyLanguage(document.body);
-    requestAnimationFrame(() => applyLanguage(document.body));
-    setTimeout(() => applyLanguage(document.body), 50);
+  function buttons() {
+    document.querySelectorAll("#wedding-language-switcher button").forEach(button => {
+      const active = button.dataset.lang === language;
+      button.style.background = active ? "#5c2a1e" : "transparent";
+      button.style.color = active ? "#fff" : "#5c2a1e";
+      button.setAttribute("aria-pressed", String(active));
+    });
   }
-
-  document.addEventListener("click", event => {
-    const button = event.target.closest?.("#wedding-language-switcher button[data-lang]");
-    if (!button) return;
-    setTimeout(() => setLanguage(button.dataset.lang), 0);
-  });
-
-  window.addEventListener("storage", event => {
-    if (event.key === LANG_KEY && event.newValue) setLanguage(event.newValue);
-  });
-
+  function setLanguage(next, persist = true) {
+    if (!codes.includes(next)) return;
+    language = next;
+    if (persist) { try { localStorage.setItem(key, next); } catch {} }
+    apply();
+    if (document.title !== titleOutput) titleSource = document.title;
+    titleOutput = translate(titleSource); document.title = titleOutput;
+    buttons();
+    window.dispatchEvent(new CustomEvent("wedding:language-changed", {detail:{language:next}}));
+  }
+  window.EventI18n = {
+    translate, apply, setLanguage,
+    get language() { return language; },
+    get locale() { return locales[language]; },
+    dictionary(source) { return Object.fromEntries(Object.entries(source).map(([name,value]) => [name, translate(value)])); },
+    t(source, values = {}) { return translate(source).replace(/\{(\w+)\}/g, (match,name) => String(values[name] ?? match)); }
+  };
+  // Native confirmation/error dialogs do not pass through the DOM.
+  for (const method of ["alert","confirm","prompt"]) {
+    if (typeof window[method] !== "function") continue;
+    const original = window[method].bind(window);
+    window[method] = (message, ...args) => original(translate(String(message)), ...args);
+  }
+  function installSwitcher() {
+    if (document.getElementById("wedding-language-switcher")) return;
+    const switcher = document.createElement("nav");
+    switcher.id = "wedding-language-switcher";
+    switcher.setAttribute("aria-label", "Français / English / Tiếng Việt / Deutsch");
+    const names = {fr:"Français",en:"English",vi:"Tiếng Việt",de:"Deutsch"};
+    codes.forEach(code => {
+      const button = document.createElement("button");
+      button.type = "button"; button.dataset.lang = code;
+      button.textContent = code.toUpperCase(); button.lang = code;
+      button.setAttribute("aria-label", names[code]);
+      button.onclick = () => setLanguage(code);
+      switcher.appendChild(button);
+    });
+    document.body.appendChild(switcher);
+    document.body.classList.add("event-language-layout");
+    const style = document.createElement("style");
+    style.textContent = `
+      :root{--event-header-reserve:calc(env(safe-area-inset-top) + 64px)}
+      body.event-language-layout #root{box-sizing:border-box;padding-top:var(--event-header-reserve)!important}
+      #wedding-language-switcher{position:fixed;top:calc(env(safe-area-inset-top) + 12px);right:16px;z-index:2147483647;display:flex;gap:2px;padding:4px;border-radius:999px;background:#fffdf9;border:1px solid #f5ddd4;box-shadow:0 4px 18px #5c2a1e2e}
+      #wedding-language-switcher button{border:0;border-radius:999px;padding:8px 10px;font:700 11px/1 Arial,sans-serif;cursor:pointer;min-width:0}
+      @media(max-width:650px){:root{--event-header-reserve:calc(env(safe-area-inset-top) + 68px)}}
+    `;
+    document.head.appendChild(style);
+    buttons();
+  }
   let timer;
-  const observer = new MutationObserver(() => {
+  const pending = new Set();
+  const observer = new MutationObserver(records => {
+    for (const record of records) {
+      if (record.type === "childList") record.addedNodes.forEach(node => pending.add(node));
+      else pending.add(record.target);
+    }
     clearTimeout(timer);
-    timer = setTimeout(() => applyLanguage(document.body), 20);
+    timer = setTimeout(() => { const roots = [...pending]; pending.clear(); roots.forEach(apply); }, 0);
   });
-
-  function start() {
-    applyLanguage(document.body);
-    observer.observe(document.body, { childList: true, subtree: true, characterData: true });
+  // Use the selected application language for browser validation bubbles too.
+  function validationMessage(input) {
+    const validity = input.validity;
+    if (validity.valueMissing) return "Veuillez remplir ce champ.";
+    if (validity.typeMismatch && input.type === "email") return "Saisissez une adresse email valide.";
+    if (validity.tooShort || validity.tooLong) return "Vérifiez la longueur de ce champ.";
+    if (validity.rangeUnderflow || validity.rangeOverflow) return "La valeur saisie est hors des limites autorisées.";
+    return "Le format saisi n’est pas valide.";
   }
-
-  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);
+  document.addEventListener("invalid", event => {
+    const input = event.target;
+    if (!input.setCustomValidity) return;
+    input.setCustomValidity("");
+    if (!input.validity.valid) input.setCustomValidity(translate(validationMessage(input)));
+  }, true);
+  document.addEventListener("input", event => event.target.setCustomValidity?.(""), true);
+  function start() {
+    installSwitcher(); apply(); titleSource = document.title; titleOutput = translate(titleSource); document.title = titleOutput;
+    observer.observe(document.body, {subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:["placeholder","aria-label","title","alt"]});
+  }
+  window.addEventListener("storage", event => {
+    if (event.key === key && codes.includes(event.newValue)) setLanguage(event.newValue, false);
+  });
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start, {once:true});
   else start();
 })();
