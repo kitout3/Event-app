@@ -198,6 +198,7 @@ test("Event-App exposes one 30 EUR offer while legacy plan ids map to it",()=>{
   const client=read("src/billing-config.mjs");
   const server=read("functions/billing-config.js");
   const account=read("src/ClientAccount.jsx");
+  const functionsSource=read("functions/index.js");
   assert.match(client,/export const BILLING_PLANS = \{\s*event:/);
   assert.doesNotMatch(client,/\n\s*essential:\s*\{/);
   assert.doesNotMatch(client,/\n\s*premium:\s*\{/);
@@ -211,7 +212,7 @@ test("Event-App exposes one 30 EUR offer while legacy plan ids map to it",()=>{
   assert.match(server,/signature:"event"/);
   assert.match(account,/planId:"event"/);
   assert.match(account,/30 € par événement/);
-  assert.match(functions=read("functions/index.js"),/billingConfig\.quote\(data\.planId \|\| "event", eventType\)/);
+  assert.match(functionsSource,/billingConfig\.quote\(data\.planId \|\| "event", eventType\)/);
 });
 
 
