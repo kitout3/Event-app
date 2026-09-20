@@ -1,6 +1,5 @@
 const { onDocumentCreated } = require("firebase-functions/v2/firestore");
 const { onCall, onRequest, HttpsError } = require("firebase-functions/v2/https");
-const { defineSecret } = require("firebase-functions/params");
 const { initializeApp } = require("firebase-admin/app");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 const { getMessaging } = require("firebase-admin/messaging");
@@ -13,10 +12,19 @@ const Stripe = require("stripe");
 initializeApp();
 
 const PLATFORM_OWNER_UID = "beQK5FNoVla9lnvnzSfqasK93QR2";
-const PUBLIC_APP_BASE = String(process.env.PUBLIC_APP_BASE || "https://app.souvenirdemariage.fr/").replace(/\/?$/, "/");
-const STRIPE_SECRET_KEY = defineSecret("STRIPE_SECRET_KEY");
-const STRIPE_WEBHOOK_SECRET = defineSecret("STRIPE_WEBHOOK_SECRET");
+const PUBLIC_APP_BASE = String(process.env.PUBLIC_APP_BASE || "https://kitout3.github.io/Event-app/").replace(/\/?$/, "/");
+// String secret bindings keep unrelated Functions deployable before Stripe is
+// configured. Stripe Functions are deployed separately once these two Secret
+// Manager values exist.
+const STRIPE_SECRET_KEY = "STRIPE_SECRET_KEY";
+const STRIPE_WEBHOOK_SECRET = "STRIPE_WEBHOOK_SECRET";
 const PRIVATE_EVENT_IDS = new Set(["quentin-huyen-2026"]);
+
+function requiredSecret(name) {
+  const value = String(process.env[name] || "").trim();
+  if (!value) throw new HttpsError("failed-precondition", `Le secret ${name} n’est pas configuré.`);
+  return value;
+}
 
 function requestCanAccessPrivateEvent(request, event) {
   if (!PRIVATE_EVENT_IDS.has(String(event?.slug || event?.id || ""))) return true;
@@ -771,7 +779,7 @@ exports.createEventCheckoutSession = onCall(
     try { quote = billingConfig.quote(event.billing?.planId, event.eventType); }
     catch { throw new HttpsError("failed-precondition", "La formule de cet événement n’est plus disponible."); }
 
-    const stripe = new Stripe(STRIPE_SECRET_KEY.value());
+    const stripe = new Stripe(requiredSecret(STRIPE_SECRET_KEY));
     const customerId = await stripeCustomerFor(
       stripe,
       request.auth.uid,
@@ -832,7 +840,7 @@ exports.confirmEventCheckout = onCall(
     if (!request.auth) throw new HttpsError("unauthenticated", "Connectez-vous pour confirmer le paiement.");
     const sessionId = String(request.data?.sessionId || "").trim();
     if (!sessionId.startsWith("cs_")) throw new HttpsError("invalid-argument", "Session de paiement invalide.");
-    const stripe = new Stripe(STRIPE_SECRET_KEY.value());
+    const stripe = new Stripe(requiredSecret(STRIPE_SECRET_KEY));
     const result = await finalizeStripeSession(stripe, sessionId, request.auth.uid);
     if (!result.paid) throw new HttpsError("failed-precondition", "Le paiement n’est pas encore confirmé.");
     return { paid: true, eventId: result.eventId };
@@ -846,13 +854,13 @@ exports.stripeWebhook = onRequest(
       res.status(405).send("Method not allowed");
       return;
     }
-    const stripe = new Stripe(STRIPE_SECRET_KEY.value());
+    const stripe = new Stripe(requiredSecret(STRIPE_SECRET_KEY));
     let webhookEvent;
     try {
       webhookEvent = stripe.webhooks.constructEvent(
         req.rawBody,
         req.headers["stripe-signature"],
-        STRIPE_WEBHOOK_SECRET.value()
+        requiredSecret(STRIPE_WEBHOOK_SECRET)
       );
     } catch (error) {
       console.warn("stripeWebhook signature:", error?.message);

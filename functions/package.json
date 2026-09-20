@@ -1,5 +1,5 @@
 {
-  "name": "mariage-app-functions",
+  "name": "event-app-functions",
   "private": true,
   "engines": {
     "node": "22"

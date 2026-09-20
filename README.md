@@ -4,12 +4,12 @@ Application multi-événements de partage de photos, vidéos et live, avec compt
 
 ## Dépôt et données
 
-Le code complet reste dans **kitout3/mariage-app**. Firebase **mariage-hq** conserve les comptes, les documents et les médias existants ; aucune migration de données n’est nécessaire pour changer l’adresse du site.
+Le code complet est dans **kitout3/Event-app**. Firebase **mariage-hq** conserve les comptes, les documents et les médias existants ; aucune migration de données n’est nécessaire pour changer l’adresse du site.
 
-- Accueil général : `/`.
-- Espace invités : `/?w=<identifiant-du-mariage>`.
-- Administration du mariage : `/?w=<identifiant-du-mariage>#admin`.
-- Administration de la plateforme : `/admin.html`, réservée au propriétaire via Firebase Authentication et les contrôles des Cloud Functions.
+- Accueil / compte : `https://kitout3.github.io/Event-app/`.
+- Espace invités : `https://kitout3.github.io/Event-app/?w=<identifiant-de-l-evenement>`.
+- Administration d’un événement : `https://kitout3.github.io/Event-app/?w=<identifiant-de-l-evenement>#admin`.
+- Administration de la plateforme : `https://kitout3.github.io/Event-app/admin.html`, réservée au propriétaire via Firebase Authentication et les contrôles des Cloud Functions.
 - L’adresse racine affiche désormais l’espace compte Event-App (création de compte ou connexion). Aucun événement n’est sélectionné automatiquement.
 - Un identifiant invalide ne bascule jamais vers un autre mariage. Aucun annuaire public n’est affiché sur l’accueil.
 
@@ -30,7 +30,7 @@ Les variables `VITE_FIREBASE_*` peuvent remplacer les valeurs publiques lors du 
 
 ## Hébergement et adresses
 
-Le chemin de base est `/` pour Sites ou un domaine personnalisé. Pour préserver GitHub Pages, le workflow `.github/workflows/deploy.yml` utilise `VITE_APP_BASE_PATH=/mariage-app/`. Les deux hébergements utilisent le même code.
+Le chemin de base est `/` pour un domaine personnalisé. Sur GitHub Pages, le workflow `.github/workflows/deploy.yml` utilise `VITE_APP_BASE_PATH=./` afin que le build reste valide après un renommage du dépôt.
 
 Le manifeste `.openai/hosting.json` identifie le site Sites. Le code est également transmis à son dépôt de publication, mais GitHub demeure le dépôt utilisateur. Une modification sur GitHub déclenche GitHub Pages ; une nouvelle version Sites doit être publiée pour actualiser l’adresse Sites. Ne pas confondre ces deux déploiements.
 

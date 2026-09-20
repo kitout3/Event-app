@@ -18,11 +18,11 @@ test("tenant context accepts existing short slugs without cross-tenant fallback"
   assert.equal(root.hasWedding,false);
   assert.equal(root.isValid,false);
   assert.notEqual(root.eventId,'quentin-huyen-2026');
-  const githubRoot=contextFor('https://kitout3.github.io/mariage-app/');
+  const githubRoot=contextFor('https://kitout3.github.io/Event-app/');
   assert.equal(githubRoot.hasWedding,false);
   assert.equal(githubRoot.isValid,false);
   assert.notEqual(githubRoot.eventId,'quentin-huyen-2026');
-  for(const origin of ['https://wedding.example/','https://kitout3.github.io/mariage-app/']) {
+  for(const origin of ['https://wedding.example/','https://kitout3.github.io/Event-app/']) {
     assert.equal(contextFor(`${origin}?w=ab`).eventId,'ab');
     assert.equal(contextFor(`${origin}?w=another-wedding`).eventId,'another-wedding');
     for(const input of ['','%2F','bad%20slug','%3Cscript%3E']) {
@@ -34,17 +34,19 @@ test("tenant context accepts existing short slugs without cross-tenant fallback"
 
 test('invitation links always open the selected wedding on the current deployment',()=>{
   assert.equal(invitationSlug(' AB '),'ab');
-  assert.equal(invitationSlug('https://kitout3.github.io/mariage-app/?w=other-wedding#gallery'),'other-wedding');
+  assert.equal(invitationSlug('https://kitout3.github.io/Event-app/?w=other-wedding#gallery'),'other-wedding');
   assert.equal(weddingLink('https://wedding.example/','other-wedding',true),'https://wedding.example/?w=other-wedding#admin');
-  assert.equal(weddingLink('https://kitout3.github.io/mariage-app/','other-wedding'),'https://kitout3.github.io/mariage-app/?w=other-wedding');
+  assert.equal(weddingLink('https://kitout3.github.io/Event-app/','other-wedding'),'https://kitout3.github.io/Event-app/?w=other-wedding');
   for(const input of ['', 'https://example.com/', 'javascript:alert(1)', '?w=', '../quentin-huyen-2026']) assert.throws(()=>invitationSlug(input));
 });
 
 test('root and custom domains never redirect into the GitHub Pages prefix',()=>{
   const source=read('public/path-fix.js');
   let redirected=false;
-  vm.runInNewContext(source,{window:{location:{hostname:'wedding.example',pathname:'/',replace:()=>{redirected=true;}}}});
+  vm.runInNewContext(source,{URL,document:{currentScript:{src:'https://wedding.example/path-fix.js'}},window:{location:{href:'https://wedding.example/',hostname:'wedding.example',pathname:'/',replace:()=>{redirected=true;}}}});
   assert.equal(redirected,false);
+  assert.doesNotMatch(source,/\/mariage-app\//);
+  assert.match(source,/document\.currentScript/);
 });
 
 test("video gallery never reads the legacy global videoTestimonials collection", () => {
@@ -81,12 +83,12 @@ test("Storage validates photo and video MIME types", () => {
 });
 
 
-test("custom domain build stays portable between GitHub Pages and app.souvenirdemariage.fr", () => {
+test("the build stays portable between GitHub Pages and a custom domain", () => {
   const workflow = read(".github/workflows/deploy.yml");
   const functions = read("functions/index.js");
   assert.match(workflow, /VITE_APP_BASE_PATH:\s*\.\//);
   assert.doesNotMatch(workflow, /VITE_APP_BASE_PATH:\s*\/mariage-app\//);
-  assert.match(functions, /https:\/\/app\.souvenirdemariage\.fr\//);
+  assert.match(functions, /https:\/\/kitout3\.github\.io\/Event-app\//);
 });
 
 
@@ -346,8 +348,11 @@ test("event settings can clear logo and cover image",()=>{
 
 test("Firebase rules deploy independently from Stripe-backed functions",()=>{
   const workflow=read(".github/workflows/firebase-backend.yml");
+  const functions=read("functions/index.js");
   assert.match(workflow,/jobs:\s*[\s\S]*rules:/);
   assert.match(workflow,/--only firestore:rules,storage/);
   assert.match(workflow,/core_functions:[\s\S]*--only functions:createWedding[\s\S]*functions:listPublicVideos[\s\S]*functions:listMyEvents/);
-  assert.match(workflow,/stripe_functions:[\s\S]*functions:createEventCheckoutSession[\s\S]*functions:stripeWebhook/);
+  assert.match(workflow,/stripe_functions:[\s\S]*workflow_dispatch[\s\S]*deploy_stripe[\s\S]*functions:createEventCheckoutSession[\s\S]*functions:stripeWebhook/);
+  assert.doesNotMatch(functions,/defineSecret/);
+  assert.match(functions,/secrets:\s*\[STRIPE_SECRET_KEY\]/);
 });

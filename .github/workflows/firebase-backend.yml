@@ -11,6 +11,12 @@ on:
       - "firebase.json"
       - ".github/workflows/firebase-backend.yml"
   workflow_dispatch:
+    inputs:
+      deploy_stripe:
+        description: Deploy Stripe-backed payment Functions (requires Firebase secrets)
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -83,6 +89,7 @@ jobs:
             --non-interactive
 
   stripe_functions:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.deploy_stripe }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
