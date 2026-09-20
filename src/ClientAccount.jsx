@@ -157,7 +157,7 @@ export default function ClientAccount(){
   if(!ready)return <div className="account-shell" style={{display:"grid",placeItems:"center"}}>Ouverture de votre espace…</div>;
 
   if(!user||audience==="guest")return <div className="account-shell">
-    <header className="account-topbar"><a className="account-brand" href={APP_BASE}>Event-<em>App</em></a><div className="account-topbar-spacer"/><a className="account-link" href={APP_BASE}>← Accueil</a></header>
+    <header className="account-topbar"><a translate="no" className="account-brand" href={APP_BASE}>Event-<em>App</em></a><div className="account-topbar-spacer"/><a className="account-link" href={APP_BASE}>← Accueil</a></header>
     <div className="auth-wrap">
       <section className="auth-visual"><div><p className="account-eyebrow">{audience==="guest"?"VOTRE ESPACE INVITÉ":"VOTRE ESPACE ORGANISATEUR"}</p><h2>{audience==="guest"?<>Vos événements.<br/>Vos souvenirs.</>:<>Un compte.<br/>Tous vos événements.</>}</h2><p>{audience==="guest"?"Retrouvez les photos et vidéos de votre événement avec les identifiants transmis par l’organisateur. Aucun compte à créer.":"Créez autant d’événements que nécessaire. Chaque événement est acheté séparément puis apparaît dans votre tableau de bord."}</p></div><p>Photos · vidéos · live · QR code · galerie · programme</p></section>
       <section className="auth-panel"><div className="auth-card">
@@ -194,7 +194,7 @@ export default function ClientAccount(){
   const pendingEvents=events.filter(item=>!isSettled(item));
 
   return <div className="account-shell">
-    <header className="account-topbar"><a className="account-brand" href={APP_BASE}>Event-<em>App</em></a><div className="account-topbar-spacer"/><span style={{fontSize:12,color:"var(--muted)"}}><span translate="no">{user.displayName||user.email}</span></span><button className="account-button light" onClick={()=>fb.signOut(auth)}>Déconnexion</button></header>
+    <header className="account-topbar"><a translate="no" className="account-brand" href={APP_BASE}>Event-<em>App</em></a><div className="account-topbar-spacer"/><span style={{fontSize:12,color:"var(--muted)"}}><span translate="no">{user.displayName||user.email}</span></span><button className="account-button light" onClick={()=>fb.signOut(auth)}>Déconnexion</button></header>
     <main className="account-main">
       <div className="account-tabs" aria-label="Choisir votre espace"><button className="active" aria-pressed="true">Organisateur</button><button onClick={()=>switchAudience("guest")}>Invité</button></div>
       <div className="account-hero"><div><p className="account-eyebrow">ESPACE CLIENT</p><h1>Mes événements</h1><p>{`${events.length} événement(s) · ${paidEvents.length} payé(s)`}{pendingEvents.length?<> · {`${pendingEvents.length} paiement(s) à terminer`}</>:null}</p></div><button className="account-button wine" onClick={()=>{setForm(emptyEvent());setStep(1);setShowCreate(true);setTab("events");setError("")}}>+ Créer un événement</button></div>

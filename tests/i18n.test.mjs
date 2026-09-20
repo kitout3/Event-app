@@ -149,5 +149,6 @@ test("all entry points load one common translator before React", () => {
     assert.ok(html.indexOf("language-runtime.js")<html.indexOf('type="module"'),file);
   }
   assert.ok(!read("src/main.jsx").includes("'language-runtime'"));
+  assert.match(read("src/ClientAccount.jsx"), /<a translate="no" className="account-brand"/);
   assert.ok(!read("public/video-testimonials-v2.js").includes('if(e.target.closest("#wedding-language-switcher"))'));
 });
