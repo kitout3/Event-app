@@ -217,11 +217,24 @@ exports.setPrivateEventCredentials = onCall({ region: "europe-west1" }, async re
 });
 
 exports.loginPrivateEvent = onCall({ region: "europe-west1" }, async request => {
-  const eventId = normalizeSlug(request.data?.eventId);
+  let eventId = normalizeSlug(request.data?.eventId);
   const accessId = normalizeAccessId(request.data?.accessId);
   const password = String(request.data?.password || "");
-  if (!PRIVATE_EVENT_IDS.has(eventId) || !accessId || !password || accessId.length > 40 || password.length > 128) {
+  if ((request.data?.eventId != null && !PRIVATE_EVENT_IDS.has(eventId)) || !accessId || !password || accessId.length > 40 || password.length > 128) {
     throw new HttpsError("invalid-argument", "Identifiant ou mot de passe incorrect.");
+  }
+
+  // The homepage only asks for guest credentials. Resolve the event on the
+  // server without exposing its access settings or requiring a third field.
+  if (!eventId) {
+    const candidates = await Promise.all([...PRIVATE_EVENT_IDS].map(async id => {
+      const snap = await getFirestore().collection("events").doc(id)
+        .collection("privateAccess").doc("credentials").get();
+      return snap.exists && snap.data()?.accessId === accessId ? id : null;
+    }));
+    const matches = candidates.filter(Boolean);
+    if (matches.length !== 1) throw new HttpsError("permission-denied", "Identifiant ou mot de passe incorrect.");
+    eventId = matches[0];
   }
 
   const credentialsSnap = await getFirestore()
@@ -242,7 +255,7 @@ exports.loginPrivateEvent = onCall({ region: "europe-west1" }, async request => 
     privateAccessUid: guest.uid,
     updatedAt: FieldValue.serverTimestamp(),
   });
-  return { email: guest.email };
+  return { email: guest.email, eventId };
 });
 
 exports.createWedding = onCall({ region: "europe-west1" }, async request => {

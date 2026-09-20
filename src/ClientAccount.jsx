@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { EVENT_TYPES, THEME_PRESETS, DEFAULT_MODULES, presetForType } from "./event-config.mjs";
 import { BILLING_PLANS, amountForPlan, billingSegmentForEventType, formatEuro } from "./billing-config.mjs";
+import PasswordInput from "./PasswordInput.jsx";
+import { guestLoginError } from "./auth-errors.mjs";
 
 const runtimeConfig=window.__FIREBASE_CONFIG__||{};
 const FIREBASE_CONFIG={
@@ -44,6 +46,10 @@ export default function ClientAccount(){
   const [error,setError]=useState(""),[notice,setNotice]=useState(""),[busy,setBusy]=useState(false);
   const [events,setEvents]=useState([]),[loading,setLoading]=useState(false),[tab,setTab]=useState("events");
   const [showCreate,setShowCreate]=useState(initialCreate),[step,setStep]=useState(1),[form,setForm]=useState(emptyEvent);
+  const [audience,setAudience]=useState("organizer");
+  const [guestId,setGuestId]=useState("");
+  const [guestPassword,setGuestPassword]=useState("");
+  const switchAudience=value=>{setAudience(value);setError("");setPassword("");setGuestPassword("");};
 
   const loadEvents=useCallback(async()=>{
     if(!auth?.currentUser)return;
@@ -59,6 +65,10 @@ export default function ClientAccount(){
     let unsub;
     initFirebase().then(()=>{
       unsub=fb.onAuthStateChanged(auth,async current=>{
+        // A shared guest session must never open the organiser dashboard.
+        if(current?.uid?.startsWith("event-guest-")){
+          setUser(null);setReady(true);setEvents([]);return;
+        }
         setUser(current||null);setReady(true);
         if(current){
           await loadEvents();
@@ -101,6 +111,20 @@ export default function ClientAccount(){
     }finally{setBusy(false);}
   };
 
+  const submitGuest=async e=>{
+    e.preventDefault();if(busy)return;
+    setBusy(true);setError("");
+    try{
+      const result=await fb.httpsCallable(functionsApi,"loginPrivateEvent")({accessId:guestId.trim(),password:guestPassword});
+      const {email:guestEmail,eventId}=result.data||{};
+      if(!guestEmail||!/^[a-z0-9][a-z0-9-]{0,79}$/.test(eventId||""))throw new Error("Invalid guest response");
+      await fb.signInWithEmailAndPassword(auth,guestEmail,guestPassword);
+      setGuestPassword("");
+      window.location.assign(EVENT_URL(eventId));
+    }catch(e){setError(guestLoginError(e));}
+    finally{setBusy(false);}
+  };
+
   const changeType=eventType=>setForm(current=>({...current,eventType,themePreset:presetForType(eventType),modules:{...DEFAULT_MODULES[eventType]}}));
   const segment=billingSegmentForEventType(form.eventType,EVENT_TYPES);
   const selectedAmount=amountForPlan(form.planId,segment);
@@ -132,11 +156,36 @@ export default function ClientAccount(){
 
   if(!ready)return <div className="account-shell" style={{display:"grid",placeItems:"center"}}>Ouverture de votre espace…</div>;
 
-  if(!user)return <div className="account-shell">
+  if(!user||audience==="guest")return <div className="account-shell">
     <header className="account-topbar"><a className="account-brand" href={APP_BASE}>Event-<em>App</em></a><div className="account-topbar-spacer"/><a className="account-link" href={APP_BASE}>← Accueil</a></header>
     <div className="auth-wrap">
-      <section className="auth-visual"><div><p className="account-eyebrow">VOTRE ESPACE ORGANISATEUR</p><h2>Un compte.<br/>Tous vos événements.</h2><p>Créez autant d’événements que nécessaire. Chaque événement est acheté séparément puis apparaît dans votre tableau de bord.</p></div><p>Photos · vidéos · live · QR code · galerie · programme</p></section>
-      <section className="auth-panel"><form className="auth-card" onSubmit={submitAuth}><p className="account-eyebrow">SOUVENIR EVENTS</p><h1>{authMode==="signup"?"Créer mon compte":"Se connecter"}</h1><div className="auth-toggle"><button type="button" className={authMode==="login"?"active":""} onClick={()=>{setAuthMode("login");setError("")}}>Connexion</button><button type="button" className={authMode==="signup"?"active":""} onClick={()=>{setAuthMode("signup");setError("")}}>Créer un compte</button></div>{authMode==="signup"&&<div className="field"><label>Nom / société</label><input value={displayName} onChange={e=>setDisplayName(e.target.value)} placeholder="Votre nom ou votre entreprise"/></div>}<div className="field"><label>Email</label><input type="email" autoComplete="username" required value={email} onChange={e=>setEmail(e.target.value)} placeholder="vous@exemple.fr"/></div><div className="field"><label>Mot de passe</label><input type="password" autoComplete={authMode==="signup"?"new-password":"current-password"} required value={password} onChange={e=>setPassword(e.target.value)} placeholder="8 caractères minimum"/></div>{error&&<div className="auth-error">{error}</div>}<button className="account-button wine" style={{width:"100%",marginTop:5}} disabled={busy}>{busy?"Patientez…":authMode==="signup"?"Créer mon compte":"Se connecter"}</button></form></section>
+      <section className="auth-visual"><div><p className="account-eyebrow">{audience==="guest"?"VOTRE ESPACE INVITÉ":"VOTRE ESPACE ORGANISATEUR"}</p><h2>{audience==="guest"?<>Vos événements.<br/>Vos souvenirs.</>:<>Un compte.<br/>Tous vos événements.</>}</h2><p>{audience==="guest"?"Retrouvez les photos et vidéos de votre événement avec les identifiants transmis par l’organisateur. Aucun compte à créer.":"Créez autant d’événements que nécessaire. Chaque événement est acheté séparément puis apparaît dans votre tableau de bord."}</p></div><p>Photos · vidéos · live · QR code · galerie · programme</p></section>
+      <section className="auth-panel"><div className="auth-card">
+        <p className="account-eyebrow">EVENT-APP</p>
+        <div className="auth-toggle" aria-label="Choisir votre espace">
+          <button type="button" disabled={busy} aria-pressed={audience==="organizer"} className={audience==="organizer"?"active":""} onClick={()=>switchAudience("organizer")}>Organisateur</button>
+          <button type="button" disabled={busy} aria-pressed={audience==="guest"} className={audience==="guest"?"active":""} onClick={()=>switchAudience("guest")}>Invité</button>
+        </div>
+        {audience==="guest"?<form onSubmit={submitGuest}>
+          <h1>Connexion invité</h1>
+          <p style={{fontSize:13,color:"var(--muted)",lineHeight:1.6}}>Utilisez l’identifiant de connexion invité et le mot de passe fournis par l’organisateur, pas la référence de l’événement.</p>
+          <div className="field"><label htmlFor="guest-id">Identifiant invité</label><input id="guest-id" autoComplete="username" autoCapitalize="none" spellCheck={false} required maxLength={40} value={guestId} onChange={e=>setGuestId(e.target.value)}/></div>
+          <div className="field"><label htmlFor="guest-password">Mot de passe</label><PasswordInput id="guest-password" autoComplete="current-password" required maxLength={128} value={guestPassword} onChange={e=>setGuestPassword(e.target.value)}/></div>
+          {error&&<div className="auth-error" role="alert">{error}</div>}
+          <button className="account-button wine" style={{width:"100%",marginTop:5}} disabled={busy}>{busy?"Connexion…":"Accéder à mon événement"}</button>
+        </form>:<form onSubmit={submitAuth}>
+          <h1>{authMode==="signup"?"Créer mon compte":"Se connecter"}</h1>
+          <div className="auth-toggle" aria-label="Compte organisateur">
+            <button type="button" disabled={busy} className={authMode==="signup"?"active":""} onClick={()=>{setAuthMode("signup");setError("");setPassword("")}}>S’inscrire</button>
+            <button type="button" disabled={busy} className={authMode==="login"?"active":""} onClick={()=>{setAuthMode("login");setError("");setPassword("")}}>Se connecter</button>
+          </div>
+          {authMode==="signup"&&<div className="field"><label htmlFor="organizer-name">Nom / société</label><input id="organizer-name" value={displayName} onChange={e=>setDisplayName(e.target.value)} placeholder="Votre nom ou votre entreprise"/></div>}
+          <div className="field"><label htmlFor="organizer-email">Email</label><input id="organizer-email" type="email" autoComplete="username" required value={email} onChange={e=>setEmail(e.target.value)} placeholder="vous@exemple.fr"/></div>
+          <div className="field"><label htmlFor="organizer-password">Mot de passe</label><PasswordInput key={authMode} id="organizer-password" autoComplete={authMode==="signup"?"new-password":"current-password"} required value={password} onChange={e=>setPassword(e.target.value)} placeholder="8 caractères minimum"/></div>
+          {error&&<div className="auth-error" role="alert">{error}</div>}
+          <button className="account-button wine" style={{width:"100%",marginTop:5}} disabled={busy}>{busy?"Patientez…":authMode==="signup"?"Créer mon compte":"Se connecter"}</button>
+        </form>}
+      </div></section>
     </div>
   </div>;
 
@@ -146,7 +195,7 @@ export default function ClientAccount(){
 
   return <div className="account-shell">
     <header className="account-topbar"><a className="account-brand" href={APP_BASE}>Event-<em>App</em></a><div className="account-topbar-spacer"/><span style={{fontSize:12,color:"var(--muted)"}}>{user.displayName||user.email}</span><button className="account-button light" onClick={()=>fb.signOut(auth)}>Déconnexion</button></header>
-    <main className="account-main">
+    <main className="account-main">\n      <div className="account-tabs" aria-label="Choisir votre espace"><button className="active" aria-pressed="true">Organisateur</button><button onClick={()=>switchAudience("guest")}>Invité</button></div>
       <div className="account-hero"><div><p className="account-eyebrow">ESPACE CLIENT</p><h1>Mes événements</h1><p>{events.length} événement{events.length!==1?"s":""} · {paidEvents.length} payé{paidEvents.length!==1?"s":""}{pendingEvents.length?" · "+pendingEvents.length+" paiement"+(pendingEvents.length>1?"s":"")+" à terminer":""}</p></div><button className="account-button wine" onClick={()=>{setForm(emptyEvent());setStep(1);setShowCreate(true);setTab("events");setError("")}}>+ Créer un événement</button></div>
 
       {notice&&<div className="account-notice">{notice}</div>}{error&&<div className="account-error">{error}</div>}

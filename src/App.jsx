@@ -1,3 +1,5 @@
+import { guestLoginError } from "./auth-errors.mjs";
+import PasswordInput from "./PasswordInput.jsx";
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { EVENT_TYPES, THEME_PRESETS, MODULE_META, eventDefaults, normalizeEventConfig, cssVarsForEvent, presetForType } from "./event-config.mjs";
 
@@ -110,7 +112,7 @@ async function initFirebase() {
 
     // The private Huyen & Quentin space must authenticate before Firestore
     // reveals even the event document.
-    if (PRIVATE_EVENT_IDS.has(EVENT_ID) && !_auth.currentUser) return true;
+    if (PRIVATE_EVENT_IDS.has(EVENT_ID)) return true;
 
     await loadCurrentEvent();
     return true;
@@ -488,8 +490,7 @@ function PrivateEventAccess({ state, error }) {
       if(!result.data?.email) throw new Error("Connexion impossible.");
       await window.__fb.signInWithEmailAndPassword(_auth,result.data.email,password);
     }catch(e){
-      const code=String(e?.code||"");
-      setLocalError(code.includes("failed-precondition")?"L’accès n’a pas encore été configuré par l’administrateur.":"Identifiant ou mot de passe incorrect.");
+      setLocalError(guestLoginError(e));
     }finally{setBusy(false);}
   };
 
@@ -501,7 +502,7 @@ function PrivateEventAccess({ state, error }) {
       <h1 style={{fontFamily:"var(--event-title-font)",fontSize:"2rem",color:"var(--burgundy)",margin:"7px 0 8px"}}>Huyen & Quentin</h1>
       <p style={{fontSize:".86rem",color:"var(--muted)",lineHeight:1.55,margin:"0 0 20px"}}>Saisissez l’identifiant et le mot de passe communiqués par les mariés.</p>
       <input type="text" autoComplete="username" placeholder="Identifiant" value={accessId} onChange={e=>setAccessId(e.target.value)} style={{width:"100%",padding:"12px 14px",borderRadius:11,border:"1.5px solid var(--blush)",background:"var(--cream)",marginBottom:9}}/>
-      <input type="password" autoComplete="current-password" placeholder="Mot de passe" value={password} onChange={e=>setPassword(e.target.value)} onKeyDown={e=>e.key==="Enter"&&login()} style={{width:"100%",padding:"12px 14px",borderRadius:11,border:"1.5px solid var(--blush)",background:"var(--cream)",marginBottom:9}}/>
+      <PasswordInput  autoComplete="current-password" placeholder="Mot de passe" value={password} onChange={e=>setPassword(e.target.value)} onKeyDown={e=>e.key==="Enter"&&login()} style={{width:"100%",padding:"12px 14px",borderRadius:11,border:"1.5px solid var(--blush)",background:"var(--cream)",marginBottom:9}}/>
       {(localError||error)&&<p style={{color:"#b83232",fontSize:".82rem",margin:"2px 0 10px"}}>{localError||error}</p>}
       <button type="button" disabled={busy} onClick={login} className="btn" style={{width:"100%",padding:"12px 16px",borderRadius:999,background:"var(--burgundy)",color:"#fff"}}>{busy?"Connexion…":"Se connecter"}</button>
       <a href={import.meta.env.BASE_URL} style={{display:"block",textAlign:"center",marginTop:16,color:"var(--muted)",fontSize:".8rem"}}>← Event-App</a>
@@ -1639,7 +1640,7 @@ function AdminPage({ auth, user, setAuth, setEventExists, setView }) {
         </div>
         <input type="email" autoComplete="username" placeholder="Email administrateur" value={email} onChange={e => setEmail(e.target.value)}
           style={{ width: "100%", padding: "13px 15px", borderRadius: 12, marginBottom: 10, border: "1.5px solid var(--blush)", background: "var(--cream)", fontSize: "1rem" }} />
-        <input type="password" autoComplete="current-password" placeholder="Mot de passe" value={password} onChange={e => setPassword(e.target.value)} onKeyDown={e => e.key === "Enter" && login()}
+        <PasswordInput  autoComplete="current-password" placeholder="Mot de passe" value={password} onChange={e => setPassword(e.target.value)} onKeyDown={e => e.key === "Enter" && login()}
           style={{ width: "100%", padding: "13px 15px", borderRadius: 12, marginBottom: 10, border: `1.5px solid ${error ? "#e74c3c" : "var(--blush)"}`, background: "var(--cream)", fontSize: "1rem" }} />
         {error && <p style={{ color: "#c0392b", fontSize: ".83rem", marginBottom: 10 }}>{error}</p>}
         <button onClick={login} className="btn" style={{ width: "100%", padding: "13px", borderRadius: 50, background: "linear-gradient(135deg, var(--rose), var(--burgundy))", color: "white", fontSize: "1rem" }}>
@@ -1930,16 +1931,16 @@ function AdminSettings({ event, onUpdate }) {
           <div><label style={labelStyle}>Organisateur</label><input style={fieldStyle} value={form.organiserName} onChange={e=>setField("organiserName",e.target.value)} placeholder="Entreprise, équipe, couple…"/></div>
           <div><label style={labelStyle}>Type</label><select style={fieldStyle} value={form.eventType} onChange={e=>changeType(e.target.value)}>{Object.values(EVENT_TYPES).map(meta=><option key={meta.id} value={meta.id}>{meta.icon} {meta.label}</option>)}</select></div>
           {form.eventType==="custom"&&<div><label style={labelStyle}>Nom du type</label><input style={fieldStyle} value={form.customEventType} onChange={e=>setField("customEventType",e.target.value)}/></div>}
-          <div><label style={labelStyle}>Identifiant</label><input style={{...fieldStyle,background:"#eee9e5"}} readOnly value={EVENT_ID}/></div>
+          <div><label style={labelStyle}>Référence de l’événement (URL)</label><input style={{...fieldStyle,background:"#eee9e5"}} readOnly value={EVENT_ID}/><small style={labelStyle}>Référence technique du lien, pas votre identifiant de connexion.</small></div>
         </div>
       </div>
 
       {EVENT_ID==="quentin-huyen-2026"&&<div style={cardStyle}>
         <h3 style={{fontFamily:"var(--event-title-font)",fontSize:"1.35rem",color:"var(--burgundy)",marginBottom:5}}>Accès privé</h3>
-        <p style={{fontSize:".78rem",color:"var(--muted)",marginBottom:10}}>Les invités utiliseront uniquement cet identifiant et ce mot de passe sur le lien de l’événement. Le mot de passe est enregistré de façon sécurisée et ne sera jamais affiché.</p>
+        <p style={{fontSize:".78rem",color:"var(--muted)",marginBottom:10}}>Les invités utiliseront uniquement cet identifiant et ce mot de passe sur le lien de l’événement. Le mot de passe enregistré ne peut pas être relu. Pour le remplacer, saisissez-en un nouveau ; « Afficher » permet de vérifier votre saisie avant enregistrement.</p>
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))",gap:10}}>
           <div><label style={labelStyle}>Identifiant invités</label><input style={fieldStyle} autoComplete="off" value={form.privateAccessId} onChange={e=>setField("privateAccessId",e.target.value)} placeholder="huyen-quentin"/></div>
-          <div><label style={labelStyle}>Nouveau mot de passe</label><input style={fieldStyle} type="password" autoComplete="new-password" value={form.privateAccessPassword} onChange={e=>setField("privateAccessPassword",e.target.value)} placeholder="8 caractères minimum"/></div>
+          <div><label style={labelStyle}>Nouveau mot de passe</label><PasswordInput style={fieldStyle}  autoComplete="new-password" value={form.privateAccessPassword} onChange={e=>setField("privateAccessPassword",e.target.value)} placeholder="8 caractères minimum"/></div>
         </div>
         {privateAccessMessage&&<small style={{display:"block",color:privateAccessMessage.includes("enregistré")?"#26734d":"#b83232",marginTop:8}}>{privateAccessMessage}</small>}
         <button type="button" disabled={savingPrivateAccess} onClick={savePrivateAccess} className="btn" style={{marginTop:10,padding:"10px 16px",borderRadius:999,background:"var(--burgundy)",color:"#fff"}}>{savingPrivateAccess?"Enregistrement…":"Enregistrer l’accès privé"}</button>
