@@ -187,22 +187,31 @@ test("billing amounts are quoted again on the trusted backend",()=>{
   const functions=read("functions/index.js");
   const billing=read("functions/billing-config.js");
   assert.match(functions,/billingConfig\.quote\(event\.billing\?\.planId,\s*event\.eventType\)/);
-  assert.match(billing,/essential/);
-  assert.match(billing,/premium/);
-  assert.match(billing,/signature/);
-  assert.match(billing,/corporateAmount/);
+  assert.match(billing,/event:\s*\{/);
+  assert.match(billing,/privateAmount:3000/);
+  assert.match(billing,/corporateAmount:3000/);
+  assert.match(billing,/LEGACY_PLAN_ALIASES/);
 });
 
 
-test("temporary pricing is flat at 50 EUR for every event plan and segment",()=>{
+test("Event-App exposes one 30 EUR offer while legacy plan ids map to it",()=>{
   const client=read("src/billing-config.mjs");
   const server=read("functions/billing-config.js");
-  assert.doesNotMatch(client,/privateAmount:\s*(?!5000)\d+/);
-  assert.doesNotMatch(client,/corporateAmount:\s*(?!5000)\d+/);
-  assert.doesNotMatch(server,/privateAmount:\s*(?!5000)\d+/);
-  assert.doesNotMatch(server,/corporateAmount:\s*(?!5000)\d+/);
-  assert.match(client,/privateAmount:\s*5000/);
-  assert.match(server,/corporateAmount:\s*5000/);
+  const account=read("src/ClientAccount.jsx");
+  assert.match(client,/export const BILLING_PLANS = \{\s*event:/);
+  assert.doesNotMatch(client,/\n\s*essential:\s*\{/);
+  assert.doesNotMatch(client,/\n\s*premium:\s*\{/);
+  assert.doesNotMatch(client,/\n\s*signature:\s*\{/);
+  assert.match(client,/privateAmount:\s*3000/);
+  assert.match(client,/corporateAmount:\s*3000/);
+  assert.match(server,/privateAmount:3000/);
+  assert.match(server,/corporateAmount:3000/);
+  assert.match(server,/essential:"event"/);
+  assert.match(server,/premium:"event"/);
+  assert.match(server,/signature:"event"/);
+  assert.match(account,/planId:"event"/);
+  assert.match(account,/30 € par événement/);
+  assert.match(functions=read("functions/index.js"),/billingConfig\.quote\(data\.planId \|\| "event", eventType\)/);
 });
 
 
