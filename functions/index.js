@@ -637,7 +637,7 @@ exports.createClientEventDraft = onCall({ region: "europe-west1" }, async reques
   const themePreset = eventConfig.themePreset(data.themePreset || data.theme?.preset, eventType);
   const eventModules = eventConfig.modules(data.modules, eventType);
   let quote;
-  try { quote = billingConfig.quote(data.planId || "premium", eventType); }
+  try { quote = billingConfig.quote(data.planId || "event", eventType); }
   catch { throw new HttpsError("invalid-argument", "Formule de paiement invalide."); }
 
   const db = getFirestore();
@@ -790,7 +790,7 @@ exports.createEventCheckoutSession = onCall(
           currency: quote.currency,
           unit_amount: quote.amount,
           product_data: {
-            name: "Souvenir Events · " + quote.planLabel,
+            name: "Event-App · " + quote.planLabel,
             description: event.name + " · paiement unique par événement",
           },
         },

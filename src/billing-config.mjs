@@ -1,29 +1,26 @@
 export const BILLING_PLANS = {
-  essential: {
-    id: "essential",
-    label: "Essentiel",
-    description: "L’essentiel pour centraliser les souvenirs de l’événement.",
-    features: ["Photos & galerie", "QR Code", "Réactions", "Espace organisateur"],
-    privateAmount: 5000,
-    corporateAmount: 5000,
-  },
-  premium: {
-    id: "premium",
-    label: "Premium",
-    description: "Le format complet pour une expérience événementielle interactive.",
-    features: ["Tout Essentiel", "Messages vidéo", "Programme & infos pratiques", "Personnalisation avancée", "Affichage TV"],
-    privateAmount: 5000,
-    corporateAmount: 5000,
+  event: {
+    id: "event",
+    label: "Événement",
+    description: "Une formule unique avec toutes les fonctionnalités Event-App pour votre événement.",
+    features: [
+      "Photos & galerie",
+      "Messages vidéo",
+      "QR Code & réactions",
+      "Programme & informations pratiques",
+      "Personnalisation, logo & couverture",
+      "Affichage TV & live",
+    ],
+    privateAmount: 3000,
+    corporateAmount: 3000,
     recommended: true,
   },
-  signature: {
-    id: "signature",
-    label: "Signature",
-    description: "L’expérience la plus complète, pensée pour les événements premium.",
-    features: ["Tout Premium", "Live", "Branding complet", "Livre d’or", "Expérience premium"],
-    privateAmount: 5000,
-    corporateAmount: 5000,
-  },
+};
+
+const LEGACY_PLAN_ALIASES = {
+  essential: "event",
+  premium: "event",
+  signature: "event",
 };
 
 export function billingSegmentForEventType(type, eventTypes = {}) {
@@ -31,8 +28,13 @@ export function billingSegmentForEventType(type, eventTypes = {}) {
   return category === "corporate" ? "corporate" : "private";
 }
 
+export function normalizePlanId(planId) {
+  const id = String(planId || "event");
+  return BILLING_PLANS[id] ? id : (LEGACY_PLAN_ALIASES[id] || "event");
+}
+
 export function amountForPlan(planId, segment = "private") {
-  const plan = BILLING_PLANS[planId] || BILLING_PLANS.premium;
+  const plan = BILLING_PLANS[normalizePlanId(planId)];
   return segment === "corporate" ? plan.corporateAmount : plan.privateAmount;
 }
 
