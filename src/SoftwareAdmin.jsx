@@ -204,7 +204,7 @@ export default function SoftwareAdmin(){
 
   return <div style={{minHeight:"100vh",background:"#f5f3f1",color:"#302824",fontFamily:"Inter,Arial,sans-serif"}}>
     <header style={{background:"#1f1d1c",color:"#fff",padding:"20px clamp(18px,4vw,48px)",display:"flex",gap:12,alignItems:"center",flexWrap:"wrap"}}>
-      <div style={{flex:1}}><div style={{fontSize:11,letterSpacing:2,textTransform:"uppercase",opacity:.55}}>Souvenir · Administration plateforme</div><h1 style={{fontFamily:"Georgia,serif",fontWeight:400,margin:"4px 0 0"}}>Tous les événements</h1></div>
+      <div style={{flex:1}}><div style={{fontSize:11,letterSpacing:2,textTransform:"uppercase",opacity:.55}}>Event-App · Administration plateforme</div><h1 style={{fontFamily:"Georgia,serif",fontWeight:400,margin:"4px 0 0"}}>Tous les événements</h1></div>
       <button style={{...btn(),background:"#fff"}} onClick={()=>{setShowCreate(!showCreate);setCreateStep(1);setError("");}}>{showCreate?"Fermer":"+ Nouvel événement"}</button>
       <button style={{...btn(),background:"#ffffff18",color:"#fff",border:"1px solid #ffffff33"}} onClick={()=>fb.signOut(auth)}>Déconnexion</button>
     </header>
