@@ -16,6 +16,16 @@ const PLATFORM_OWNER_UID = "beQK5FNoVla9lnvnzSfqasK93QR2";
 const PUBLIC_APP_BASE = String(process.env.PUBLIC_APP_BASE || "https://app.souvenirdemariage.fr/").replace(/\/?$/, "/");
 const STRIPE_SECRET_KEY = defineSecret("STRIPE_SECRET_KEY");
 const STRIPE_WEBHOOK_SECRET = defineSecret("STRIPE_WEBHOOK_SECRET");
+const PRIVATE_EVENT_IDS = new Set(["quentin-huyen-2026"]);
+
+function requestCanAccessPrivateEvent(request, event) {
+  if (!PRIVATE_EVENT_IDS.has(String(event?.slug || event?.id || ""))) return true;
+  if (!request.auth) return false;
+  if (request.auth.uid === PLATFORM_OWNER_UID || request.auth.uid === event.ownerUid) return true;
+  const email = String(request.auth.token?.email || "").trim().toLowerCase();
+  const allowed = Array.isArray(event.privateAccessEmails) ? event.privateAccessEmails.map(value => String(value || "").trim().toLowerCase()) : [];
+  return !!email && allowed.includes(email);
+}
 
 function normalizeSlug(value) {
   return String(value || "")
@@ -405,6 +415,10 @@ exports.listPublicVideos = onCall({ region: "europe-west1" }, async request => {
   if (!eventSnap.exists || eventSnap.data()?.active === false) {
     return { videos: [] };
   }
+  const eventData = { id: eventSnap.id, slug: eventSnap.id, ...(eventSnap.data() || {}) };
+  if (!requestCanAccessPrivateEvent(request, eventData)) {
+    throw new HttpsError("permission-denied", "Cet événement est privé.");
+  }
 
   const now = Date.now();
   const snap = await eventRef.collection("videoTestimonials").get();
@@ -696,8 +710,16 @@ exports.createClientEventDraft = onCall({ region: "europe-west1" }, async reques
 
 exports.listMyEvents = onCall({ region: "europe-west1" }, async request => {
   if (!request.auth) throw new HttpsError("unauthenticated", "Connectez-vous pour accéder à vos événements.");
-  const snapshot = await getFirestore().collection("events").where("ownerUid", "==", request.auth.uid).get();
-  const events = snapshot.docs.map(doc => {
+  const db = getFirestore();
+  const ownedSnapshot = await db.collection("events").where("ownerUid", "==", request.auth.uid).get();
+  const email = String(request.auth.token?.email || "").trim().toLowerCase();
+  const sharedSnapshot = email
+    ? await db.collection("events").where("privateAccessEmails", "array-contains", email).get()
+    : null;
+  const docsById = new Map();
+  ownedSnapshot.docs.forEach(doc => docsById.set(doc.id, doc));
+  sharedSnapshot?.docs.forEach(doc => docsById.set(doc.id, doc));
+  const events = [...docsById.values()].map(doc => {
     const data = doc.data() || {};
     const slug = data.slug || doc.id;
     const createdAt = data.createdAt?.toDate?.()?.toISOString?.() || null;
