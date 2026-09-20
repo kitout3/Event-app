@@ -572,8 +572,22 @@
     refreshButtons();
     renderBar();
   }
-  const observer = new MutationObserver(() => requestAnimationFrame(render));
-  document.addEventListener('DOMContentLoaded', () => { render(); observer.observe(document.body, { childList: true, subtree: true }); });
+  let renderPending = false;
+  const scheduleRender = () => {
+    if (renderPending) return;
+    renderPending = true;
+    requestAnimationFrame(() => { renderPending = false; render(); });
+  };
+  const observer = new MutationObserver(scheduleRender);
+  const start = () => {
+    observer.observe(document.body, { childList: true, subtree: true });
+    render();
+  };
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', start, { once: true });
+  } else {
+    start();
+  }
   window.addEventListener('wedding:media-rendered', render);
   window.addEventListener('hashchange', () => {
     document.getElementById('media-selection-bar')?.remove();

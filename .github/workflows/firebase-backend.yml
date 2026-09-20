@@ -92,7 +92,7 @@ jobs:
         run: |
           npx --yes "firebase-tools@${FIREBASE_TOOLS_VERSION}" deploy \
             --project mariage-hq \
-            --only functions:createWedding,functions:createWeddingV2,functions:listPublicVideos,functions:updateWedding,functions:deleteWedding,functions:listWeddings,functions:createClientEventDraft,functions:listMyEvents,functions:notifyNewPendingVideoV2,functions:setPrivateEventCredentials,functions:loginPrivateEvent \
+            --only functions:createWedding,functions:createWeddingV2,functions:listPublicVideos,functions:updateWedding,functions:deleteWedding,functions:listWeddings,functions:createClientEventDraft,functions:listMyEvents,functions:notifyNewPendingVideoV2,functions:setPrivateEventCredentials,functions:getPrivateEventCredentials,functions:loginPrivateEvent \
             --non-interactive
 
   stripe_functions:

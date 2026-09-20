@@ -211,9 +211,37 @@ exports.setPrivateEventCredentials = onCall({ region: "europe-west1" }, async re
     updatedAt: FieldValue.serverTimestamp(),
     updatedBy: request.auth.uid,
   });
+  // Recoverable shared guest password, isolated from login hashes and all
+  // browser-readable event data. Only getPrivateEventCredentials may return it
+  // after verifying the requesting user owns/manages this event.
+  batch.set(eventRef.collection("privateAccess").doc("adminDisplay"), {
+    password,
+    updatedAt: FieldValue.serverTimestamp(),
+  });
   batch.update(eventRef, { privateAccessId: accessId, privateAccessUid: guest.uid, updatedAt: FieldValue.serverTimestamp() });
   await batch.commit();
   return { configured: true, accessId };
+});
+
+exports.getPrivateEventCredentials = onCall({ region: "europe-west1" }, async request => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Connexion administrateur requise.");
+  const eventId = normalizeSlug(request.data?.eventId);
+  if (!PRIVATE_EVENT_IDS.has(eventId)) throw new HttpsError("invalid-argument", "Événement privé invalide.");
+  const eventRef = getFirestore().collection("events").doc(eventId);
+  const eventSnap = await eventRef.get();
+  if (!eventSnap.exists) throw new HttpsError("not-found", "Événement introuvable.");
+  if (request.auth.uid !== PLATFORM_OWNER_UID && request.auth.uid !== eventSnap.data()?.ownerUid) {
+    throw new HttpsError("permission-denied", "Cet accès est réservé à l’administrateur de l’événement.");
+  }
+  const [credentials, display] = await Promise.all([
+    eventRef.collection("privateAccess").doc("credentials").get(),
+    eventRef.collection("privateAccess").doc("adminDisplay").get(),
+  ]);
+  return {
+    configured: credentials.exists,
+    accessId: credentials.data()?.accessId || "",
+    password: display.data()?.password || "",
+  };
 });
 
 exports.loginPrivateEvent = onCall({ region: "europe-west1" }, async request => {

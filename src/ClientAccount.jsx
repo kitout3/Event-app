@@ -195,7 +195,8 @@ export default function ClientAccount(){
 
   return <div className="account-shell">
     <header className="account-topbar"><a className="account-brand" href={APP_BASE}>Event-<em>App</em></a><div className="account-topbar-spacer"/><span style={{fontSize:12,color:"var(--muted)"}}>{user.displayName||user.email}</span><button className="account-button light" onClick={()=>fb.signOut(auth)}>Déconnexion</button></header>
-    <main className="account-main">\n      <div className="account-tabs" aria-label="Choisir votre espace"><button className="active" aria-pressed="true">Organisateur</button><button onClick={()=>switchAudience("guest")}>Invité</button></div>
+    <main className="account-main">
+      <div className="account-tabs" aria-label="Choisir votre espace"><button className="active" aria-pressed="true">Organisateur</button><button onClick={()=>switchAudience("guest")}>Invité</button></div>
       <div className="account-hero"><div><p className="account-eyebrow">ESPACE CLIENT</p><h1>Mes événements</h1><p>{events.length} événement{events.length!==1?"s":""} · {paidEvents.length} payé{paidEvents.length!==1?"s":""}{pendingEvents.length?" · "+pendingEvents.length+" paiement"+(pendingEvents.length>1?"s":"")+" à terminer":""}</p></div><button className="account-button wine" onClick={()=>{setForm(emptyEvent());setStep(1);setShowCreate(true);setTab("events");setError("")}}>+ Créer un événement</button></div>
 
       {notice&&<div className="account-notice">{notice}</div>}{error&&<div className="account-error">{error}</div>}

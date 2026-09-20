@@ -1846,6 +1846,23 @@ function AdminSettings({ event, onUpdate }) {
   const [uploadingAsset,setUploadingAsset] = useState("");
   const [savingPrivateAccess,setSavingPrivateAccess] = useState(false);
   const [privateAccessMessage,setPrivateAccessMessage] = useState("");
+  const [loadingPrivateAccess,setLoadingPrivateAccess] = useState(PRIVATE_EVENT_IDS.has(EVENT_ID));
+  useEffect(()=>{
+    if(!PRIVATE_EVENT_IDS.has(EVENT_ID))return;
+    let cancelled=false;
+    (async()=>{
+      try{
+        const result=await window.__fb.httpsCallable(_functions,"getPrivateEventCredentials")({eventId:EVENT_ID});
+        if(cancelled)return;
+        const data=result.data||{};
+        setForm(current=>({...current,privateAccessId:data.accessId||current.privateAccessId,privateAccessPassword:data.password||""}));
+        if(data.configured&&!data.password)setPrivateAccessMessage("Accès déjà configuré. Pour pouvoir afficher le mot de passe ici à l’avenir, saisissez-le puis enregistrez-le une fois.");
+      }catch{
+        if(!cancelled)setPrivateAccessMessage("Impossible de charger l’accès enregistré. Rechargez les paramètres pour réessayer.");
+      }finally{if(!cancelled)setLoadingPrivateAccess(false);}
+    })();
+    return()=>{cancelled=true;};
+  },[]);
 
   const preset = THEME_PRESETS[form.themePreset] || THEME_PRESETS["custom-neutral"];
   const typeMeta = EVENT_TYPES[form.eventType] || EVENT_TYPES.custom;
@@ -1879,7 +1896,6 @@ function AdminSettings({ event, onUpdate }) {
       const configure=window.__fb.httpsCallable(_functions,"setPrivateEventCredentials");
       const result=await configure({eventId:EVENT_ID,accessId:form.privateAccessId,password:form.privateAccessPassword});
       setField("privateAccessId",result.data?.accessId||form.privateAccessId.trim().toLowerCase());
-      setField("privateAccessPassword","");
       setPrivateAccessMessage("Accès privé enregistré.");
     }catch(error){
       setPrivateAccessMessage(error?.message||"Impossible d’enregistrer cet accès.");
@@ -1937,13 +1953,13 @@ function AdminSettings({ event, onUpdate }) {
 
       {EVENT_ID==="quentin-huyen-2026"&&<div style={cardStyle}>
         <h3 style={{fontFamily:"var(--event-title-font)",fontSize:"1.35rem",color:"var(--burgundy)",marginBottom:5}}>Accès privé</h3>
-        <p style={{fontSize:".78rem",color:"var(--muted)",marginBottom:10}}>Les invités utiliseront uniquement cet identifiant et ce mot de passe sur le lien de l’événement. Le mot de passe enregistré ne peut pas être relu. Pour le remplacer, saisissez-en un nouveau ; « Afficher » permet de vérifier votre saisie avant enregistrement.</p>
+        <p style={{fontSize:".78rem",color:"var(--muted)",marginBottom:10}}>Les invités utiliseront cet identifiant et ce mot de passe. Le mot de passe reste enregistré : cliquez sur « Afficher » pour le consulter ou remplacez-le puis enregistrez. Il est consultable uniquement dans cet espace administrateur.</p>
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))",gap:10}}>
-          <div><label style={labelStyle}>Identifiant invités</label><input style={fieldStyle} autoComplete="off" value={form.privateAccessId} onChange={e=>setField("privateAccessId",e.target.value)} placeholder="huyen-quentin"/></div>
-          <div><label style={labelStyle}>Nouveau mot de passe</label><PasswordInput style={fieldStyle}  autoComplete="new-password" value={form.privateAccessPassword} onChange={e=>setField("privateAccessPassword",e.target.value)} placeholder="8 caractères minimum"/></div>
+          <div><label style={labelStyle}>Identifiant invités</label><input style={fieldStyle} disabled={loadingPrivateAccess||savingPrivateAccess} autoComplete="off" value={form.privateAccessId} onChange={e=>setField("privateAccessId",e.target.value)} placeholder="huyen-quentin"/></div>
+          <div><label style={labelStyle} htmlFor="saved-guest-password">Mot de passe invités</label><PasswordInput id="saved-guest-password" style={fieldStyle} disabled={loadingPrivateAccess||savingPrivateAccess} autoComplete="new-password" value={form.privateAccessPassword} onChange={e=>setField("privateAccessPassword",e.target.value)} placeholder={loadingPrivateAccess?"Chargement…":"8 caractères minimum"}/></div>
         </div>
         {privateAccessMessage&&<small style={{display:"block",color:privateAccessMessage.includes("enregistré")?"#26734d":"#b83232",marginTop:8}}>{privateAccessMessage}</small>}
-        <button type="button" disabled={savingPrivateAccess} onClick={savePrivateAccess} className="btn" style={{marginTop:10,padding:"10px 16px",borderRadius:999,background:"var(--burgundy)",color:"#fff"}}>{savingPrivateAccess?"Enregistrement…":"Enregistrer l’accès privé"}</button>
+        <button type="button" disabled={loadingPrivateAccess||savingPrivateAccess} onClick={savePrivateAccess} className="btn" style={{marginTop:10,padding:"10px 16px",borderRadius:999,background:"var(--burgundy)",color:"#fff"}}>{savingPrivateAccess?"Enregistrement…":"Enregistrer l’accès privé"}</button>
       </div>}
 
       <div style={cardStyle}>
