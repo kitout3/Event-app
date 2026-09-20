@@ -259,19 +259,10 @@
       const responsive = document.createElement("style");
       responsive.id = "wedding-language-mobile-style";
       responsive.textContent = `
-        :root{--event-header-reserve:96px}
+        :root{--event-header-reserve:calc(env(safe-area-inset-top) + 64px)}
         body.event-language-layout #root{
           box-sizing:border-box;
           padding-top:var(--event-header-reserve)!important;
-        }
-        body.event-language-layout::before{
-          content:"";
-          position:fixed;
-          z-index:39;
-          top:0;left:0;right:0;
-          height:var(--event-header-reserve);
-          background:var(--white,#fffdf9);
-          pointer-events:none;
         }
         #wedding-language-switcher{
           top:max(14px,calc(env(safe-area-inset-top) + 8px))!important;
@@ -292,7 +283,7 @@
           line-height:1!important;
         }
         @media(max-width:650px){
-          :root{--event-header-reserve:104px}
+          :root{--event-header-reserve:calc(env(safe-area-inset-top) + 68px)}
           #wedding-language-switcher{
             top:calc(env(safe-area-inset-top) + 12px)!important;
             right:18px!important;
@@ -316,7 +307,7 @@
     const backText = currentLanguage === "en" ? "Back to home" : currentLanguage === "vi" ? "Về trang chủ" : "Retour à l’accueil";
     const panel = document.createElement("section");
     panel.id = "wedding-live-panel";
-    Object.assign(panel.style, { position:"fixed", inset:"0", zIndex:"2147483646", background:"#fdf8f4", display:"flex", flexDirection:"column", paddingTop:"var(--event-header-reserve,96px)", boxSizing:"border-box" });
+    Object.assign(panel.style, { position:"fixed", inset:"0", zIndex:"2147483646", background:"#fdf8f4", display:"flex", flexDirection:"column", paddingTop:"var(--event-header-reserve,68px)", boxSizing:"border-box" });
     panel.innerHTML = `<header style="height:64px;display:flex;align-items:center;padding:10px 16px;background:#fffdf9;border-bottom:1px solid #f5ddd4"><button data-back type="button" style="border:0;background:#5c2a1e;color:white;border-radius:999px;padding:10px 17px;cursor:pointer">← ${backText}</button><strong style="margin:auto;font:400 22px Georgia,serif;color:#5c2a1e">${event.name} · Live</strong><span style="width:145px"></span></header><iframe src="${window.location.origin}${basePath()}live.html?w=${encodeURIComponent(EVENT_ID)}" title="Live" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen style="width:100%;flex:1;border:0;background:#1a0d09"></iframe>`;
     panel.querySelector("[data-back]").onclick = closeLivePanel;
     document.body.appendChild(panel);
