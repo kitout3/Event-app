@@ -329,6 +329,7 @@ test("Huyen and Quentin event supports private event credentials",()=>{
   assert.match(app,/PrivateEventAccess/);
   assert.match(app,/signInWithCustomToken/);
   assert.match(app,/setPrivateEventCredentials/);
+  assert.match(app,/privateAccessState !== "granted" && view !== VIEWS\.ADMIN/);
   assert.match(rules,/function privateEvent\(eventId\)/);
   assert.match(rules,/eventId == 'quentin-huyen-2026'/);
   assert.match(rules,/invitedToPrivateEvent/);

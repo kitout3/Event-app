@@ -598,7 +598,7 @@ export default function App() {
 
   const setView2 = (v) => navigate(v);
 
-  if (PRIVATE_EVENT_IDS.has(EVENT_ID) && privateAccessState !== "granted") {
+  if (PRIVATE_EVENT_IDS.has(EVENT_ID) && privateAccessState !== "granted" && view !== VIEWS.ADMIN) {
     return <PrivateEventAccess state={privateAccessState} error={privateAccessError}/>;
   }
 
