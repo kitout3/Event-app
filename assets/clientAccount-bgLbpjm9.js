@@ -1,1 +1,0 @@
-import{c as e,j as t,R as o}from"./billing-config-BjIq59RE.js";import{C as r}from"./account-C-bI6xzT.js";e.createRoot(document.getElementById("root")).render(t.jsx(o.StrictMode,{children:t.jsx(r,{})}));
