@@ -278,3 +278,18 @@ test("download banner belongs to active gallery and is destroyed on navigation",
   assert.match(media,/root\.id === 'vt-overlay' \? root : document\.body/);
   assert.match(media,/hashchange', \(\) => \{[\s\S]*media-selection-bar'\)\?\.remove\(\)/);
 });
+
+
+test("all event pages reserve a compact language header above page content",()=>{
+  const enhancer=read("public/app-enhancer.js");
+  const app=read("src/App.jsx");
+  const video=read("public/video-testimonials-v2.js");
+  assert.match(enhancer,/--event-header-reserve:96px/);
+  assert.match(enhancer,/body\.event-language-layout #root/);
+  assert.match(enhancer,/right:16px!important/);
+  assert.match(enhancer,/font-size:11px!important/);
+  assert.match(enhancer,/document\.body\.classList\.add\("event-language-layout"\)/);
+  assert.match(app,/top: "var\(--event-header-reserve, 0px\)"/);
+  assert.match(video,/padding:calc\(var\(--event-header-reserve,96px\) \+ 10px\)/);
+  assert.doesNotMatch(video,/vt-language-slot/);
+});
