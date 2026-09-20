@@ -5,6 +5,7 @@
   const getLang = () => localStorage.getItem("mariage-lang") || "fr";
   const text = () => {
     const lang = getLang();
+    if (window.EventI18n) return window.EventI18n.dictionary({title:"Diffusion en direct",label:"Lien du live",help:"Collez n’importe quel lien de diffusion valide : VDO.Ninja, YouTube, Vimeo ou autre service.",save:"Sauvegarder le lien du live",saving:"Sauvegarde en cours…",saved:"Lien sauvegardé dans Firebase.",invalid:"Saisissez un lien https:// valide.",error:"Impossible de sauvegarder le lien.",remove:"Supprimer le lien"});
     if (lang === "en") return {
       title: "Live streaming",
       label: "Live link",
@@ -89,7 +90,7 @@
   async function addPanel() {
     if (document.getElementById(PANEL_ID)) return;
     if ((window.__WEDDING_EVENT__?.modules?.live) === false) return;
-    const saveButton = [...document.querySelectorAll("button")].find(button => /Sauvegarder toutes les modifications|Sauvegarder|Save|Lưu/i.test(button.textContent || ""));
+    const saveButton = document.querySelector('[data-event-settings-save="true"]');
     const container = saveButton?.parentElement;
     if (!container || !document.querySelector("[data-event-admin-root='true']")) return;
 

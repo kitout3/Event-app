@@ -49,7 +49,7 @@
   };
 
   const lang = () => ['fr', 'en', 'vi'].includes(localStorage.getItem('mariage-lang')) ? localStorage.getItem('mariage-lang') : 'fr';
-  const t = key => translations[lang()][key] || translations.fr[key] || key;
+  const t = key => window.EventI18n?.translate(translations.fr[key]) || translations[lang()][key] || translations.fr[key] || key;
   const itemKey = item => `${item.kind}:${item.id}`;
   const cleanName = (value, fallback) => String(value || fallback).replace(/[\\/:*?"<>|\u0000-\u001f]/g, '-').slice(0, 120) || fallback;
   const isMobileDevice = () => /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)

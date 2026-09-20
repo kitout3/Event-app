@@ -40,7 +40,7 @@
       send: "Video hochladen", back: "Zurück zur Startseite", uploading: "Wird hochgeladen…", success: "Danke! Ihr Video wurde hochgeladen.",
       tooLarge: "Das Video ist größer als 500 MB.", tooLong: "Das Video ist länger als 5 Minuten.", invalid: "Bitte MP4-, MOV- oder WebM-Video auswählen.", error: "Upload fehlgeschlagen. Prüfen Sie Ihre Verbindung und versuchen Sie es erneut.",
       cameraError: "Kein Zugriff auf Kamera oder Mikrofon. Prüfen Sie die Browserberechtigungen.", recording: "Aufnahme läuft", ready: "Video ist bereit zum Hochladen.",
-      moderationNote: "Die Veröffentlichung hängt von den Moderationseinstellungen dieses Ereignisses ab.",
+      moderationNote: "Videos sind auf 5 Minuten und 500 MB begrenzt. Sie müssen vor der Veröffentlichung freigegeben werden.",
       adminTitle: "Videobotschaften", pending: "Ausstehend", approved: "Freigegeben", rejected: "Abgelehnt", approve: "Freigeben", reject: "Ablehnen", remove: "Löschen", download: "Herunterladen", empty: "Keine Videobotschaften.",
       playAll: "Alle Videos abspielen", noApproved: "Keine veröffentlichten Videos.", tvTitle: "Videobotschaften abspielen", tvStop: "Wiedergabe stoppen", previous: "Zurück", next: "Weiter"
     },
@@ -59,7 +59,7 @@
     }
   };
 
-  const lang = () => I18N[localStorage.getItem(LANG_KEY)] ? localStorage.getItem(LANG_KEY) : "fr";
+  const lang = () => window.EventI18n?.language || (I18N[localStorage.getItem(LANG_KEY)] ? localStorage.getItem(LANG_KEY) : "fr");
   const eventName = () => window.__WEDDING_EVENT__?.name
     || (EVENT_ID === "quentin-huyen-2026"
       ? "Huyen & Quentin"
@@ -223,7 +223,7 @@
   async function openGallery(){
     closeOverlay();history.replaceState(null,"",`${location.pathname}${location.search}#video-gallery`);
     const el=document.createElement("section");el.id="vt-overlay";el.className="vt-overlay";el.innerHTML=`<div class="vt-shell"><div class="vt-toolbar"><div class="vt-overlay-actions"><button class="vt-btn vt-secondary" data-close>← ${t("back")}</button><button class="vt-btn vt-primary" data-all>▶ ${t("playAll")}</button></div></div><div class="vt-panel"><div style="text-align:center"><div style="font-size:42px">🎞️</div><h1 style="font:300 2.2rem 'Cormorant Garamond',serif;color:var(--burgundy)">${t("galleryTitle")}</h1></div><div class="vt-gallery-grid" data-grid>${t("uploading")}</div></div></div>`;document.body.appendChild(el);dockLanguageSwitcher(el);el.querySelector("[data-close]").onclick=closeOverlay;
-    try{const now=Date.now();const items=(await listVideos()).filter(v=>v.url&&(v.status==="approved"||(v.moderationMode==="delayed"&&v.status==="pending"&&v.publishAt&&((v.publishAt.toMillis?.()||Date.parse(v.publishAt))<=now))));const grid=el.querySelector("[data-grid]");grid.innerHTML=items.length?"":`<p>${t("noApproved")}</p>`;items.forEach(item=>{const card=document.createElement("article");card.className="vt-gallery-item";card.dataset.mediaKind="video";card.dataset.mediaId=item.id;card.dataset.mediaUrl=item.url;card.dataset.mediaName=`video-${item.id}.${(item.mimeType||"").includes("quicktime")?"mov":(item.mimeType||"").includes("webm")?"webm":"mp4"}`;card.dataset.mediaSize=item.size||"";card.innerHTML=`<video controls playsinline preload="metadata" src="${item.url}"></video><strong>${esc(item.author)||"—"}</strong>${item.message?`<p>${esc(item.message)}</p>`:""}`;grid.appendChild(card)});window.dispatchEvent(new CustomEvent("wedding:media-rendered"));el.querySelector("[data-all]").disabled=!items.length;el.querySelector("[data-all]").onclick=()=>startPlaylist(items)}catch(e){console.error(e);el.querySelector("[data-grid]").textContent=t("error")}
+    try{const now=Date.now();const items=(await listVideos()).filter(v=>v.url&&(v.status==="approved"||(v.moderationMode==="delayed"&&v.status==="pending"&&v.publishAt&&((v.publishAt.toMillis?.()||Date.parse(v.publishAt))<=now))));const grid=el.querySelector("[data-grid]");grid.innerHTML=items.length?"":`<p>${t("noApproved")}</p>`;items.forEach(item=>{const card=document.createElement("article");card.className="vt-gallery-item";card.dataset.mediaKind="video";card.dataset.mediaId=item.id;card.dataset.mediaUrl=item.url;card.dataset.mediaName=`video-${item.id}.${(item.mimeType||"").includes("quicktime")?"mov":(item.mimeType||"").includes("webm")?"webm":"mp4"}`;card.dataset.mediaSize=item.size||"";card.innerHTML=`<video controls playsinline preload="metadata" src="${item.url}"></video><strong translate="no">${esc(item.author)||"—"}</strong>${item.message?`<p translate="no">${esc(item.message)}</p>`:""}`;grid.appendChild(card)});window.dispatchEvent(new CustomEvent("wedding:media-rendered"));el.querySelector("[data-all]").disabled=!items.length;el.querySelector("[data-all]").onclick=()=>startPlaylist(items)}catch(e){console.error(e);el.querySelector("[data-grid]").textContent=t("error")}
   }
 
   function startPlaylist(items){if(!items?.length)return alert(t("noApproved"));const tv=document.createElement("div");tv.className="vt-tv";tv.innerHTML=`<button class="vt-close">✕ ${t("tvStop")}</button><video autoplay controls playsinline></video>`;document.body.appendChild(tv);const video=tv.querySelector("video");let i=0;const play=()=>{video.src=items[i%items.length].url;video.muted=false;video.volume=1;video.play().catch(()=>{})};video.onended=()=>{i++;play()};tv.querySelector("button").onclick=()=>tv.remove();play()}
@@ -238,6 +238,6 @@
     if(!document.getElementById("vt-gallery-card")){const card=document.createElement("button");card.id="vt-gallery-card";card.className="vt-card event-card";card.innerHTML=`<div style="font-family:var(--event-title-font);font-size:1.2rem;color:var(--burgundy)">🎞️ ${t("galleryTitle")}</div><div style="color:var(--muted);font-size:.82rem">${t("galleryDesc")}</div>`;card.onclick=openGallery;grid.insertBefore(card,admin)}
   }
   function refresh(){addCards();if(location.hash==="#video"&&!document.getElementById("vt-overlay"))openGuest();if(location.hash==="#video-gallery"&&!document.getElementById("vt-overlay"))openGallery()}
-  document.addEventListener("click",e=>{if(e.target.closest("#wedding-language-switcher"))setTimeout(()=>{document.getElementById("vt-home-card")?.remove();document.getElementById("vt-gallery-card")?.remove();document.querySelectorAll(".vt-admin").forEach(x=>x.remove());refresh()},40)});
+  window.addEventListener("wedding:language-changed", () => window.EventI18n?.apply());
   const obs=new MutationObserver(()=>setTimeout(refresh,30));document.addEventListener("DOMContentLoaded",()=>{refresh();obs.observe(document.body,{childList:true,subtree:true})});window.addEventListener("load",refresh);window.addEventListener("hashchange",refresh);setTimeout(refresh,400);
 })();

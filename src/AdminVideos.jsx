@@ -62,7 +62,7 @@ export default function AdminVideos({ eventId, db, storage, firebase }) {
         <video controls playsInline preload="metadata" src={video.url} style={{display:"block",width:"100%",aspectRatio:"16/9",background:"#161616"}}/>
         <div style={{padding:14,display:"grid",gap:9}}>
           <strong>{video.author||"Sans prénom"}</strong>
-          {video.message&&<p>{video.message}</p>}
+          {video.message&&<p><span translate="no">{video.message}</span></p>}
           <span style={{fontSize:13,color:"var(--muted)"}}>{Math.round(Number(video.duration)||0)} s · {Math.round((Number(video.size)||0)/1048576)} Mo · {filters.find(([key])=>key===statusOf(video))?.[1]||statusOf(video)}</span>
           <div style={{display:"flex",gap:7,flexWrap:"wrap"}}>
             <button type="button" style={buttonStyle} disabled={busy||statusOf(video)==="approved"} onClick={()=>moderate(video,"approved")}>Valider</button>

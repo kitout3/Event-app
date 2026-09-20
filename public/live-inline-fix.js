@@ -15,7 +15,7 @@
     vi: { back: "Về trang chủ", title: "Sự kiện trực tiếp", loading: "Đang tải buổi phát trực tiếp…", empty: "Buổi phát trực tiếp chưa được cấu hình.", hint: "Thêm liên kết trực tiếp trong Quản trị → Cài đặt.", error: "Hiện không thể tải buổi phát trực tiếp.", open: "Mở buổi trực tiếp" }
   };
 
-  function text() { return TXT[lang()]; }
+  function text() { return window.EventI18n?.dictionary(TXT.fr) || TXT[lang()]; }
 
   function youtubeId(url) {
     if (!url) return "";

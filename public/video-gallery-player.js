@@ -36,7 +36,7 @@
 
     closePlayer();
 
-    const labels = LABELS[getLang()];
+    const labels = window.EventI18n?.dictionary(LABELS.fr) || LABELS[getLang()];
     let index = Math.min(Math.max(startIndex, 0), items.length - 1);
     const player = document.createElement("div");
     player.id = PLAYER_ID;

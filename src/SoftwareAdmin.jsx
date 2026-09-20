@@ -139,11 +139,11 @@ export default function SoftwareAdmin(){
   };
 
   const removeEvent=async(item)=>{
-    if(!window.confirm(`Supprimer définitivement « ${item.name} » et toutes ses données ? Cette action est irréversible.`))return;
+    if(!window.confirm(`Supprimer définitivement « $<span translate="no">{item.name}</span> » et toutes ses données ? Cette action est irréversible.`))return;
     setDeleting(item.id);setError("");setNotice("");
     try{
       await fb.httpsCallable(functionsApi,"deleteWedding")({eventId:item.id});
-      setNotice(`Événement supprimé : ${item.name}`);await load();
+      setNotice(`Événement supprimé : $<span translate="no">{item.name}</span>`);await load();
     }catch(e){setError(e.message||"Suppression impossible");}
     finally{setDeleting("");}
   };
@@ -178,7 +178,7 @@ export default function SoftwareAdmin(){
     setError("");setNotice("");
     try{
       await fb.httpsCallable(functionsApi,"updateWedding")({eventId:item.id,active:!item.active});
-      setNotice(`${item.name} : ${item.active?"désactivé":"activé"}`);await load();
+      setNotice(`$<span translate="no">{item.name}</span> : ${item.active?"désactivé":"activé"}`);await load();
     }catch(e){setError(e.message||"Modification impossible");}
   };
   const resetAccess=async(item)=>{
@@ -224,7 +224,7 @@ export default function SoftwareAdmin(){
 
       <section style={panel}>
         <div style={{display:"flex",gap:10,alignItems:"center",flexWrap:"wrap",marginBottom:16}}>
-          <div style={{flex:1,minWidth:220}}><h2 style={{fontFamily:"Georgia,serif",fontWeight:400}}>Événements</h2><small>{filtered.length} affiché{filtered.length!==1?"s":""}</small></div>
+          <div style={{flex:1,minWidth:220}}><h2 style={{fontFamily:"Georgia,serif",fontWeight:400}}>Événements</h2><small>{`${filtered.length} affiché(s)`}</small></div>
           <select style={{...inputStyle,maxWidth:210}} value={typeFilter} onChange={e=>setTypeFilter(e.target.value)}><option value="all">Tous les types</option>{Object.values(EVENT_TYPES).map(type=><option key={type.id} value={type.id}>{type.icon} {type.label}</option>)}</select>
           <input style={{...inputStyle,maxWidth:310}} placeholder="Rechercher…" value={search} onChange={e=>setSearch(e.target.value)}/>
           <button style={btn()} onClick={load}>{loading?"Actualisation…":"Actualiser"}</button>
@@ -280,7 +280,7 @@ function Field({label,children}){return <label style={{display:"grid",gap:5,font
 
 function EditEvent({item,form,setForm,save,saving,close}){
   const setType=value=>setForm({...form,eventType:value,themePreset:presetForType(value),modules:{...DEFAULT_MODULES[value]}});
-  return <section style={{...panel,marginBottom:18}}><div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",flexWrap:"wrap"}}><div><div style={{fontSize:11,textTransform:"uppercase",letterSpacing:1.5,opacity:.55}}>Modifier l’événement</div><h2 style={{fontFamily:"Georgia,serif",fontWeight:400}}>{item.name}</h2></div><button style={btn()} onClick={close}>Fermer</button></div>
+  return <section style={{...panel,marginBottom:18}}><div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",flexWrap:"wrap"}}><div><div style={{fontSize:11,textTransform:"uppercase",letterSpacing:1.5,opacity:.55}}>Modifier l’événement</div><h2 style={{fontFamily:"Georgia,serif",fontWeight:400}}><span translate="no">{item.name}</span></h2></div><button style={btn()} onClick={close}>Fermer</button></div>
     <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(210px,1fr))",gap:10,marginTop:16}}>
       <Field label="Nom"><input style={inputStyle} value={form.name} onChange={e=>setForm({...form,name:e.target.value})}/></Field>
       <Field label="Date"><input style={inputStyle} type="date" value={form.date} onChange={e=>setForm({...form,date:e.target.value})}/></Field>
@@ -299,7 +299,7 @@ function EventRow({item,onEdit,onToggle,onReset,onDelete,deleting}){
   const meta=typeMeta(item.eventType||"wedding"),preset=presetMeta(item.themePreset||presetForType(item.eventType||"wedding"));
   return <div style={{border:"1px solid #e5ddd8",borderRadius:14,padding:15,display:"flex",gap:14,alignItems:"center",flexWrap:"wrap",background:"#fff"}}>
     <div style={{width:46,height:46,borderRadius:12,display:"grid",placeItems:"center",fontSize:23,background:preset.colors.soft,color:preset.colors.primary}}>{meta.icon}</div>
-    <div style={{flex:"1 1 300px"}}><strong style={{fontFamily:"Georgia,serif",fontSize:20}}>{item.name}</strong><div style={{fontSize:13,opacity:.65,marginTop:3}}>{meta.label} · {preset.label} · {item.date||"Date non renseignée"}</div><div style={{fontSize:12,opacity:.55,marginTop:3}}>{item.location?item.location+" · ":""}Admin : {item.adminEmail||"—"} · <strong>{item.active?"Actif":"Désactivé"}</strong></div></div>
+    <div style={{flex:"1 1 300px"}}><strong style={{fontFamily:"Georgia,serif",fontSize:20}}><span translate="no">{item.name}</span></strong><div style={{fontSize:13,opacity:.65,marginTop:3}}>{meta.label} · {preset.label} · {item.date||"Date non renseignée"}</div><div style={{fontSize:12,opacity:.55,marginTop:3}}>{item.location?item.location+" · ":""}Admin : {item.adminEmail||"—"} · <strong>{item.active?"Actif":"Désactivé"}</strong></div></div>
     <div style={{fontSize:13,textAlign:"right"}}>{item.photoCount||0} photos · {item.videoCount||0} vidéos<div style={{fontSize:11,opacity:.62,marginTop:4}}>{item.billing?.status==="paid"?"Payé · "+formatEuro(item.billing?.amount):item.billing?.status==="manual"?"Gestion manuelle":"Paiement en attente"}</div></div>
     <button style={btn()} onClick={onEdit}>Modifier</button><button style={btn()} onClick={onToggle}>{item.active?"Désactiver":"Activer"}</button><button style={btn()} onClick={onReset}>Réinitialiser accès</button><button style={btn()} onClick={()=>window.open(eventUrl(item.slug),"_blank","noopener,noreferrer")}>Application</button><button style={btn(true)} onClick={()=>window.open(eventUrl(item.slug,true),"_blank","noopener,noreferrer")}>Admin</button><button style={{...btn(),background:"#fff0ed",color:"#a33"}} disabled={deleting} onClick={onDelete}>{deleting?"Suppression…":"Supprimer"}</button>
   </div>;

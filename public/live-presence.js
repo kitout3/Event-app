@@ -14,11 +14,12 @@
 
   function getLang() {
     const value = localStorage.getItem("mariage-lang") || "fr";
-    return ["fr", "en", "vi"].includes(value) ? value : "fr";
+    return ["fr", "en", "vi", "de"].includes(value) ? value : "fr";
   }
 
   function label(count) {
     const lang = getLang();
+    if (lang === "de") return `${count} Zuschauer`;
     if (lang === "en") return `${count} ${count === 1 ? "viewer" : "viewers"}`;
     if (lang === "vi") return `${count} người đang xem`;
     return `${count} ${count === 1 ? "personne présente" : "personnes présentes"}`;

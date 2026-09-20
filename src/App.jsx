@@ -678,15 +678,15 @@ function HomePage({ setView }) {
           : <div style={{fontSize:44,marginBottom:10}}>{typeMeta.icon}</div>}
         {event.customEventType && event.eventType==="custom" && <div style={{fontSize:11,letterSpacing:2.5,textTransform:"uppercase",opacity:.74,marginBottom:10}}>{event.customEventType}</div>}
         <h1 style={{ fontFamily:"var(--event-title-font)", fontSize:"clamp(2.35rem,7vw,4.7rem)", fontWeight: preset.titleFont.includes("Cormorant") ? 300 : 650, lineHeight:1.02, marginBottom:8 }}>
-          {event.name}
+          <span translate="no">{event.name}</span>
         </h1>
         <p style={{ color:heroMuted, fontSize:".88rem", letterSpacing:2.2, textTransform:"uppercase" }}>
           {[event.date,event.location].filter(Boolean).join(" · ")}
         </p>
         {(event.coverMessage || labels.heroSubtitle) && <p style={{color:heroMuted,maxWidth:620,margin:"14px auto 0",fontSize:".95rem"}}>{labels.heroSubtitle || event.coverMessage}</p>}
         {photos.length>0 && <div style={{marginTop:18,display:"flex",justifyContent:"center",gap:8,flexWrap:"wrap"}}>
-          <span style={{background:"rgba(255,255,255,.86)",color:"var(--text)",borderRadius:50,padding:"6px 14px",fontSize:".8rem",backdropFilter:"blur(8px)"}}>📸 {photos.length} photo{photos.length>1?"s":""}</span>
-          {modules.reactions && <span style={{background:"rgba(255,255,255,.86)",color:"var(--text)",borderRadius:50,padding:"6px 14px",fontSize:".8rem",backdropFilter:"blur(8px)"}}>❤️ {totalLikes} réaction{totalLikes>1?"s":""}</span>}
+          <span style={{background:"rgba(255,255,255,.86)",color:"var(--text)",borderRadius:50,padding:"6px 14px",fontSize:".8rem",backdropFilter:"blur(8px)"}}>📸 {`${photos.length} photo${photos.length===1?"":"s"}`}</span>
+          {modules.reactions && <span style={{background:"rgba(255,255,255,.86)",color:"var(--text)",borderRadius:50,padding:"6px 14px",fontSize:".8rem",backdropFilter:"blur(8px)"}}>❤️ {`${totalLikes} réaction${totalLikes===1?"":"s"}`}</span>}
         </div>}
       </section>
 
@@ -751,7 +751,7 @@ function GuestbookPage({ setView }) {
       <div style={{textAlign:"center",marginBottom:22}}>
         <div style={{fontSize:36}}>✍️</div>
         <h1 style={{fontFamily:"var(--event-title-font)",fontSize:"2.35rem",color:"var(--burgundy)",marginTop:7}}>Livre d’or</h1>
-        <p style={{color:"var(--muted)",marginTop:5}}>{event.name}</p>
+        <p style={{color:"var(--muted)",marginTop:5}}><span translate="no">{event.name}</span></p>
       </div>
       <form onSubmit={submit} className="event-card" style={{background:"var(--white)",border:"1px solid var(--blush)",borderRadius:"var(--event-radius)",padding:"1.35rem",boxShadow:"0 4px 20px var(--shadow)",display:"grid",gap:9}}>
         <input value={author} onChange={e=>setAuthor(e.target.value.slice(0,60))} placeholder="Votre prénom (optionnel)" style={{padding:"11px 13px",borderRadius:10,border:"1px solid var(--blush)",background:"var(--cream)",color:"var(--text)"}}/>
@@ -763,7 +763,7 @@ function GuestbookPage({ setView }) {
         {messages.length===0&&<div style={{textAlign:"center",color:"var(--muted)",padding:"2rem"}}>Aucun message pour le moment.</div>}
         {messages.map(item=><article key={item.id} className="event-card" style={{background:"var(--white)",border:"1px solid var(--blush)",borderRadius:"var(--event-radius)",padding:"1rem 1.15rem",boxShadow:"0 2px 12px var(--shadow)"}}>
           <strong style={{color:"var(--burgundy)",fontFamily:"var(--event-title-font)",fontSize:"1.05rem"}}>{item.author||"Invité"}</strong>
-          <p style={{color:"var(--text)",marginTop:5,lineHeight:1.6,whiteSpace:"pre-wrap"}}>{item.message}</p>
+          <p style={{color:"var(--text)",marginTop:5,lineHeight:1.6,whiteSpace:"pre-wrap"}}><span translate="no">{item.message}</span></p>
         </article>)}
       </div>
     </div>
@@ -779,9 +779,9 @@ function EventTextPage({ setView, mode }) {
   const content = schedule ? event.scheduleText : event.practicalInfoText;
   return <div style={{minHeight:"100vh",background:"var(--cream)",padding:"2rem 1rem 6rem"}}>
     <div style={{maxWidth:720,margin:"0 auto"}}>
-      <div style={{textAlign:"center",marginBottom:24}}><div style={{fontSize:34}}>{schedule?"🗓️":"ℹ️"}</div><h1 style={{fontFamily:"var(--event-title-font)",fontSize:"2.3rem",color:"var(--burgundy)",marginTop:8}}>{title}</h1><p style={{color:"var(--muted)",marginTop:5}}>{typeMeta.icon} {event.name}</p></div>
+      <div style={{textAlign:"center",marginBottom:24}}><div style={{fontSize:34}}>{schedule?"🗓️":"ℹ️"}</div><h1 style={{fontFamily:"var(--event-title-font)",fontSize:"2.3rem",color:"var(--burgundy)",marginTop:8}}>{title}</h1><p style={{color:"var(--muted)",marginTop:5}}>{typeMeta.icon} <span translate="no">{event.name}</span></p></div>
       <div className="event-card" style={{background:"var(--white)",border:"1px solid var(--blush)",borderRadius:"var(--event-radius)",padding:"1.6rem",boxShadow:"0 4px 22px var(--shadow)",whiteSpace:"pre-wrap",lineHeight:1.75,color:"var(--text)"}}>
-        {content?.trim() || (schedule ? "Le programme sera communiqué prochainement." : "Les informations pratiques seront communiquées prochainement.")}
+        {content?.trim() ? <span translate="no">{content}</span> : (schedule ? "Le programme sera communiqué prochainement." : "Les informations pratiques seront communiquées prochainement.")}
       </div>
     </div>
     <HomeButton setView={setView}/>
@@ -880,7 +880,7 @@ function UploadPage({ setView }) {
     setProgress(0);
     setError(
       uploaded.length
-        ? `${uploaded.length} photo${uploaded.length > 1 ? "s ont" : " a"} été envoyée${uploaded.length > 1 ? "s" : ""}. ${failed.length} reste${failed.length > 1 ? "nt" : ""} à réessayer.`
+        ? `${uploaded.length} photo(s) envoyée(s). ${failed.length} à réessayer.`
         : "L'envoi a échoué. Vérifie ta connexion puis réessaie."
     );
     setStep("preview");
@@ -921,7 +921,7 @@ function UploadPage({ setView }) {
     <div style={{ minHeight:"100vh", background:"var(--cream)", display:"flex", flexDirection:"column", alignItems:"center", padding:"2rem 1rem" }}>
       <div style={{ textAlign: "center", marginBottom: "1.75rem", width: "100%", maxWidth: 460, animation: "fadeUp .5s ease" }}>
         <div style={{ fontSize: 30, marginBottom: 8 }}>{typeMeta.icon}</div>
-        <h1 style={{ fontFamily: "var(--event-title-font)", fontSize: "2rem", fontWeight: 300, color: "var(--burgundy)" }}>{event.name}</h1>
+        <h1 style={{ fontFamily: "var(--event-title-font)", fontSize: "2rem", fontWeight: 300, color: "var(--burgundy)" }}><span translate="no">{event.name}</span></h1>
         <p style={{ color: "var(--muted)", fontSize: ".88rem", marginTop: 4 }}>{event.labels?.uploadSubtitle || event.coverMessage}</p>
       </div>
 
@@ -940,7 +940,7 @@ function UploadPage({ setView }) {
             <div style={{ fontSize: 56, marginBottom: 14, animation: "heartPop .6s ease 2" }}>💖</div>
             <h2 style={{ fontFamily: "var(--event-title-font)", fontSize: "1.9rem", color: "var(--burgundy)", marginBottom: 8 }}>Merci !</h2>
             <p style={{ color: "var(--muted)", marginBottom: 20, fontSize: ".9rem" }}>
-              {uploadedCount} photo{uploadedCount > 1 ? "s" : ""} envoyée{uploadedCount > 1 ? "s" : ""}. {event.moderationMode === "moderated" ? (uploadedCount > 1 ? "Elles seront visibles après validation." : "Elle sera visible après validation.") : (uploadedCount > 1 ? "Elles sont maintenant en ligne !" : "Elle est maintenant en ligne !")}
+              {`${uploadedCount} photo${uploadedCount===1?"":"s"} envoyée${uploadedCount===1?"":"s"}.`} {event.moderationMode === "moderated" ? (uploadedCount > 1 ? "Elles seront visibles après validation." : "Elle sera visible après validation.") : (uploadedCount > 1 ? "Elles sont maintenant en ligne !" : "Elle est maintenant en ligne !")}
             </p>
             <div style={{ width: 110, height: 110, margin: "0 auto 20px", borderRadius: 14, overflow: "hidden", boxShadow: "0 4px 18px var(--shadow)" }}>
               <img src={selectedFiles[0]?.previewUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
@@ -959,8 +959,8 @@ function UploadPage({ setView }) {
         {step === "uploading" && (
           <div className="fade-up" style={{ background: "var(--white)", borderRadius: 24, padding: "2.5rem 2rem", textAlign: "center", boxShadow: "0 8px 40px var(--shadow)" }}>
             <div style={{ fontSize: 38, marginBottom: 14, animation: "spin 1s linear infinite", display: "inline-block" }}>📡</div>
-            <p style={{ color: "var(--text)", marginBottom: 6 }}>Envoi de {selectedFiles.length} photo{selectedFiles.length > 1 ? "s" : ""}…</p>
-            <p style={{ color: "var(--muted)", fontSize: ".78rem", marginBottom: 20 }}>{Math.min(uploadedCount + 1, selectedFiles.length)} sur {selectedFiles.length}</p>
+            <p style={{ color: "var(--text)", marginBottom: 6 }}>{`Envoi de ${selectedFiles.length} photo${selectedFiles.length===1?"":"s"}…`}</p>
+            <p style={{ color: "var(--muted)", fontSize: ".78rem", marginBottom: 20 }}>{`${Math.min(uploadedCount + 1, selectedFiles.length)} sur ${selectedFiles.length}`}</p>
             <div style={{ background: "var(--blush)", borderRadius: 50, height: 10, overflow: "hidden" }}>
               <div style={{ height: "100%", borderRadius: 50, background: "linear-gradient(90deg, var(--rose), var(--gold))", width: `${progress}%`, transition: "width .15s ease" }} />
             </div>
@@ -972,7 +972,7 @@ function UploadPage({ setView }) {
           <div className="fade-up" style={{ background: "var(--white)", borderRadius: 24, overflow: "hidden", boxShadow: "0 8px 40px var(--shadow)" }}>
             <div style={{ padding: "1rem 1rem .25rem", background: "#1a1008" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                <span style={{ color: "white", fontSize: ".88rem" }}>{selectedFiles.length} photo{selectedFiles.length > 1 ? "s sélectionnées" : " sélectionnée"}</span>
+                <span style={{ color: "white", fontSize: ".88rem" }}>{`${selectedFiles.length} photo${selectedFiles.length===1?" sélectionnée":"s sélectionnées"}`}</span>
                 <button onClick={reset} style={{ background: "rgba(255,255,255,.15)", color: "white", borderRadius: 50, width: 32, height: 32, fontSize: "1rem", backdropFilter: "blur(8px)" }} title="Tout retirer">✕</button>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(86px,1fr))", gap: 8, maxHeight: 330, overflowY: "auto", paddingBottom: 12 }}>
@@ -993,9 +993,9 @@ function UploadPage({ setView }) {
                 style={{ width: "100%", padding: "11px 14px", borderRadius: 11, marginBottom: 10, border: "1.5px solid var(--blush)", background: "var(--cream)", fontSize: ".93rem" }} />
               <textarea placeholder="Un message pour l’événement… (optionnel)" value={message} onChange={e => setMessage(e.target.value)} rows={2}
                 style={{ width: "100%", padding: "11px 14px", borderRadius: 11, marginBottom: 7, border: "1.5px solid var(--blush)", background: "var(--cream)", fontSize: ".93rem", resize: "none" }} />
-              {selectedFiles.length > 1 && <p style={{ color: "var(--muted)", fontSize: ".72rem", marginBottom: 14 }}>Le prénom et le message seront appliqués aux {selectedFiles.length} photos.</p>}
+              {selectedFiles.length > 1 && <p style={{ color: "var(--muted)", fontSize: ".72rem", marginBottom: 14 }}>{`Le prénom et le message seront appliqués aux ${selectedFiles.length} photos.`}</p>}
               <button onClick={upload} className="btn" style={{ width: "100%", padding: "15px", borderRadius: 50, fontSize: "1rem", background: "linear-gradient(135deg, var(--rose), var(--burgundy))", color: "white", fontWeight: 500, boxShadow: "0 5px 22px rgba(92,42,30,.28)" }}>
-                ✨ Envoyer {selectedFiles.length > 1 ? `les ${selectedFiles.length} photos` : "cette photo"}
+                ✨ {`Envoyer ${selectedFiles.length} photo${selectedFiles.length===1?"":"s"}`}
               </button>
             </div>
           </div>
@@ -1086,7 +1086,7 @@ function GalleryPage({ setView }) {
         <button onClick={() => setView(VIEWS.HOME)} style={{ background: "none", color: "var(--muted)", fontSize: "1.3rem", padding: "4px 8px" }}>←</button>
         <div style={{ flex: 1 }}>
           <h1 style={{ fontFamily: "var(--event-title-font)", fontSize: "1.45rem", color: "var(--burgundy)" }}>{event.labels?.galleryPage || event.labels?.galleryTitle || "Galerie"}</h1>
-          <p style={{ color: "var(--muted)", fontSize: ".75rem" }}>{photos.length} photo{photos.length > 1 ? "s" : ""} · {event.name}</p>
+          <p style={{ color: "var(--muted)", fontSize: ".75rem" }}>{`${photos.length} photo${photos.length===1?"":"s"}`} · <span translate="no">{event.name}</span></p>
         </div>
         {event.modules?.photoUpload && <button onClick={() => setView(VIEWS.UPLOAD)} className="btn" style={{ background: "var(--rose)", color: "white", padding: "7px 16px", borderRadius: 50, fontSize: ".82rem" }}>
           + Ajouter
@@ -1187,10 +1187,10 @@ function GalleryPage({ setView }) {
                 </div>
                 <div style={{ padding: "9px 12px", display: "flex", alignItems: "center", gap: 8 }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    {photo.author && <p style={{ fontSize: ".83rem", fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{photo.author}</p>}
-                    {photo.message && <p style={{ fontSize: ".73rem", color: "var(--muted)", fontStyle: "italic", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>"{photo.message}"</p>}
+                    {photo.author && <p style={{ fontSize: ".83rem", fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}><span translate="no">{photo.author}</span></p>}
+                    {photo.message && <p style={{ fontSize: ".73rem", color: "var(--muted)", fontStyle: "italic", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>"<span translate="no">{photo.message}</span>"</p>}
                     {!photo.author && !photo.message && (
-                      <p style={{ fontSize: ".72rem", color: "var(--muted)" }}>{new Date(photo.createdAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</p>
+                      <p style={{ fontSize: ".72rem", color: "var(--muted)" }}>{new Date(photo.createdAt).toLocaleTimeString(window.EventI18n?.locale || "fr-FR", { hour: "2-digit", minute: "2-digit" })}</p>
                     )}
                   </div>
                   <button onClick={() => handleLike(photo)} style={{
@@ -1395,7 +1395,7 @@ function LiveTV({ setView }) {
       {photos.length === 0 && (
         <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", color: "rgba(255,255,255,.4)", gap: 16 }}>
           <div style={{ fontSize: 80, opacity: .3 }}>💍</div>
-          <p style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: "2.2rem", fontWeight: 300 }}>{event.name}</p>
+          <p style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: "2.2rem", fontWeight: 300 }}><span translate="no">{event.name}</span></p>
           <p style={{ fontSize: "1.1rem", opacity: .5, animation: "pulse 2.5s ease infinite" }}>En attente des premières photos…</p>
         </div>
       )}
@@ -1409,9 +1409,9 @@ function LiveTV({ setView }) {
         zIndex: 100, pointerEvents: showControls ? "auto" : "none",
       }}>
         <div style={{ color: "rgba(255,255,255,.9)", fontFamily: "'Cormorant Garamond',serif" }}>
-          <span style={{ fontSize: "1.55rem", fontWeight: 300 }}>{event.name}</span>
+          <span style={{ fontSize: "1.55rem", fontWeight: 300 }}><span translate="no">{event.name}</span></span>
           <span style={{ marginLeft: 12, fontSize: ".9rem", opacity: .5, fontFamily: "'Jost',sans-serif" }}>
-            {photos.length} photo{photos.length !== 1 ? "s" : ""}
+            {`${photos.length} photo${photos.length===1?"":"s"}`}
           </span>
         </div>
         <div style={{
@@ -1514,8 +1514,8 @@ function SlideshowMode({ photo, index, speed, total }) {
       {/* Info overlay */}
       {(photo.author || photo.message) && (
         <div style={{ position: "absolute", bottom: "9%", left: "50%", transform: "translateX(-50%)", textAlign: "center", color: "white", animation: "fadeIn .9s ease", background: "rgba(0,0,0,.42)", backdropFilter: "blur(16px)", padding: ".9rem 2.2rem", borderRadius: 18, maxWidth: "72%" }}>
-          {photo.author && <p style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: "1.8rem", fontWeight: 300 }}>— {photo.author}</p>}
-          {photo.message && <p style={{ fontSize: ".95rem", opacity: .85, marginTop: 5, fontStyle: "italic" }}>"{photo.message}"</p>}
+          {photo.author && <p style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: "1.8rem", fontWeight: 300 }}>— <span translate="no">{photo.author}</span></p>}
+          {photo.message && <p style={{ fontSize: ".95rem", opacity: .85, marginTop: 5, fontStyle: "italic" }}>"<span translate="no">{photo.message}</span>"</p>}
         </div>
       )}
       {/* Points de progression */}
@@ -1548,9 +1548,9 @@ function MixedMode({ photos }) {
               ? <span style={{ background: "rgba(180,40,40,.85)", color: "white", borderRadius: 50, padding: "4px 14px", fontSize: ".78rem", display: "inline-block", marginBottom: 10 }}>❤️ Photo la plus aimée · {topLiked.likes} likes</span>
               : <span style={{ background: "rgba(201,122,106,.85)", color: "white", borderRadius: 50, padding: "4px 14px", fontSize: ".78rem", display: "inline-block", marginBottom: 10 }}>{isLatest ? "✨ Dernière photo" : "📸 Souvenir des invités"}</span>
             }
-            {featured.author && <p style={{ color: "white", fontFamily: "'Cormorant Garamond',serif", fontSize: "2rem", fontWeight: 300 }}>{featured.author}</p>}
-            {featured.message && <p style={{ color: "rgba(255,255,255,.8)", fontSize: ".95rem", fontStyle: "italic", marginTop: 4 }}>"{featured.message}"</p>}
-            {(featured.likes || 0) > 0 && !isTopLiked && <p style={{ color: "rgba(255,200,200,.75)", fontSize: ".82rem", marginTop: 6 }}>❤️ {featured.likes} réaction{featured.likes > 1 ? "s" : ""}</p>}
+            {featured.author && <p style={{ color: "white", fontFamily: "'Cormorant Garamond',serif", fontSize: "2rem", fontWeight: 300 }}><span translate="no">{featured.author}</span></p>}
+            {featured.message && <p style={{ color: "rgba(255,255,255,.8)", fontSize: ".95rem", fontStyle: "italic", marginTop: 4 }}>"<span translate="no">{featured.message}</span>"</p>}
+            {(featured.likes || 0) > 0 && !isTopLiked && <p style={{ color: "rgba(255,200,200,.75)", fontSize: ".82rem", marginTop: 6 }}>❤️ {`${featured.likes} réaction${featured.likes===1?"":"s"}`}</p>}
           </div>
         </div>
       )}
@@ -1636,7 +1636,7 @@ function AdminPage({ auth, user, setAuth, setEventExists, setView }) {
       <div className="fade-up" style={{ background: "var(--white)", borderRadius: 24, padding: "2.5rem", width: "100%", maxWidth: 380, boxShadow: "0 20px 60px rgba(0,0,0,.45)" }}>
         <div style={{ textAlign: "center", marginBottom: 28 }}>
           <h2 style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: "2rem", color: "var(--burgundy)" }}>Administration</h2>
-          <p style={{ color: "var(--muted)", fontSize: ".88rem", marginTop: 3 }}>{event.name}</p>
+          <p style={{ color: "var(--muted)", fontSize: ".88rem", marginTop: 3 }}><span translate="no">{event.name}</span></p>
           <p style={{ color: "var(--muted)", fontSize: ".72rem", marginTop: 5 }}>Espace : {EVENT_ID}</p>
         </div>
         <input type="email" autoComplete="username" placeholder="Email administrateur" value={email} onChange={e => setEmail(e.target.value)}
@@ -1658,7 +1658,7 @@ function AdminPage({ auth, user, setAuth, setEventExists, setView }) {
 
       <div style={{ background: "var(--white)", borderBottom: "1px solid var(--blush)", padding: ".9rem 1.25rem", display: "flex", alignItems: "center", gap: 10, position: "relative", zIndex: 10, flexWrap: "wrap" }}>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <h1 style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: "1.5rem", color: "var(--burgundy)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{event.name}</h1>
+          <h1 style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: "1.5rem", color: "var(--burgundy)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}><span translate="no">{event.name}</span></h1>
           <p style={{ color: "var(--muted)", fontSize: ".75rem" }}>{event.date} · {EVENT_ID}</p>
         </div>
         <div style={{ display: "flex", gap: 7, alignItems: "center", flexWrap: "wrap" }}>
@@ -2021,7 +2021,7 @@ function AdminSettings({ event, onUpdate }) {
         <div style={{fontSize:28}}>{typeMeta.icon}</div><div style={{fontFamily:preset.titleFont,fontSize:28,marginTop:5}}>{form.name||"Aperçu"}</div><div style={{fontSize:12,opacity:.75,marginTop:4}}>{[form.date,form.location].filter(Boolean).join(" · ")}</div><div style={{fontSize:13,opacity:.8,marginTop:8}}>{form.labels.heroSubtitle}</div>
       </div>
 
-      <button onClick={save} className="btn" style={{width:"100%",padding:14,borderRadius:50,fontSize:".95rem",background:"var(--burgundy)",color:"#fff",fontWeight:600}}>Sauvegarder toutes les modifications</button>
+      <button data-event-settings-save="true" onClick={save} className="btn" style={{width:"100%",padding:14,borderRadius:50,fontSize:".95rem",background:"var(--burgundy)",color:"#fff",fontWeight:600}}>Sauvegarder toutes les modifications</button>
     </div>
   );
 }
@@ -2061,7 +2061,7 @@ function AdminExport({ photos, event }) {
     <div style={{ maxWidth: 480 }}>
       <div style={{ background: "var(--white)", borderRadius: 18, padding: "1.75rem", boxShadow: "0 2px 10px var(--shadow)", display: "grid", gap: 12 }}>
         <h3 style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: "1.3rem", color: "var(--burgundy)" }}>Export</h3>
-        <p style={{ color: "var(--muted)", fontSize: ".85rem" }}>{photos.length} photos · {photos.filter(p=>p.status==="approved").length} publiées</p>
+        <p style={{ color: "var(--muted)", fontSize: ".85rem" }}>{`${photos.length} photos · ${photos.filter(p=>p.status==="approved").length} publiées`}</p>
         {[
           { icon: "📊", title: "Export CSV", desc: "Métadonnées complètes (Excel)", fn: exportCSV, loading: false },
           { icon: "📦", title: "Export ZIP", desc: exporting ? `Préparation… ${prog}%` : "Photos + récapitulatif", fn: exportZIP, loading: exporting },
