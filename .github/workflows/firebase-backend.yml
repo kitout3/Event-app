@@ -22,6 +22,9 @@ permissions:
   contents: read
   id-token: write
 
+env:
+  FIREBASE_TOOLS_VERSION: "15.30.2"
+
 concurrency:
   group: firebase-production
   cancel-in-progress: false
@@ -39,16 +42,18 @@ jobs:
           node-version: 22
 
       - name: Authenticate to Google Cloud
+        id: google_auth
         uses: google-github-actions/auth@v3
         with:
           project_id: mariage-hq
           workload_identity_provider: projects/1069749088466/locations/global/workloadIdentityPools/github/providers/mariage-app
           service_account: github-firebase-deployer@mariage-hq.iam.gserviceaccount.com
           create_credentials_file: true
+          token_format: access_token
 
       - name: Deploy Firestore and Storage rules
         run: |
-          npx --yes firebase-tools@latest deploy \
+          npx --yes "firebase-tools@${FIREBASE_TOOLS_VERSION}" deploy \
             --project mariage-hq \
             --only firestore:rules,storage \
             --non-interactive
@@ -65,12 +70,14 @@ jobs:
           node-version: 22
 
       - name: Authenticate to Google Cloud
+        id: google_auth
         uses: google-github-actions/auth@v3
         with:
           project_id: mariage-hq
           workload_identity_provider: projects/1069749088466/locations/global/workloadIdentityPools/github/providers/mariage-app
           service_account: github-firebase-deployer@mariage-hq.iam.gserviceaccount.com
           create_credentials_file: true
+          token_format: access_token
 
       - name: Install Functions dependencies
         run: npm install --prefix functions --ignore-scripts --no-audit --no-fund
@@ -83,7 +90,7 @@ jobs:
 
       - name: Deploy core Functions
         run: |
-          npx --yes firebase-tools@latest deploy \
+          npx --yes "firebase-tools@${FIREBASE_TOOLS_VERSION}" deploy \
             --project mariage-hq \
             --only functions:createWedding,functions:createWeddingV2,functions:listPublicVideos,functions:updateWedding,functions:deleteWedding,functions:listWeddings,functions:createClientEventDraft,functions:listMyEvents,functions:notifyNewPendingVideoV2 \
             --non-interactive
@@ -101,12 +108,14 @@ jobs:
           node-version: 22
 
       - name: Authenticate to Google Cloud
+        id: google_auth
         uses: google-github-actions/auth@v3
         with:
           project_id: mariage-hq
           workload_identity_provider: projects/1069749088466/locations/global/workloadIdentityPools/github/providers/mariage-app
           service_account: github-firebase-deployer@mariage-hq.iam.gserviceaccount.com
           create_credentials_file: true
+          token_format: access_token
 
       - name: Install Functions dependencies
         run: npm install --prefix functions --ignore-scripts --no-audit --no-fund
@@ -116,7 +125,7 @@ jobs:
 
       - name: Deploy Stripe Functions
         run: |
-          npx --yes firebase-tools@latest deploy \
+          npx --yes "firebase-tools@${FIREBASE_TOOLS_VERSION}" deploy \
             --project mariage-hq \
             --only functions:createEventCheckoutSession,functions:confirmEventCheckout,functions:stripeWebhook \
             --non-interactive
