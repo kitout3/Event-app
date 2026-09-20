@@ -1,7 +1,8 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { lazy, Suspense } from 'react'
-import Portal from './Portal.jsx'
+import ClientAccount from './ClientAccount.jsx'
+import './account.css'
 
 const hasWedding = window.__WEDDING_TENANT__?.hasWedding === true
 const App = lazy(() => import('./App.jsx'))
@@ -17,6 +18,6 @@ if (hasWedding) {
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    {hasWedding ? <Suspense fallback={<p style={{padding:32,textAlign:'center'}}>Ouverture de votre espace…</p>}><App /></Suspense> : <Portal />}
+    {hasWedding ? <Suspense fallback={<p style={{padding:32,textAlign:'center'}}>Ouverture de votre espace…</p>}><App /></Suspense> : <ClientAccount />}
   </React.StrictMode>
 )

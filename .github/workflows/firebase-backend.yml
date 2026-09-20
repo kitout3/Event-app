@@ -21,9 +21,34 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  deploy:
+  rules:
     runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: mariage-hq
+          workload_identity_provider: projects/1069749088466/locations/global/workloadIdentityPools/github/providers/mariage-app
+          service_account: github-firebase-deployer@mariage-hq.iam.gserviceaccount.com
+          create_credentials_file: true
+
+      - name: Deploy Firestore and Storage rules
+        run: |
+          npx --yes firebase-tools@latest deploy \
+            --project mariage-hq \
+            --only firestore:rules,storage \
+            --non-interactive
+
+  functions:
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -50,9 +75,9 @@ jobs:
           node --check functions/event-config.js
           node --check functions/billing-config.js
 
-      - name: Deploy Functions and security rules
+      - name: Deploy Functions
         run: |
           npx --yes firebase-tools@latest deploy \
             --project mariage-hq \
-            --only functions,firestore:rules,storage \
+            --only functions \
             --non-interactive

@@ -18,7 +18,10 @@ test("tenant context accepts existing short slugs without cross-tenant fallback"
   assert.equal(root.hasWedding,false);
   assert.equal(root.isValid,false);
   assert.notEqual(root.eventId,'quentin-huyen-2026');
-  assert.equal(contextFor('https://kitout3.github.io/mariage-app/').eventId,'quentin-huyen-2026');
+  const githubRoot=contextFor('https://kitout3.github.io/mariage-app/');
+  assert.equal(githubRoot.hasWedding,false);
+  assert.equal(githubRoot.isValid,false);
+  assert.notEqual(githubRoot.eventId,'quentin-huyen-2026');
   for(const origin of ['https://wedding.example/','https://kitout3.github.io/mariage-app/']) {
     assert.equal(contextFor(`${origin}?w=ab`).eventId,'ab');
     assert.equal(contextFor(`${origin}?w=another-wedding`).eventId,'another-wedding');
@@ -290,4 +293,50 @@ test("all event pages keep only the compact language pill fixed with a small ini
   assert.doesNotMatch(app,/top: "var\(--event-header-reserve/);
   assert.match(video,/padding:calc\(var\(--event-header-reserve,68px\) \+ 10px\)/);
   assert.doesNotMatch(video,/vt-language-slot/);
+});
+
+
+test("Event-App root is login/signup and never auto-opens Huyen & Quentin",()=>{
+  const main=read("src/main.jsx");
+  const tenant=read("public/tenant-context.js");
+  const index=read("index.html");
+  assert.match(main,/import ClientAccount from '\.\/ClientAccount\.jsx'/);
+  assert.match(main,/: <ClientAccount \/>/);
+  assert.doesNotMatch(main,/import Portal from/);
+  assert.match(tenant,/const hasWedding = requested !== null/);
+  assert.doesNotMatch(tenant,/LEGACY_DEFAULT_EVENT_ID/);
+  assert.match(index,/<title>Event-App · Vos événements<\/title>/);
+});
+
+test("Huyen and Quentin event requires an authenticated authorized account",()=>{
+  const app=read("src/App.jsx");
+  const rules=read("firestore.rules");
+  const storage=read("storage.rules");
+  const functions=read("functions/index.js");
+  assert.match(app,/PRIVATE_EVENT_IDS = new Set\(\["quentin-huyen-2026"\]\)/);
+  assert.match(app,/PrivateEventAccess/);
+  assert.match(app,/privateAccessEmails/);
+  assert.match(rules,/function privateEvent\(eventId\)/);
+  assert.match(rules,/eventId == 'quentin-huyen-2026'/);
+  assert.match(rules,/invitedToPrivateEvent/);
+  assert.match(storage,/function attendeeAccess\(eventId\)/);
+  assert.match(functions,/requestCanAccessPrivateEvent/);
+  assert.match(functions,/throw new HttpsError\("permission-denied", "Cet événement est privé\."\)/);
+});
+
+test("event settings can clear logo and cover image",()=>{
+  const app=read("src/App.jsx");
+  assert.match(app,/Supprimer le logo/);
+  assert.match(app,/setNested\("branding","logoUrl",""\)/);
+  assert.match(app,/Supprimer l’image de couverture/);
+  assert.match(app,/setNested\("branding","coverUrl",""\)/);
+  assert.match(app,/Aucun logo/);
+  assert.match(app,/Aucune image de couverture/);
+});
+
+test("Firebase rules deploy independently from Stripe-backed functions",()=>{
+  const workflow=read(".github/workflows/firebase-backend.yml");
+  assert.match(workflow,/jobs:\s*[\s\S]*rules:/);
+  assert.match(workflow,/--only firestore:rules,storage/);
+  assert.match(workflow,/functions:[\s\S]*--only functions/);
 });

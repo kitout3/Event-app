@@ -18,9 +18,26 @@ service cloud.firestore {
     function active(eventId) {
       return event(eventId).data.active == true;
     }
+    function privateEvent(eventId) {
+      return eventId == 'quentin-huyen-2026';
+    }
+    function invitedToPrivateEvent(eventId) {
+      return signedIn()
+        && request.auth.token.email is string
+        && ('privateAccessEmails' in event(eventId).data)
+        && event(eventId).data.privateAccessEmails is list
+        && event(eventId).data.privateAccessEmails.hasAny([request.auth.token.email]);
+    }
+    function attendeeAccess(eventId) {
+      return manages(eventId)
+        || invitedToPrivateEvent(eventId)
+        || (!privateEvent(eventId) && active(eventId));
+    }
 
     match /events/{eventId} {
-      allow read: if resource.data.active == true || manages(eventId);
+      allow read: if manages(eventId)
+        || invitedToPrivateEvent(eventId)
+        || (!privateEvent(eventId) && resource.data.active == true);
       allow create: if platformAdmin()
         && request.resource.data.id == eventId
         && request.resource.data.slug == eventId;
@@ -45,10 +62,11 @@ service cloud.firestore {
         // Guests may only query approved photos and like records. Pending and
         // rejected media stay private to the wedding administrator.
         allow read: if manages(eventId)
-          || (active(eventId)
+          || invitedToPrivateEvent(eventId)
+          || (!privateEvent(eventId) && active(eventId)
             && (resource.data.status == "approved" || resource.data.type == "photoLike"));
 
-        allow create: if active(eventId)
+        allow create: if attendeeAccess(eventId)
           && request.resource.data.eventId == eventId
           && (
             (
@@ -71,7 +89,7 @@ service cloud.firestore {
         // Public video metadata is served through listPublicVideos(), which
         // returns only approved/due media. Direct Firestore reads are admin-only.
         allow read: if manages(eventId);
-        allow create: if active(eventId)
+        allow create: if attendeeAccess(eventId)
           && request.resource.data.eventId == eventId
           && request.resource.data.url is string
           && request.resource.data.path is string
@@ -85,8 +103,9 @@ service cloud.firestore {
 
       match /guestbookMessages/{messageId} {
         allow read: if manages(eventId)
-          || (active(eventId) && resource.data.status == "approved");
-        allow create: if active(eventId)
+          || invitedToPrivateEvent(eventId)
+          || (!privateEvent(eventId) && active(eventId) && resource.data.status == "approved");
+        allow create: if attendeeAccess(eventId)
           && request.resource.data.keys().hasAll(["eventId", "message", "status"])
           && request.resource.data.eventId == eventId
           && request.resource.data.status == "approved"
@@ -98,12 +117,12 @@ service cloud.firestore {
       }
 
       match /liveChatMessages/{messageId} {
-        allow read, create: if active(eventId);
+        allow read, create: if attendeeAccess(eventId);
         allow update, delete: if manages(eventId);
       }
 
       match /livePresence/{sessionId} {
-        allow read, create, update: if active(eventId);
+        allow read, create, update: if attendeeAccess(eventId);
         allow delete: if manages(eventId);
       }
 
