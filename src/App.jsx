@@ -1,5 +1,6 @@
 import { guestLoginError } from "./auth-errors.mjs";
 import PasswordInput from "./PasswordInput.jsx";
+import AdminVideos from "./AdminVideos.jsx";
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { EVENT_TYPES, THEME_PRESETS, MODULE_META, eventDefaults, normalizeEventConfig, cssVarsForEvent, presetForType } from "./event-config.mjs";
 
@@ -88,7 +89,7 @@ async function initFirebase() {
     const [
       { initializeApp, getApps },
       { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, where, orderBy, serverTimestamp, getDoc, setDoc },
-      { getStorage, ref, uploadString, uploadBytes, getDownloadURL },
+      { getStorage, ref, uploadString, uploadBytes, getDownloadURL, deleteObject },
       { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut },
       { getFunctions, httpsCallable }
     ] = await Promise.all([
@@ -105,7 +106,7 @@ async function initFirebase() {
     _functions = getFunctions(_firebaseApp, "europe-west1");
     window.__fb = {
       collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, where, orderBy, serverTimestamp, getDoc, setDoc,
-      ref, uploadString, uploadBytes, getDownloadURL,
+      ref, uploadString, uploadBytes, getDownloadURL, deleteObject,
       onAuthStateChanged, signInWithEmailAndPassword, signOut, httpsCallable
     };
     _firebaseReady = true;
@@ -1670,7 +1671,7 @@ function AdminPage({ auth, user, setAuth, setEventExists, setView }) {
 
       <div style={{ padding: "1rem 1.25rem 0", display: "flex", gap: 7, overflowX: "auto" }}>
         {[
-          ["photos","Photos"],["stats","Stats"],["settings","Paramètres"],["export","Export"]
+          ["photos","Photos"],["videos","Vidéos"],["stats","Stats"],["settings","Paramètres"],["export","Export"]
         ].map(([k, l]) => (
           <button key={k} onClick={() => setTab(k)} className="btn" style={{
             padding: "7px 18px", borderRadius: 50, fontSize: ".85rem", whiteSpace: "nowrap",
@@ -1683,6 +1684,7 @@ function AdminPage({ auth, user, setAuth, setEventExists, setView }) {
 
       <div style={{ padding: "1.25rem" }}>
         {tab === "photos" && <AdminPhotos photos={photos} onUpdate={async (id, u) => { await DB.updatePhoto(id, u); showToast("Photo mise à jour"); }} onDelete={async id => { await DB.deletePhoto(id); showToast("Supprimée"); }} />}
+        {tab === "videos" && <AdminVideos eventId={EVENT_ID} db={_db} storage={_storage} firebase={window.__fb} />}
         {tab === "stats" && <AdminStats photos={photos} />}
         {tab === "settings" && <AdminSettings event={event} onUpdate={updateEvent} />}
         {tab === "export" && <AdminExport photos={photos} event={event} />}

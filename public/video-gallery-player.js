@@ -126,8 +126,10 @@
   };
 
   document.addEventListener("click", (event) => {
+    if (event.target.closest(".ms-bar, .ms-select")) return;
     const card = event.target.closest(GALLERY_SELECTOR);
     if (card) {
+      if (event.target.closest("button, a, input, select, textarea, [role='checkbox']")) return;
       const cards = [...document.querySelectorAll(GALLERY_SELECTOR)];
       const index = cards.indexOf(card);
       if (index >= 0) {
@@ -138,7 +140,7 @@
       return;
     }
 
-    const playAll = event.target.closest("#vt-overlay [data-all]");
+    const playAll = event.target.closest("#vt-overlay .vt-overlay-actions [data-all]");
     if (playAll) {
       event.preventDefault();
       event.stopPropagation();
@@ -147,6 +149,7 @@
   }, true);
 
   document.addEventListener("keydown", (event) => {
+    if (event.target.closest?.(".ms-bar, .ms-select, button, a, input, select, textarea, video, [role='checkbox']")) return;
     const card = event.target.closest?.(GALLERY_SELECTOR);
     if (!card || (event.key !== "Enter" && event.key !== " ")) return;
     const cards = [...document.querySelectorAll(GALLERY_SELECTOR)];
@@ -157,9 +160,11 @@
   });
 
   const observer = new MutationObserver(enhanceGalleryCards);
-  document.addEventListener("DOMContentLoaded", () => {
+  const start = () => {
     enhanceGalleryCards();
     observer.observe(document.body, { childList: true, subtree: true });
-  });
+  };
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start, { once: true });
+  else start();
   window.addEventListener("load", enhanceGalleryCards);
 })();
