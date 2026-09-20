@@ -32,6 +32,7 @@ const TENANT = window.__WEDDING_TENANT__ || (() => {
 })();
 const EVENT_ID = TENANT.eventId;
 const PLATFORM_OWNER_UID = "beQK5FNoVla9lnvnzSfqasK93QR2";
+const PRIVATE_EVENT_IDS = new Set(["quentin-huyen-2026"]);
 const DEFAULT_EVENT = normalizeEventConfig({
   ...eventDefaults(EVENT_ID === "quentin-huyen-2026" ? "wedding" : "custom"),
   id: EVENT_ID,
@@ -61,6 +62,24 @@ function applyEventTheme(event) {
   document.documentElement.dataset.themePreset = normalized.themePreset;
 }
 
+async function loadCurrentEvent() {
+  if (!_firebaseReady || !window.__fb) return false;
+  const { getDoc, doc } = window.__fb;
+  const eventSnap = await getDoc(doc(_db, "events", EVENT_ID));
+  if (eventSnap.exists()) {
+    currentEvent = normalizeEventConfig({ ...DEFAULT_EVENT, ...eventSnap.data(), id: EVENT_ID, slug: eventSnap.data().slug || EVENT_ID });
+    applyEventTheme(currentEvent);
+    _eventExists = true;
+  } else {
+    currentEvent = normalizeEventConfig({ ...DEFAULT_EVENT });
+    applyEventTheme(currentEvent);
+    _eventExists = false;
+  }
+  window.__WEDDING_EVENT__ = currentEvent;
+  window.__WEDDING_EVENT_EXISTS__ = _eventExists;
+  return _eventExists;
+}
+
 async function initFirebase() {
   if (!isRealConfig || _firebaseReady) return _firebaseReady;
   try {
@@ -82,25 +101,18 @@ async function initFirebase() {
     _storage = getStorage(_firebaseApp);
     _auth = getAuth(_firebaseApp);
     _functions = getFunctions(_firebaseApp, "europe-west1");
-
-    const eventSnap = await getDoc(doc(_db, "events", EVENT_ID));
-    if (eventSnap.exists()) {
-      currentEvent = normalizeEventConfig({ ...DEFAULT_EVENT, ...eventSnap.data(), id: EVENT_ID, slug: eventSnap.data().slug || EVENT_ID });
-      applyEventTheme(currentEvent);
-      _eventExists = true;
-    } else {
-      currentEvent = normalizeEventConfig({ ...DEFAULT_EVENT });
-      applyEventTheme(currentEvent);
-      _eventExists = false;
-    }
-    window.__WEDDING_EVENT__ = currentEvent;
-    window.__WEDDING_EVENT_EXISTS__ = _eventExists;
     window.__fb = {
       collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, where, orderBy, serverTimestamp, getDoc, setDoc,
       ref, uploadString, uploadBytes, getDownloadURL,
       onAuthStateChanged, signInWithEmailAndPassword, signOut, httpsCallable
     };
     _firebaseReady = true;
+
+    // The private Huyen & Quentin space must authenticate before Firestore
+    // reveals even the event document.
+    if (PRIVATE_EVENT_IDS.has(EVENT_ID) && !_auth.currentUser) return true;
+
+    await loadCurrentEvent();
     return true;
   } catch (e) {
     console.error("Firebase:", e);
@@ -461,6 +473,39 @@ function HomeButton({ setView, dark = false }) {
 // ============================================================
 const VIEWS = { HOME: "home", UPLOAD: "upload", GALLERY: "gallery", TV: "tv", SCHEDULE: "schedule", INFO: "info", GUESTBOOK: "guestbook", ADMIN: "admin" };
 
+function PrivateEventAccess({ state, error }) {
+  const [email,setEmail]=useState("");
+  const [password,setPassword]=useState("");
+  const [localError,setLocalError]=useState("");
+  const [busy,setBusy]=useState(false);
+
+  const login=async()=>{
+    setBusy(true);setLocalError("");
+    try{
+      if(!_auth||!window.__fb?.signInWithEmailAndPassword) throw new Error("Firebase Authentication indisponible.");
+      await window.__fb.signInWithEmailAndPassword(_auth,email.trim(),password);
+    }catch(e){
+      const code=String(e?.code||"");
+      setLocalError(code.includes("invalid-credential")?"Email ou mot de passe incorrect.":(e?.message||"Connexion impossible."));
+    }finally{setBusy(false);}
+  };
+
+  if(state==="checking") return <><GlobalStyles/><div style={{minHeight:"100vh",display:"grid",placeItems:"center",background:"var(--cream)"}}><p style={{color:"var(--muted)"}}>Vérification de l’accès…</p></div></>;
+
+  return <><GlobalStyles/><div style={{minHeight:"100vh",display:"grid",placeItems:"center",padding:24,background:"linear-gradient(145deg,#1a1008,#3d2010)"}}>
+    <div style={{width:"100%",maxWidth:390,background:"var(--white)",padding:30,borderRadius:22,boxShadow:"0 20px 60px rgba(0,0,0,.35)"}}>
+      <div style={{fontSize:11,letterSpacing:2,textTransform:"uppercase",color:"var(--muted)"}}>Espace privé</div>
+      <h1 style={{fontFamily:"var(--event-title-font)",fontSize:"2rem",color:"var(--burgundy)",margin:"7px 0 8px"}}>Huyen & Quentin</h1>
+      <p style={{fontSize:".86rem",color:"var(--muted)",lineHeight:1.55,margin:"0 0 20px"}}>Cet espace est privé. Connectez-vous avec un compte autorisé.</p>
+      <input type="email" autoComplete="username" placeholder="Email" value={email} onChange={e=>setEmail(e.target.value)} style={{width:"100%",padding:"12px 14px",borderRadius:11,border:"1.5px solid var(--blush)",background:"var(--cream)",marginBottom:9}}/>
+      <input type="password" autoComplete="current-password" placeholder="Mot de passe" value={password} onChange={e=>setPassword(e.target.value)} onKeyDown={e=>e.key==="Enter"&&login()} style={{width:"100%",padding:"12px 14px",borderRadius:11,border:"1.5px solid var(--blush)",background:"var(--cream)",marginBottom:9}}/>
+      {(localError||error)&&<p style={{color:"#b83232",fontSize:".82rem",margin:"2px 0 10px"}}>{localError||error}</p>}
+      <button type="button" disabled={busy} onClick={login} className="btn" style={{width:"100%",padding:"12px 16px",borderRadius:999,background:"var(--burgundy)",color:"#fff"}}>{busy?"Connexion…":"Se connecter"}</button>
+      <a href={import.meta.env.BASE_URL} style={{display:"block",textAlign:"center",marginTop:16,color:"var(--muted)",fontSize:".8rem"}}>← Event-App</a>
+    </div>
+  </div></>;
+}
+
 export default function App() {
   const [view, setView] = useState(VIEWS.HOME);
   const [adminAuth, setAdminAuth] = useState(false);
@@ -468,6 +513,8 @@ export default function App() {
   const [fbReady, setFbReady] = useState(false);
   const [eventExists, setEventExists] = useState(false);
   const [firebaseError, setFirebaseError] = useState(!isRealConfig ? "L’espace est temporairement indisponible. Merci de réessayer plus tard." : "");
+  const [privateAccessState,setPrivateAccessState] = useState(PRIVATE_EVENT_IDS.has(EVENT_ID) ? "checking" : "open");
+  const [privateAccessError,setPrivateAccessError] = useState("");
 
   const navigate = useCallback((v) => {
     setView(v);
@@ -483,13 +530,39 @@ export default function App() {
     if (isRealConfig && TENANT.isValid) {
       initFirebase().then(ok => {
         setFbReady(ok);
-        setEventExists(_eventExists);
         if (!ok) {
           setFirebaseError("Impossible de se connecter à Firebase.");
           return;
         }
-        unsubscribeAuth = window.__fb.onAuthStateChanged(_auth, user => {
+        if (!PRIVATE_EVENT_IDS.has(EVENT_ID)) setEventExists(_eventExists);
+        unsubscribeAuth = window.__fb.onAuthStateChanged(_auth, async user => {
           setAdminUser(user || null);
+          if (PRIVATE_EVENT_IDS.has(EVENT_ID)) {
+            if (!user) {
+              setPrivateAccessState("login");
+              setPrivateAccessError("");
+              setEventExists(false);
+              setAdminAuth(false);
+              return;
+            }
+            try {
+              await loadCurrentEvent();
+              setEventExists(_eventExists);
+              const authorized = !!user && (user.uid === currentEvent.ownerUid || user.uid === PLATFORM_OWNER_UID || (Array.isArray(currentEvent.privateAccessEmails) && currentEvent.privateAccessEmails.includes(String(user.email||"").toLowerCase())));
+              if (!authorized) throw new Error("Ce compte n’est pas autorisé à accéder à cet espace.");
+              setAdminAuth(user.uid === currentEvent.ownerUid || user.uid === PLATFORM_OWNER_UID);
+              setPrivateAccessState("granted");
+              setPrivateAccessError("");
+            } catch (e) {
+              console.warn("Private event access:", e?.code || e?.message);
+              setPrivateAccessError("Ce compte n’est pas autorisé à accéder à cet espace.");
+              setPrivateAccessState("login");
+              setEventExists(false);
+              setAdminAuth(false);
+              try { await window.__fb.signOut(_auth); } catch {}
+            }
+            return;
+          }
           const authorized = !!user && (user.uid === currentEvent.ownerUid || user.uid === PLATFORM_OWNER_UID);
           setAdminAuth(authorized);
         });
@@ -520,6 +593,10 @@ export default function App() {
   );
 
   const setView2 = (v) => navigate(v);
+
+  if (PRIVATE_EVENT_IDS.has(EVENT_ID) && privateAccessState !== "granted") {
+    return <PrivateEventAccess state={privateAccessState} error={privateAccessError}/>;
+  }
 
   if (isRealConfig && !eventExists && view !== VIEWS.ADMIN) return (
     <><GlobalStyles /><div style={{ minHeight: "100vh", display: "grid", placeItems: "center", padding: 24, background: "var(--cream)" }}>
@@ -1752,6 +1829,7 @@ function AdminSettings({ event, onUpdate }) {
     practicalInfoText:normalized.practicalInfoText || "",
     moderationMode:normalized.moderationMode || "immediate",
     displayMode:normalized.displayMode || "mixed",
+    privateAccessEmailsText:Array.isArray(normalized.privateAccessEmails)?normalized.privateAccessEmails.join(", "):"",
     settings:{
       ...(normalized.settings || {}),
       videoModerationMode: normalized.settings?.videoModerationMode || "moderated",
@@ -1792,6 +1870,7 @@ function AdminSettings({ event, onUpdate }) {
     themePreset:form.themePreset,
     theme:{...form.theme,preset:form.themePreset},
     branding:form.branding,
+    privateAccessEmails:form.privateAccessEmailsText.split(/[\n,;]/).map(value=>value.trim().toLowerCase()).filter(Boolean),
     modules:form.modules,
     labels:form.labels,
     scheduleText:form.scheduleText,
@@ -1830,6 +1909,13 @@ function AdminSettings({ event, onUpdate }) {
         </div>
       </div>
 
+      {EVENT_ID==="quentin-huyen-2026"&&<div style={cardStyle}>
+        <h3 style={{fontFamily:"var(--event-title-font)",fontSize:"1.35rem",color:"var(--burgundy)",marginBottom:5}}>Accès privé</h3>
+        <p style={{fontSize:".78rem",color:"var(--muted)",marginBottom:10}}>Cet événement n’est pas public. Le propriétaire y a toujours accès. Ajoutez ici l’adresse Firebase Auth de Huyen (et uniquement les personnes qui doivent pouvoir ouvrir cet espace).</p>
+        <textarea style={{...fieldStyle,minHeight:82,resize:"vertical"}} value={form.privateAccessEmailsText} onChange={e=>setField("privateAccessEmailsText",e.target.value)} placeholder="huyen@example.com"/>
+        <small style={{display:"block",color:"var(--muted)",marginTop:5}}>Une adresse par ligne ou séparée par une virgule.</small>
+      </div>}
+
       <div style={cardStyle}>
         <h3 style={{fontFamily:"var(--event-title-font)",fontSize:"1.35rem",color:"var(--burgundy)",marginBottom:5}}>Apparence</h3>
         <p style={{fontSize:".78rem",color:"var(--muted)",marginBottom:14}}>Le thème change couleurs, typographies, arrondis et ambiance générale.</p>
@@ -1842,8 +1928,8 @@ function AdminSettings({ event, onUpdate }) {
           {[["primary","Couleur principale"],["secondary","Secondaire"],["background","Fond"],["surface","Cartes"],["text","Texte"],["accent","Accent"]].map(([key,label])=><div key={key}><label style={labelStyle}>{label}</label><div style={{display:"flex",gap:7}}><input type="color" value={form.theme[key]||preset.colors[key]} onChange={e=>setNested("theme",key,e.target.value)} style={{width:44,height:40,border:0,background:"transparent"}}/><input style={fieldStyle} value={form.theme[key]||preset.colors[key]} onChange={e=>setNested("theme",key,e.target.value)}/></div></div>)}
         </div>
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(240px,1fr))",gap:10,marginTop:15}}>
-          <div><label style={labelStyle}>Logo</label>{form.branding.logoUrl&&<img src={form.branding.logoUrl} alt="" style={{display:"block",maxHeight:62,maxWidth:170,objectFit:"contain",margin:"4px 0 8px"}}/>}<input type="file" accept="image/*" onChange={e=>uploadAsset(e.target.files?.[0],"logo")} disabled={uploadingAsset==="logo"}/><small style={{display:"block",color:"var(--muted)",marginTop:4}}>{uploadingAsset==="logo"?"Envoi…":"PNG, JPG, WebP ou SVG"}</small></div>
-          <div><label style={labelStyle}>Image de couverture</label>{form.branding.coverUrl&&<img src={form.branding.coverUrl} alt="" style={{display:"block",width:"100%",height:80,objectFit:"cover",borderRadius:10,margin:"4px 0 8px"}}/>}<input type="file" accept="image/*" onChange={e=>uploadAsset(e.target.files?.[0],"cover")} disabled={uploadingAsset==="cover"}/><small style={{display:"block",color:"var(--muted)",marginTop:4}}>{uploadingAsset==="cover"?"Envoi…":"Utilisée dans le hero"}</small></div>
+          <div><label style={labelStyle}>Logo</label>{form.branding.logoUrl&&<><img src={form.branding.logoUrl} alt="" style={{display:"block",maxHeight:62,maxWidth:170,objectFit:"contain",margin:"4px 0 8px"}}/><button type="button" onClick={()=>setNested("branding","logoUrl","")} style={{border:"1px solid var(--blush)",background:"var(--white)",color:"var(--burgundy)",borderRadius:999,padding:"7px 11px",marginBottom:8,cursor:"pointer"}}>Supprimer le logo</button></>}<input type="file" accept="image/*" onChange={e=>uploadAsset(e.target.files?.[0],"logo")} disabled={uploadingAsset==="logo"}/><small style={{display:"block",color:"var(--muted)",marginTop:4}}>{uploadingAsset==="logo"?"Envoi…":form.branding.logoUrl?"Choisir un autre fichier":"Aucun logo · PNG, JPG, WebP ou SVG"}</small></div>
+          <div><label style={labelStyle}>Image de couverture</label>{form.branding.coverUrl&&<><img src={form.branding.coverUrl} alt="" style={{display:"block",width:"100%",height:80,objectFit:"cover",borderRadius:10,margin:"4px 0 8px"}}/><button type="button" onClick={()=>setNested("branding","coverUrl","")} style={{border:"1px solid var(--blush)",background:"var(--white)",color:"var(--burgundy)",borderRadius:999,padding:"7px 11px",marginBottom:8,cursor:"pointer"}}>Supprimer l’image de couverture</button></>}<input type="file" accept="image/*" onChange={e=>uploadAsset(e.target.files?.[0],"cover")} disabled={uploadingAsset==="cover"}/><small style={{display:"block",color:"var(--muted)",marginTop:4}}>{uploadingAsset==="cover"?"Envoi…":form.branding.coverUrl?"Choisir une autre image":"Aucune image de couverture"}</small></div>
         </div>
       </div>
 
