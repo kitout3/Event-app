@@ -259,23 +259,47 @@
       const responsive = document.createElement("style");
       responsive.id = "wedding-language-mobile-style";
       responsive.textContent = `
-        #wedding-language-switcher{top:max(12px,env(safe-area-inset-top))!important}
+        :root{--event-header-reserve:96px}
+        body.event-language-layout #root{
+          box-sizing:border-box;
+          padding-top:var(--event-header-reserve)!important;
+        }
+        body.event-language-layout::before{
+          content:"";
+          position:fixed;
+          z-index:39;
+          top:0;left:0;right:0;
+          height:var(--event-header-reserve);
+          background:var(--white,#fffdf9);
+          pointer-events:none;
+        }
+        #wedding-language-switcher{
+          top:max(14px,calc(env(safe-area-inset-top) + 8px))!important;
+          right:16px!important;
+          left:auto!important;
+          width:auto!important;
+          max-width:max-content!important;
+          gap:2px!important;
+          padding:4px!important;
+          border-radius:999px!important;
+          box-shadow:0 4px 18px rgba(92,42,30,.18)!important;
+        }
+        #wedding-language-switcher button{
+          flex:0 0 auto!important;
+          padding:7px 10px!important;
+          min-width:0!important;
+          font-size:11px!important;
+          line-height:1!important;
+        }
         @media(max-width:650px){
-          body:has(#wedding-live-panel) #wedding-language-switcher{
-            top:calc(env(safe-area-inset-top) + 58px)!important;
-            left:10px!important;
-            right:10px!important;
-            width:auto!important;
-            max-width:none!important;
-            justify-content:center!important;
-            gap:2px!important;
-            padding:4px!important;
+          :root{--event-header-reserve:104px}
+          #wedding-language-switcher{
+            top:calc(env(safe-area-inset-top) + 12px)!important;
+            right:18px!important;
           }
-          body:has(#wedding-live-panel) #wedding-language-switcher button{
-            flex:1 1 0!important;
-            min-width:0!important;
-            padding:8px 5px!important;
-            font-size:13px!important;
+          #wedding-language-switcher button{
+            padding:8px 10px!important;
+            font-size:11px!important;
           }
         }
       `;
@@ -292,7 +316,7 @@
     const backText = currentLanguage === "en" ? "Back to home" : currentLanguage === "vi" ? "Về trang chủ" : "Retour à l’accueil";
     const panel = document.createElement("section");
     panel.id = "wedding-live-panel";
-    Object.assign(panel.style, { position:"fixed", inset:"0", zIndex:"2147483646", background:"#fdf8f4", display:"flex", flexDirection:"column" });
+    Object.assign(panel.style, { position:"fixed", inset:"0", zIndex:"2147483646", background:"#fdf8f4", display:"flex", flexDirection:"column", paddingTop:"var(--event-header-reserve,96px)", boxSizing:"border-box" });
     panel.innerHTML = `<header style="height:64px;display:flex;align-items:center;padding:10px 16px;background:#fffdf9;border-bottom:1px solid #f5ddd4"><button data-back type="button" style="border:0;background:#5c2a1e;color:white;border-radius:999px;padding:10px 17px;cursor:pointer">← ${backText}</button><strong style="margin:auto;font:400 22px Georgia,serif;color:#5c2a1e">${event.name} · Live</strong><span style="width:145px"></span></header><iframe src="${window.location.origin}${basePath()}live.html?w=${encodeURIComponent(EVENT_ID)}" title="Live" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen style="width:100%;flex:1;border:0;background:#1a0d09"></iframe>`;
     panel.querySelector("[data-back]").onclick = closeLivePanel;
     document.body.appendChild(panel);
@@ -356,6 +380,7 @@
 
   function refresh() {
     if (!document.body) return;
+    if (EVENT_ID && !EVENT_ID.startsWith("__")) document.body.classList.add("event-language-layout");
     document.getElementById("wedding-live-access")?.remove();
     addLanguageSwitcher(); addLiveCard(); applyEventIdentity(); translatePage(); captureAdminSettings(); correctAdminInputs();
   }

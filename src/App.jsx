@@ -999,7 +999,7 @@ function GalleryPage({ setView }) {
     <div style={{ minHeight: "100vh", background: "var(--cream)", paddingBottom: "5rem" }}>
 
       {/* Header */}
-      <div style={{ background: "var(--white)", borderBottom: "1px solid var(--blush)", padding: "1rem 1.25rem", display: "flex", alignItems: "center", gap: 10, position: "sticky", top: 0, zIndex: 50 }}>
+      <div style={{ background: "var(--white)", borderBottom: "1px solid var(--blush)", padding: "1rem 1.25rem", display: "flex", alignItems: "center", gap: 10, position: "sticky", top: "var(--event-header-reserve, 0px)", zIndex: 50 }}>
         <button onClick={() => setView(VIEWS.HOME)} style={{ background: "none", color: "var(--muted)", fontSize: "1.3rem", padding: "4px 8px" }}>←</button>
         <div style={{ flex: 1 }}>
           <h1 style={{ fontFamily: "var(--event-title-font)", fontSize: "1.45rem", color: "var(--burgundy)" }}>{event.labels?.galleryPage || event.labels?.galleryTitle || "Galerie"}</h1>
@@ -1573,7 +1573,7 @@ function AdminPage({ auth, user, setAuth, setEventExists, setView }) {
     <div data-event-admin-root="true" style={{ minHeight: "100vh", background: "var(--cream)" }}>
       <Toast msg={toast?.msg} type={toast?.type} />
 
-      <div style={{ background: "var(--white)", borderBottom: "1px solid var(--blush)", padding: ".9rem 1.25rem", display: "flex", alignItems: "center", gap: 10, position: "sticky", top: 0, zIndex: 50, flexWrap: "wrap" }}>
+      <div style={{ background: "var(--white)", borderBottom: "1px solid var(--blush)", padding: ".9rem 1.25rem", display: "flex", alignItems: "center", gap: 10, position: "sticky", top: "var(--event-header-reserve, 0px)", zIndex: 50, flexWrap: "wrap" }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <h1 style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: "1.5rem", color: "var(--burgundy)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{event.name}</h1>
           <p style={{ color: "var(--muted)", fontSize: ".75rem" }}>{event.date} · {EVENT_ID}</p>

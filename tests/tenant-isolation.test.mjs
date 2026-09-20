@@ -216,7 +216,7 @@ test("event home keeps video message, video gallery and live entry points",()=>{
 });
 
 
-test("mobile video gallery keeps controls in flow and preserves native vertical scrolling",()=>{
+test("mobile video gallery preserves native vertical scrolling below the global language header",()=>{
   const video=read("public/video-testimonials-v2.js");
   const enhancer=read("public/app-enhancer.js");
   assert.match(video,/height:100dvh/);
@@ -224,21 +224,20 @@ test("mobile video gallery keeps controls in flow and preserves native vertical 
   assert.match(video,/-webkit-overflow-scrolling:touch/);
   assert.match(video,/touch-action:pan-y/);
   assert.match(video,/vt-toolbar/);
-  assert.match(video,/vt-language-slot/);
   assert.match(video,/dockLanguageSwitcher/);
-  assert.match(video,/\.vt-overlay #wedding-language-switcher\{position:static!important/);
+  assert.match(video,/padding:calc\(var\(--event-header-reserve,96px\) \+ 10px\)/);
   assert.match(video,/\.vt-gallery-item video\{pointer-events:none!important/);
-  assert.doesNotMatch(enhancer,/body:has\(#vt-overlay\) #wedding-language-switcher/);
+  assert.match(enhancer,/#wedding-language-switcher\{[\s\S]*width:auto!important[\s\S]*max-width:max-content!important/);
 });
 
 
-test("mobile gallery shows actions first, languages second, then content",()=>{
+test("mobile gallery places its controls below the reserved language area",()=>{
   const video=read("public/video-testimonials-v2.js");
   const app=read("src/App.jsx");
   const config=read("src/event-config.mjs");
   assert.match(video,/vt-toolbar/);
-  assert.match(video,/vt-overlay-actions[\s\S]*vt-language-slot[\s\S]*vt-panel/);
   assert.match(video,/restoreLanguageSwitcher/);
+  assert.doesNotMatch(video,/vt-language-slot/);
   assert.doesNotMatch(video,/enableMobileOverlayScroll/);
   assert.doesNotMatch(video,/el\.scrollTop\+=delta/);
   assert.doesNotMatch(app,/title:"Livre d’or"/);
@@ -246,13 +245,10 @@ test("mobile gallery shows actions first, languages second, then content",()=>{
 });
 
 
-test("video overlay uses the compact legacy-style language pill",()=>{
-  const video=read("public/video-testimonials-v2.js");
-  assert.match(video,/vt-language-slot\{width:100%;display:flex;justify-content:flex-end\}/);
-  assert.match(video,/width:auto!important/);
-  assert.match(video,/max-width:max-content!important/);
-  assert.match(video,/padding:7px 10px!important;font-size:12px!important/);
-  assert.doesNotMatch(video,/width:100%!important;max-width:none!important;display:flex!important;justify-content:center!important/);
+test("compact language pill is controlled globally for every event header",()=>{
+  const enhancer=read("public/app-enhancer.js");
+  assert.match(enhancer,/#wedding-language-switcher\{[\s\S]*right:16px!important[\s\S]*width:auto!important[\s\S]*max-width:max-content!important/);
+  assert.match(enhancer,/#wedding-language-switcher button\{[\s\S]*padding:7px 10px!important[\s\S]*font-size:11px!important/);
 });
 
 test("media download bar is visible over video gallery and removed outside media views",()=>{
@@ -277,4 +273,19 @@ test("download banner belongs to active gallery and is destroyed on navigation",
   assert.match(media,/isActuallyVisible/);
   assert.match(media,/root\.id === 'vt-overlay' \? root : document\.body/);
   assert.match(media,/hashchange', \(\) => \{[\s\S]*media-selection-bar'\)\?\.remove\(\)/);
+});
+
+
+test("all event pages reserve a compact language header above page content",()=>{
+  const enhancer=read("public/app-enhancer.js");
+  const app=read("src/App.jsx");
+  const video=read("public/video-testimonials-v2.js");
+  assert.match(enhancer,/--event-header-reserve:96px/);
+  assert.match(enhancer,/body\.event-language-layout #root/);
+  assert.match(enhancer,/right:16px!important/);
+  assert.match(enhancer,/font-size:11px!important/);
+  assert.match(enhancer,/document\.body\.classList\.add\("event-language-layout"\)/);
+  assert.match(app,/top: "var\(--event-header-reserve, 0px\)"/);
+  assert.match(video,/padding:calc\(var\(--event-header-reserve,96px\) \+ 10px\)/);
+  assert.doesNotMatch(video,/vt-language-slot/);
 });
