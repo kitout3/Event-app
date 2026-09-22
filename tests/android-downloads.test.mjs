@@ -5,7 +5,7 @@ import {readFileSync} from 'node:fs';
 const source=readFileSync(new URL('../public/media-selection.js',import.meta.url),'utf8');
 
 function fixture({userAgent='Android Chrome',platform='Linux',fetcher=async()=>new Response('photo',{headers:{'content-type':'image/jpeg'}})}={}) {
-  const nodes=[], blobs=new Map(), revoked=[], timers=new Map(); let timerId=0;
+  const nodes=[], prepared=new Map(), timers=new Map(); let timerId=0, downloadId=0;
   class Element {
     constructor(tag){this.tagName=tag;this.children=[];this.style={};this.dataset={};this.attributes={};nodes.push(this);}
     appendChild(node){this.children.push(node);node.parentElement=this;return node;}
@@ -25,15 +25,23 @@ function fixture({userAgent='Android Chrome',platform='Linux',fetcher=async()=>n
   const document={readyState:'loading',activeElement:null,createElement:tag=>new Element(tag),addEventListener(){},
     querySelectorAll(){return[];},querySelector(){return null;},getElementById:id=>nodes.find(x=>x.id===id&&x.parentElement)||null};
   document.body=new Element('body');document.head=new Element('head');
-  const window={addEventListener(){},removeEventListener(){},__WEDDING_TENANT__:{eventId:'test'}};
-  const context={window,document,navigator:{userAgent,platform,maxTouchPoints:platform==='MacIntel'?5:0,share(){throw Error('Android must not share');},canShare:()=>true},
+  const window={location:{href:'https://example.invalid/Event-app/?w=test'},addEventListener(){},removeEventListener(){},__WEDDING_TENANT__:{eventId:'test'}};
+  class TestMessageChannel {
+    constructor(){this.port1={onmessage:null};this.port2={peer:this.port1};}
+  }
+  const worker={state:'activated',postMessage(message,ports){
+    prepared.set(message.id,{blob:message.blob,name:message.name});
+    ports[0].peer.onmessage?.({data:{ok:true}});
+  }};
+  const serviceWorker={register:async()=>({active:worker,installing:null,waiting:null,update:async()=>{}})};
+  const context={window,document,navigator:{userAgent,platform,maxTouchPoints:platform==='MacIntel'?5:0,serviceWorker,share(){throw Error('Android must not share');},canShare:()=>true},
     localStorage:{getItem:()=>null,setItem(){}},MutationObserver:class{observe(){}},
     Blob,File,Response,ReadableStream,AbortController,Uint8Array,DataView,TextEncoder,
-    URL:{createObjectURL(blob){const url='blob:'+blobs.size;blobs.set(url,blob);return url;},revokeObjectURL(url){revoked.push(url);}},
+    URL,MessageChannel:TestMessageChannel,crypto:{randomUUID:()=>`download-${++downloadId}`},
     fetch:fetcher,setTimeout(fn){const id=++timerId;timers.set(id,fn);return id;},clearTimeout(id){timers.delete(id);},
     requestAnimationFrame(){},console};
-  vm.runInNewContext(source.replace(/\}\)\(\);\s*$/,'window.testDownloads={canShareFilesOnMobile,fetchDownloadBlob,downloadError,openDownloadPanel};})();'),context);
-  return {...window.testDownloads,window,document,nodes,blobs,revoked,timers};
+  vm.runInNewContext(source.replace(/\}\)\(\);\s*$/,'window.testDownloads={canShareFilesOnMobile,fetchDownloadBlob,downloadError,openDownloadPanel,prepareDownload};})();'),context);
+  return {...window.testDownloads,window,document,nodes,prepared,timers};
 }
 const item=(id)=>({id,kind:'photo',name:id+'.jpg',url:'https://example.invalid/'+id});
 
@@ -76,9 +84,10 @@ test('single Android photo produces an explicit download link without auto-openi
   const prepare=state.nodes.find(x=>x.tagName==='button'&&x.textContent==='Préparer le téléchargement');
   await prepare.click();
   const link=state.nodes.find(x=>x.download==='one.jpg');
-  assert.ok(link.href.startsWith('blob:'));assert.equal(link.textContent,'Télécharger (1/1)');
-  assert.equal(await state.blobs.get(link.href).text(),'photo');
-  state.nodes.find(x=>'close' in x.dataset).click();assert.deepEqual(state.revoked,[link.href]);
+  assert.equal(link.href,'https://example.invalid/Event-app/__download__/download-1');
+  assert.equal(link.textContent,'Télécharger (1/1)');
+  assert.equal(await state.prepared.get('download-1').blob.text(),'photo');
+  state.nodes.find(x=>'close' in x.dataset).click();
 });
 test('a failed photo does not prevent downloading a partial ZIP or using individual links',async()=>{
   const state=fixture({fetcher:async url=>url.endsWith('/bad')?new Response('',{status:404}):new Response('good')});
@@ -87,12 +96,12 @@ test('a failed photo does not prevent downloading a partial ZIP or using individ
   await prepare.click();
   const link=state.nodes.find(x=>x.download==='photos-1.zip');
   assert.equal(link.textContent,'Télécharger (1/2)');
-  const zip=new Uint8Array(await state.blobs.get(link.href).arrayBuffer());
+  const zip=new Uint8Array(await state.prepared.get('download-1').blob.arrayBuffer());
   assert.deepEqual([...zip.slice(0,4)],[80,75,3,4]);
   assert.equal(state.nodes.filter(x=>x.tagName==='a'&&x.target==='_blank').length,4);
   assert.ok(state.nodes.some(x=>x.textContent?.includes('Certains fichiers sont absents')));
 });
-test('a new preparation releases the previous blob; closing aborts in-flight requests',async()=>{
+test('a new preparation replaces its link; closing aborts in-flight requests',async()=>{
   let aborted=false;
   const state=fixture({fetcher:async(url,{signal})=>{
     if(url.endsWith('/slow'))return new Promise((_,reject)=>signal.addEventListener('abort',()=>{aborted=true;reject(Object.assign(new Error(),{name:'AbortError'}));}));
@@ -101,7 +110,8 @@ test('a new preparation releases the previous blob; closing aborts in-flight req
   state.openDownloadPanel([item('fast'),item('slow')]);
   const buttons=state.nodes.filter(x=>x.textContent==='Préparer le téléchargement');
   await buttons[1].click();
-  const pending=buttons[2].click();assert.equal(state.revoked.length,1);
+  const firstLink=state.nodes.find(x=>x.download==='fast.jpg');
+  const pending=buttons[2].click();assert.ok(!firstLink.parentElement.children.includes(firstLink));
   state.nodes.find(x=>'close' in x.dataset).click();await pending;assert.equal(aborted,true);
   assert.equal(state.timers.size,0);
 });

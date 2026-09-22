@@ -4,7 +4,7 @@
   const MAX_ITEMS = 200;
   const PHOTOS_PER_ZIP = 15;
   const MOBILE_PHOTOS_PER_BATCH = 15;
-  const DOWNLOAD_WORKER_VERSION = '20260915-1';
+  const DOWNLOAD_WORKER_VERSION = '20260922-2';
   let downloadWorkerPromise = null;
 
   const translations = {
@@ -134,13 +134,12 @@
     const close = document.createElement('button'); close.type = 'button'; close.dataset.close = '';
     close.textContent = t('mobileClose'); close.className = 'ms-mobile-close'; box.appendChild(close);
     const lifetime = new AbortController();
-    let active = false, readyUrl = null, readyLink = null, closed = false;
+    let active = false, readyLink = null, closed = false;
     const preparations = [];
     const previousFocus = document.activeElement;
     const release = () => {
-      if (readyUrl) URL.revokeObjectURL(readyUrl);
       if (readyLink) readyLink.remove();
-      readyUrl = readyLink = null;
+      readyLink = null;
     };
     const onKey = event => {
       if(event.key === 'Escape') { event.preventDefault(); close.click(); }
@@ -190,9 +189,10 @@
           if(closed) return;
           if(!files.length) { status.textContent=[...new Set(failures)].join(' '); return; }
           const blob=group.length===1?files[0].blob:zipArchive(files);
-          readyUrl=URL.createObjectURL(blob);
+          const prepared=await prepareDownload(blob,filename);
+          if(closed) return;
           const link=document.createElement('a'); readyLink=link;
-          link.href=readyUrl;link.download=filename;link.className='ms-mobile-save';
+          link.href=prepared.url;link.download=prepared.name;link.className='ms-mobile-save';
           link.textContent=tr('Télécharger')+' ('+files.length+'/'+group.length+')';
           row.appendChild(link);
           status.textContent=tr('Prêt. Touchez Télécharger ; le navigateur peut demander une confirmation.');
@@ -341,18 +341,15 @@
       const scope = new URL('./__download__/', window.location.href).pathname;
       const registration = await navigator.serviceWorker.register(workerUrl, { scope });
       await registration.update();
-      if (registration.active) return registration.active;
-
-      const worker = registration.installing || registration.waiting;
+      const worker = registration.installing || registration.waiting || registration.active;
       if (!worker) throw new Error('Service Worker non initialisé');
-      if (worker.state === 'activated') return worker;
-      await new Promise((resolve, reject) => {
-        const timeout = setTimeout(() => reject(new Error('Activation du téléchargement trop longue')), 10000);
-        worker.addEventListener('statechange', () => {
-          if (worker.state === 'activated') { clearTimeout(timeout); resolve(); }
-          if (worker.state === 'redundant') { clearTimeout(timeout); reject(new Error('Activation du téléchargement refusée')); }
+      if (worker.state !== 'activated') await new Promise((resolve, reject) => {
+          const timeout = setTimeout(() => reject(new Error('Activation du téléchargement trop longue')), 10000);
+          worker.addEventListener('statechange', () => {
+            if (worker.state === 'activated') { clearTimeout(timeout); resolve(); }
+            if (worker.state === 'redundant') { clearTimeout(timeout); reject(new Error('Activation du téléchargement refusée')); }
+          });
         });
-      });
       if (!registration.active) throw new Error('Service Worker non actif');
       return registration.active;
     })().catch(error => {
@@ -363,7 +360,7 @@
     return downloadWorkerPromise;
   }
 
-  async function downloadBlob(blob, name) {
+  async function prepareDownload(blob, name) {
     const worker = await getDownloadWorker();
     const id = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
     const safeName = cleanName(name, 'souvenirs');
@@ -373,14 +370,23 @@
       const timeout = setTimeout(() => reject(new Error('Préparation du téléchargement trop longue')), 10000);
       channel.port1.onmessage = event => {
         clearTimeout(timeout);
-        event.data?.ok ? resolve() : reject(new Error('Téléchargement refusé'));
+        event.data?.ok ? resolve() : reject(new Error(event.data?.error || 'Téléchargement refusé'));
       };
       worker.postMessage({ type: 'PREPARE_MEDIA_DOWNLOAD', id, name: safeName, blob }, [channel.port2]);
     });
 
+    return {
+      name: safeName,
+      url: new URL(`./__download__/${encodeURIComponent(id)}`, window.location.href).href,
+    };
+  }
+
+  async function downloadBlob(blob, name) {
+    const prepared = await prepareDownload(blob, name);
+
     const anchor = document.createElement('a');
-    anchor.href = new URL(`./__download__/${encodeURIComponent(id)}`, window.location.href).href;
-    anchor.download = safeName;
+    anchor.href = prepared.url;
+    anchor.download = prepared.name;
     anchor.style.display = 'none';
     document.body.appendChild(anchor);
     anchor.click();

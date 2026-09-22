@@ -1,9 +1,12 @@
-const DOWNLOADS = new Map();
 const DOWNLOAD_ROUTE = "/__download__/";
 const DOWNLOAD_TTL_MS = 10 * 60 * 1000;
+const DOWNLOAD_CACHE = "event-app-downloads-v2";
 
 self.addEventListener("install", () => self.skipWaiting());
-self.addEventListener("activate", event => event.waitUntil(self.clients.claim()));
+self.addEventListener("activate", event => event.waitUntil(Promise.all([
+  self.clients.claim(),
+  cleanupDownloads(),
+])));
 
 function safeFilename(value) {
   return String(value || "souvenirs")
@@ -19,6 +22,33 @@ function asciiFilename(value) {
     .replace(/["\\]/g, "-");
 }
 
+function downloadUrl(id) {
+  return new URL(encodeURIComponent(id), self.registration.scope).href;
+}
+
+function downloadHeaders(blob, name, expiresAt) {
+  const asciiName = asciiFilename(name);
+  const utf8Name = encodeURIComponent(name);
+  return {
+    "Content-Type": blob.type || "application/octet-stream",
+    "Content-Length": String(blob.size),
+    "Content-Disposition": `attachment; filename="${asciiName}"; filename*=UTF-8''${utf8Name}`,
+    "Cache-Control": "no-store, max-age=0",
+    "X-Content-Type-Options": "nosniff",
+    "X-Download-Expires-At": String(expiresAt),
+  };
+}
+
+async function cleanupDownloads() {
+  const cache = await caches.open(DOWNLOAD_CACHE);
+  const requests = await cache.keys();
+  await Promise.all(requests.map(async request => {
+    const response = await cache.match(request);
+    const expiresAt = Number(response?.headers.get("X-Download-Expires-At"));
+    if (!expiresAt || expiresAt < Date.now()) await cache.delete(request);
+  }));
+}
+
 self.addEventListener("message", event => {
   if (event.data?.type !== "PREPARE_MEDIA_DOWNLOAD") return;
 
@@ -29,12 +59,20 @@ self.addEventListener("message", event => {
     return;
   }
 
-  DOWNLOADS.set(id, {
-    blob,
-    name: safeFilename(event.data.name),
-    expiresAt: Date.now() + DOWNLOAD_TTL_MS,
+  const preparation = (async () => {
+    const name = safeFilename(event.data.name);
+    const expiresAt = Date.now() + DOWNLOAD_TTL_MS;
+    const cache = await caches.open(DOWNLOAD_CACHE);
+    await cache.put(downloadUrl(id), new Response(blob, {
+      status: 200,
+      headers: downloadHeaders(blob, name, expiresAt),
+    }));
+    await cleanupDownloads();
+    event.ports[0]?.postMessage({ ok: true });
+  })().catch(error => {
+    event.ports[0]?.postMessage({ ok: false, error: error?.message || "Stockage du téléchargement impossible" });
   });
-  event.ports[0]?.postMessage({ ok: true });
+  event.waitUntil(preparation);
 });
 
 self.addEventListener("fetch", event => {
@@ -42,31 +80,14 @@ self.addEventListener("fetch", event => {
   const routeIndex = url.pathname.indexOf(DOWNLOAD_ROUTE);
   if (url.origin !== self.location.origin || routeIndex < 0) return;
 
-  const id = decodeURIComponent(url.pathname.slice(routeIndex + DOWNLOAD_ROUTE.length));
-  const download = DOWNLOADS.get(id);
-  if (!download || download.expiresAt < Date.now()) {
-    DOWNLOADS.delete(id);
-    event.respondWith(new Response("Téléchargement expiré", { status: 404 }));
-    return;
-  }
-
-  const asciiName = asciiFilename(download.name);
-  const utf8Name = encodeURIComponent(download.name);
-  event.respondWith(new Response(download.blob, {
-    status: 200,
-    headers: {
-      "Content-Type": download.blob.type || "application/octet-stream",
-      "Content-Length": String(download.blob.size),
-      "Content-Disposition": `attachment; filename="${asciiName}"; filename*=UTF-8''${utf8Name}`,
-      "Cache-Control": "no-store, max-age=0",
-      "X-Content-Type-Options": "nosniff",
-    },
-  }));
+  event.respondWith((async () => {
+    const cache = await caches.open(DOWNLOAD_CACHE);
+    const response = await cache.match(event.request, { ignoreSearch: true });
+    const expiresAt = Number(response?.headers.get("X-Download-Expires-At"));
+    if (!response || !expiresAt || expiresAt < Date.now()) {
+      if (response) await cache.delete(event.request, { ignoreSearch: true });
+      return new Response("Téléchargement expiré", { status: 404 });
+    }
+    return response;
+  })());
 });
-
-setInterval(() => {
-  const now = Date.now();
-  DOWNLOADS.forEach((download, id) => {
-    if (download.expiresAt < now) DOWNLOADS.delete(id);
-  });
-}, 60 * 1000);
