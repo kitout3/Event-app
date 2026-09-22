@@ -4,7 +4,7 @@
   const MAX_ITEMS = 200;
   const PHOTOS_PER_ZIP = 15;
   const MOBILE_PHOTOS_PER_BATCH = 15;
-  const DOWNLOAD_WORKER_VERSION = '20260922-2';
+  const DOWNLOAD_WORKER_VERSION = '20260922-rollback-1';
   let downloadWorkerPromise = null;
 
   const translations = {
@@ -54,171 +54,7 @@
   const cleanName = (value, fallback) => String(value || fallback).replace(/[\\/:*?"<>|\u0000-\u001f]/g, '-').slice(0, 120) || fallback;
   const isMobileDevice = () => /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)
     || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-  const isAppleMobile = () => /iPhone|iPad|iPod/i.test(navigator.userAgent)
-    || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-  const canShareFilesOnMobile = () => isAppleMobile() && typeof navigator.share === 'function'
-    && typeof navigator.canShare === 'function' && typeof File === 'function';
-  const tr = text => window.EventI18n?.translate(text) || text;
-
-  function downloadError(error) {
-    if (error?.name === 'AbortError') return tr('Téléchargement annulé.');
-    if (error?.name === 'NotAllowedError' || /partage|sharing/i.test(error?.message || '')) return tr('Le partage est bloqué par ce navigateur. Utilisez les liens de téléchargement.');
-    if (error?.code === 'timeout') return tr('Le téléchargement prend trop de temps. Réessayez avec une meilleure connexion.');
-    if (error?.code === 'large') return tr('Fichier trop volumineux pour cette méthode. Utilisez le lien du fichier.');
-    if ([401,403].includes(error?.status)) return tr('Accès au fichier refusé. Reconnectez-vous à l’événement puis réessayez.');
-    if (error?.status === 404) return tr('Ce fichier n’est plus disponible.');
-    if (error?.status === 429) return tr('Le serveur reçoit trop de demandes. Réessayez dans quelques instants.');
-    return tr('Impossible de récupérer le fichier. Vérifiez votre connexion ou utilisez le lien du fichier.');
-  }
-
-  // Bound memory and duration, including response-body reads. Never retry permission errors.
-  async function fetchDownloadBlob(item, signal, maxBytes = 64 * 1024 * 1024) {
-    for (let attempt = 0; attempt < 2; attempt++) {
-      const controller = new AbortController();
-      let timedOut = false;
-      const cancel = () => controller.abort();
-      signal?.addEventListener('abort', cancel, {once:true});
-      if (signal?.aborted) controller.abort();
-      const timeout = setTimeout(() => { timedOut = true; controller.abort(); }, 45000);
-      try {
-        const response = await fetch(item.url, {signal:controller.signal,cache:'no-store'});
-        if (!response.ok) throw Object.assign(new Error('HTTP ' + response.status), {status:response.status});
-        if (Number(response.headers.get('content-length')) > maxBytes) {
-          controller.abort(); throw Object.assign(new Error('large'), {code:'large'});
-        }
-        if (!response.body?.getReader) {
-          const blob = await response.blob();
-          if (blob.size > maxBytes) throw Object.assign(new Error('large'), {code:'large'});
-          return blob;
-        }
-        const reader = response.body.getReader(), chunks = [];
-        let size = 0;
-        while (true) {
-          const {done,value} = await reader.read();
-          if (done) break;
-          size += value.byteLength;
-          if (size > maxBytes) {
-            await reader.cancel(); throw Object.assign(new Error('large'), {code:'large'});
-          }
-          chunks.push(value);
-        }
-        return new Blob(chunks, {type:response.headers.get('content-type') || 'application/octet-stream'});
-      } catch (error) {
-        if (signal?.aborted) throw Object.assign(new Error('cancelled'), {name:'AbortError'});
-        if (timedOut) throw Object.assign(new Error('timeout'), {code:'timeout'});
-        if (attempt === 0 && !error.code && (!error.status || error.status >= 500)) continue;
-        throw error;
-      } finally {
-        clearTimeout(timeout); signal?.removeEventListener('abort', cancel);
-      }
-    }
-  }
-
-  function openDownloadPanel(items) {
-    document.getElementById('media-download-dialog')?.querySelector('[data-close]')?.click();
-    const panel = document.createElement('section');
-    panel.id = 'media-download-dialog'; panel.className = 'ms-mobile-overlay';
-    panel.setAttribute('role','dialog'); panel.setAttribute('aria-modal','true');
-    panel.setAttribute('aria-label',tr('Télécharger les fichiers'));
-    panel.style.zIndex = '2147483646';
-    const box = document.createElement('div'); box.className = 'ms-mobile-dialog';
-    Object.assign(box.style,{maxHeight:'80dvh',overflowY:'auto',width:'min(94vw,620px)'});
-    panel.appendChild(box);
-    const heading = document.createElement('h2'); heading.textContent = tr('Télécharger les fichiers'); box.appendChild(heading);
-    const help = document.createElement('p');
-    help.textContent = tr('Préparez un fichier ou un lot, puis touchez Télécharger. Les fichiers vont dans Téléchargements. Pour un ZIP, extrayez les photos avec l’application Fichiers.');
-    box.appendChild(help);
-    const hint = document.createElement('p');
-    hint.textContent = tr('Si le navigateur intégré bloque le téléchargement, copiez le lien de l’événement dans Chrome ou Safari. Le lien du fichier reste disponible ci-dessous.');
-    box.appendChild(hint);
-    const close = document.createElement('button'); close.type = 'button'; close.dataset.close = '';
-    close.textContent = t('mobileClose'); close.className = 'ms-mobile-close'; box.appendChild(close);
-    const lifetime = new AbortController();
-    let active = false, readyLink = null, closed = false;
-    const preparations = [];
-    const previousFocus = document.activeElement;
-    const release = () => {
-      if (readyLink) readyLink.remove();
-      readyLink = null;
-    };
-    const onKey = event => {
-      if(event.key === 'Escape') { event.preventDefault(); close.click(); }
-      if(event.key === 'Tab') {
-        const controls = [...box.querySelectorAll('button:not(:disabled),a[href]')];
-        const first = controls[0], last = controls[controls.length-1];
-        if(event.shiftKey && document.activeElement === first) { event.preventDefault();last?.focus(); }
-        else if(!event.shiftKey && document.activeElement === last) { event.preventDefault();first?.focus(); }
-      }
-    };
-    panel.addEventListener('keydown',onKey);
-    const dismiss = () => {
-      if(closed) return; closed = true; lifetime.abort(); release(); panel.remove();
-      window.removeEventListener('hashchange',dismiss); previousFocus?.focus?.();
-    };
-    close.onclick = dismiss; window.addEventListener('hashchange',dismiss);
-    const addTask = (group, label, filename) => {
-      const row = document.createElement('div');
-      Object.assign(row.style,{borderTop:'1px solid #ddd',padding:'12px 0',display:'grid',gap:'8px'});
-      const title = document.createElement('strong'); title.textContent = label; title.translate = false; row.appendChild(title);
-      const status = document.createElement('p'); status.setAttribute('role','status'); row.appendChild(status);
-      const prepare = document.createElement('button'); prepare.type='button'; prepare.className='ms-mobile-save';
-      prepare.textContent=tr('Préparer le téléchargement'); row.appendChild(prepare); preparations.push(prepare);
-      for(const item of group) {
-        const original = document.createElement('a');
-        original.href=item.url; original.target='_blank'; original.rel='noopener noreferrer';
-        original.textContent=tr('Ouvrir le fichier original')+' — '+cleanName(item.name,'photo');
-        row.appendChild(original);
-      }
-      prepare.onclick = async () => {
-        if(active || closed) return;
-        active=true; preparations.forEach(button=>button.disabled=true); release();
-        const files=[], failures=[];
-        let remaining=64*1024*1024;
-        try {
-          for(let i=0;i<group.length;i++) {
-            status.textContent=t('preparing')+' '+(i+1)+'/'+group.length;
-            try {
-              const blob=await fetchDownloadBlob(group[i],lifetime.signal,remaining);
-              remaining-=blob.size;
-              files.push({name:(i+1)+'-'+cleanName(group[i].name,'photo.jpg'),bytes:new Uint8Array(await blob.arrayBuffer()),blob});
-            } catch(error) {
-              if(lifetime.signal.aborted) throw error;
-              failures.push(downloadError(error));
-            }
-          }
-          if(closed) return;
-          if(!files.length) { status.textContent=[...new Set(failures)].join(' '); return; }
-          const blob=group.length===1?files[0].blob:zipArchive(files);
-          const prepared=await prepareDownload(blob,filename);
-          if(closed) return;
-          const link=document.createElement('a'); readyLink=link;
-          link.href=prepared.url;link.download=prepared.name;link.className='ms-mobile-save';
-          link.textContent=tr('Télécharger')+' ('+files.length+'/'+group.length+')';
-          row.appendChild(link);
-          status.textContent=tr('Prêt. Touchez Télécharger ; le navigateur peut demander une confirmation.');
-          if(failures.length) status.textContent+=' '+tr('Certains fichiers sont absents du lot. Utilisez leurs liens ou réessayez.')+' '+[...new Set(failures)].join(' ');
-          link.onclick=()=>{status.textContent=tr('Téléchargement demandé. Vérifiez les téléchargements de votre navigateur.');};
-          link.focus();
-        } catch(error) {
-          if(!closed) status.textContent=downloadError(error);
-        } finally {
-          active=false;preparations.forEach(button=>button.disabled=false);
-        }
-      };
-      box.appendChild(row);
-    };
-    const photos=items.filter(item=>item.kind==='photo');
-    if(photos.length>1) {
-      for(let i=0;i<photos.length;i+=15) {
-        const group=photos.slice(i,i+15);
-        addTask(group,tr('Photos')+' '+(i+1)+'–'+(i+group.length), 'photos-'+(i/15+1)+'.zip');
-      }
-    }
-    items.forEach((item,index)=>addTask([item],cleanName(item.name,'souvenir-'+(index+1)),cleanName(item.name,item.kind==='video'?'video.mp4':'photo.jpg')));
-    document.body.appendChild(panel); close.focus();
-    // A download request is not proof of a saved file. Keep the user's selection.
-    return false;
-  }
+  const canShareFilesOnMobile = () => isMobileDevice() && typeof navigator.share === 'function' && typeof File === 'function';
 
   function loadSelection() {
     try {
@@ -341,15 +177,18 @@
       const scope = new URL('./__download__/', window.location.href).pathname;
       const registration = await navigator.serviceWorker.register(workerUrl, { scope });
       await registration.update();
-      const worker = registration.installing || registration.waiting || registration.active;
+      if (registration.active) return registration.active;
+
+      const worker = registration.installing || registration.waiting;
       if (!worker) throw new Error('Service Worker non initialisé');
-      if (worker.state !== 'activated') await new Promise((resolve, reject) => {
-          const timeout = setTimeout(() => reject(new Error('Activation du téléchargement trop longue')), 10000);
-          worker.addEventListener('statechange', () => {
-            if (worker.state === 'activated') { clearTimeout(timeout); resolve(); }
-            if (worker.state === 'redundant') { clearTimeout(timeout); reject(new Error('Activation du téléchargement refusée')); }
-          });
+      if (worker.state === 'activated') return worker;
+      await new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => reject(new Error('Activation du téléchargement trop longue')), 10000);
+        worker.addEventListener('statechange', () => {
+          if (worker.state === 'activated') { clearTimeout(timeout); resolve(); }
+          if (worker.state === 'redundant') { clearTimeout(timeout); reject(new Error('Activation du téléchargement refusée')); }
         });
+      });
       if (!registration.active) throw new Error('Service Worker non actif');
       return registration.active;
     })().catch(error => {
@@ -360,7 +199,7 @@
     return downloadWorkerPromise;
   }
 
-  async function prepareDownload(blob, name) {
+  async function downloadBlob(blob, name) {
     const worker = await getDownloadWorker();
     const id = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
     const safeName = cleanName(name, 'souvenirs');
@@ -370,23 +209,14 @@
       const timeout = setTimeout(() => reject(new Error('Préparation du téléchargement trop longue')), 10000);
       channel.port1.onmessage = event => {
         clearTimeout(timeout);
-        event.data?.ok ? resolve() : reject(new Error(event.data?.error || 'Téléchargement refusé'));
+        event.data?.ok ? resolve() : reject(new Error('Téléchargement refusé'));
       };
       worker.postMessage({ type: 'PREPARE_MEDIA_DOWNLOAD', id, name: safeName, blob }, [channel.port2]);
     });
 
-    return {
-      name: safeName,
-      url: new URL(`./__download__/${encodeURIComponent(id)}`, window.location.href).href,
-    };
-  }
-
-  async function downloadBlob(blob, name) {
-    const prepared = await prepareDownload(blob, name);
-
     const anchor = document.createElement('a');
-    anchor.href = prepared.url;
-    anchor.download = prepared.name;
+    anchor.href = new URL(`./__download__/${encodeURIComponent(id)}`, window.location.href).href;
+    anchor.download = safeName;
     anchor.style.display = 'none';
     document.body.appendChild(anchor);
     anchor.click();
@@ -420,8 +250,10 @@
     return batches;
   }
 
-  async function mediaFile(item, index, signal) {
-    const blob = await fetchDownloadBlob(item, signal);
+  async function mediaFile(item, index) {
+    const response = await fetch(item.url, { cache: 'no-store' });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const blob = await response.blob();
     const fallbackExtension = item.kind === 'video' ? 'mp4' : 'jpg';
     let filename = cleanName(item.name, `${item.kind}-${item.id || index + 1}.${fallbackExtension}`);
     if (!/\.[a-z0-9]{2,5}$/i.test(filename)) filename += `.${fallbackExtension}`;
@@ -456,7 +288,6 @@
     const closeButton = overlay.querySelector('[data-mobile-close]');
 
     return new Promise((resolve, reject) => {
-      const lifetime = new AbortController();
       let batchIndex = 0;
       let preparedFiles = [];
       let closed = false;
@@ -464,7 +295,6 @@
       const abort = () => {
         if (closed) return;
         closed = true;
-        lifetime.abort();
         overlay.remove();
         const error = new Error(t('cancelled'));
         error.name = 'AbortError';
@@ -474,7 +304,6 @@
       const fail = error => {
         if (closed) return;
         closed = true;
-        lifetime.abort();
         overlay.remove();
         reject(error);
       };
@@ -489,11 +318,7 @@
         try {
           for (let index = 0; index < batch.length; index++) {
             message.textContent = `${t('mobilePreparing')} ${batchIndex + 1}/${batches.length} · ${index + 1}/${batch.length}`;
-            preparedFiles.push(await mediaFile(batch[index], index, lifetime.signal));
-            if (closed) return;
-            if (preparedFiles.reduce((size,file) => size + file.size, 0) > 64 * 1024 * 1024) {
-              throw Object.assign(new Error('large'), {code:'large'});
-            }
+            preparedFiles.push(await mediaFile(batch[index], index));
             const completed = (batchIndex + ((index + 1) / batch.length)) / batches.length;
             progress.style.width = `${Math.round(completed * 100)}%`;
           }
@@ -705,28 +530,23 @@
     let success = true;
     try {
       if (canShareFilesOnMobile()) {
-        try { success = await shareItemsToPhotos(items, status); }
-        catch(error) {
-          if(error?.name === 'AbortError') throw error;
-          setText(status,downloadError(error)); openDownloadPanel(items); return;
-        }
-      } else if (!isMobileDevice() && (typeof window.showSaveFilePicker === 'function' || typeof window.showDirectoryPicker === 'function')) {
-        try {
-          if(items.length===1 && typeof window.showSaveFilePicker === 'function') success=await downloadWithFilePicker(items[0],0);
-          else if(typeof window.showDirectoryPicker === 'function') success=await downloadToDirectory(items,status);
-          else { openDownloadPanel(items);return; }
-        } catch(error) {
-          if(error?.name==='AbortError') throw error;
-          setText(status,downloadError(error));openDownloadPanel(items);return;
-        }
+        success = await shareItemsToPhotos(items, status);
+      } else if (items.length === 1 && typeof window.showSaveFilePicker === 'function') {
+        success = await downloadWithFilePicker(items[0], 0);
+      } else if ((preferDirectory || items.length > 1) && typeof window.showDirectoryPicker === 'function') {
+        success = await downloadToDirectory(items, status);
       } else {
-        openDownloadPanel(items); return;
+        if (photos.length) success = await downloadPhotoGroups(photos, status) && success;
+        for (let index = 0; index < videos.length; index++) {
+          setText(status, `${t('downloading')} ${index + 1}/${videos.length} · ${t('videoNotice')}`);
+          success = await downloadDirect(videos[index], index) && success;
+        }
       }
       setText(status, success ? t('complete') : t('partial'));
       if (success && clearSelection) { selected.clear(); save(); setTimeout(render, 1800); }
     } catch (error) {
       if (error?.name === 'AbortError') setText(status, t('cancelled'));
-      else { console.error('Selection download:', error); setText(status, downloadError(error)); }
+      else { console.error('Selection download:', error); setText(status, t('error')); }
     } finally {
       busy = false; render();
     }
@@ -744,11 +564,8 @@
       name: cleanName(item?.name, 'souvenir'),
     };
     return canShareFilesOnMobile()
-      ? shareItemsToPhotos([normalized], null).catch(error => {
-        if(error?.name === 'AbortError') throw error;
-        return openDownloadPanel([normalized]);
-      })
-      : Promise.resolve(openDownloadPanel([normalized]));
+      ? shareItemsToPhotos([normalized], null)
+      : downloadWithFilePicker(normalized);
   };
 
   function render() {
