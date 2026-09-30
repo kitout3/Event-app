@@ -1297,3 +1297,20 @@ window.EVENT_TRANSLATIONS.push(...[
     "Löschen"
   ]
 ]);
+
+// Event settings: module cards and their accessible descriptions.
+window.EVENT_TRANSLATIONS.push(...[
+  ["Choisissez les fonctionnalités proposées à vos invités.", "Choose the features available to your guests.", "Chọn các tính năng dành cho khách mời.", "Wählen Sie die Funktionen für Ihre Gäste."],
+  ["Partage de photos", "Photo sharing", "Chia sẻ ảnh", "Fotos teilen"],
+  ["Activé", "Enabled", "Đã bật", "Aktiviert"],
+  ["Permettez aux invités d’ajouter leurs photos.", "Let guests upload their photos.", "Cho phép khách mời tải ảnh của họ lên.", "Lassen Sie Ihre Gäste eigene Fotos hochladen."],
+  ["Rassemblez les souvenirs dans une galerie.", "Bring all the memories together in a gallery.", "Tập hợp những kỷ niệm vào một thư viện ảnh.", "Sammeln Sie die Erinnerungen in einer Galerie."],
+  ["Laissez les invités aimer leurs photos préférées.", "Let guests like their favorite photos.", "Cho phép khách mời thích những bức ảnh yêu thích.", "Lassen Sie Gäste ihre Lieblingsfotos mit einem Like markieren."],
+  ["Recueillez les messages vidéo de vos invités.", "Collect video messages from your guests.", "Thu thập lời nhắn video từ khách mời.", "Sammeln Sie Videobotschaften Ihrer Gäste."],
+  ["Partagez l’événement avec les invités à distance.", "Share the event with guests joining remotely.", "Chia sẻ sự kiện với khách mời ở xa.", "Teilen Sie die Veranstaltung mit Gästen aus der Ferne."],
+  ["Diffusez les photos sur grand écran.", "Show photos on a big screen.", "Hiển thị ảnh trên màn hình lớn.", "Zeigen Sie die Fotos auf einem großen Bildschirm."],
+  ["Présentez les horaires et les temps forts.", "Share the schedule and event highlights.", "Giới thiệu lịch trình và các hoạt động nổi bật.", "Zeigen Sie den Zeitplan und die Höhepunkte."],
+  ["Indiquez le lieu, les accès et les informations utiles.", "Share the venue, directions and useful information.", "Cung cấp địa điểm, đường đi và thông tin hữu ích.", "Informieren Sie über den Veranstaltungsort, die Anfahrt und praktische Hinweise."],
+  ["Facilitez l’accès à l’événement avec un QR code.", "Make it easy to access the event with a QR code.", "Giúp khách mời truy cập sự kiện dễ dàng bằng mã QR.", "Erleichtern Sie den Zugang zur Veranstaltung mit einem QR-Code."],
+  ["Les changements seront appliqués après sauvegarde.", "Changes will take effect after saving.", "Các thay đổi sẽ có hiệu lực sau khi lưu.", "Änderungen werden nach dem Speichern übernommen."]
+]);

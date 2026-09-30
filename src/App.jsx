@@ -1,8 +1,9 @@
 import { guestLoginError } from "./auth-errors.mjs";
 import PasswordInput from "./PasswordInput.jsx";
 import AdminVideos from "./AdminVideos.jsx";
+import ModuleSettings from "./ModuleSettings.jsx";
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { EVENT_TYPES, THEME_PRESETS, MODULE_META, eventDefaults, normalizeEventConfig, cssVarsForEvent, presetForType } from "./event-config.mjs";
+import { EVENT_TYPES, THEME_PRESETS, eventDefaults, normalizeEventConfig, cssVarsForEvent, presetForType } from "./event-config.mjs";
 
 // ============================================================
 // FIREBASE CONFIG — remplace par tes vraies clés Firebase
@@ -1982,10 +1983,7 @@ function AdminSettings({ event, onUpdate }) {
       </div>
 
       <div style={cardStyle}>
-        <h3 style={{fontFamily:"var(--event-title-font)",fontSize:"1.35rem",color:"var(--burgundy)",marginBottom:12}}>Modules</h3>
-        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(190px,1fr))",gap:8}}>
-          {Object.entries(MODULE_META).map(([key,meta])=><label key={key} style={{display:"flex",gap:9,alignItems:"center",padding:11,border:"1px solid var(--blush)",borderRadius:11,background:form.modules[key]?"var(--cream)":"var(--white)",cursor:"pointer"}}><input type="checkbox" checked={!!form.modules[key]} onChange={()=>setNested("modules",key,!form.modules[key])}/><span>{meta.icon} {meta.label}</span></label>)}
-        </div>
+        <ModuleSettings modules={form.modules} onChange={(key,enabled)=>setNested("modules",key,enabled)} />
       </div>
 
       <div style={cardStyle}>
