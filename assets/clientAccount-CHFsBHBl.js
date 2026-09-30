@@ -1,0 +1,1 @@
+import{c as e,j as t,R as o}from"./PasswordInput-CUK6W0UG.js";import{C as r}from"./account-Cb22aZk-.js";e.createRoot(document.getElementById("root")).render(t.jsx(o.StrictMode,{children:t.jsx(r,{})}));
