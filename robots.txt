@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+Disallow: /account.html
+Disallow: /admin.html
+Sitemap: https://kitout3.github.io/Event-app/sitemap.xml
