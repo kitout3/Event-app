@@ -1314,3 +1314,11 @@ window.EVENT_TRANSLATIONS.push(...[
   ["Facilitez l’accès à l’événement avec un QR code.", "Make it easy to access the event with a QR code.", "Giúp khách mời truy cập sự kiện dễ dàng bằng mã QR.", "Erleichtern Sie den Zugang zur Veranstaltung mit einem QR-Code."],
   ["Les changements seront appliqués après sauvegarde.", "Changes will take effect after saving.", "Các thay đổi sẽ có hiệu lực sau khi lưu.", "Änderungen werden nach dem Speichern übernommen."]
 ]);
+
+window.EVENT_TRANSLATIONS.push(...[
+  ["Administration globale", "Global administration", "Quản trị toàn hệ thống", "Globale Verwaltung"],
+  ["Toutes les photos (ZIP)", "All photos (ZIP)", "Tất cả ảnh (ZIP)", "Alle Fotos (ZIP)"],
+  ["Télécharger le ZIP", "Download ZIP", "Tải tệp ZIP", "ZIP herunterladen"],
+  ["ZIP prêt. Cliquez sur le lien pour l’enregistrer.", "ZIP ready. Click the link to save it.", "Tệp ZIP đã sẵn sàng. Nhấn vào liên kết để lưu.", "ZIP bereit. Klicken Sie zum Speichern auf den Link."],
+  ["Le ZIP complet n’a pas pu être créé. Réessayez.", "The complete ZIP could not be created. Please try again.", "Không thể tạo tệp ZIP đầy đủ. Vui lòng thử lại.", "Die vollständige ZIP-Datei konnte nicht erstellt werden. Versuchen Sie es erneut."]
+]);
