@@ -62,7 +62,7 @@ test("static React labels and accessible field instructions have translations", 
   const neutral = new Set(["Event-","App","EVENT-APP","Huyen & Quentin","← Event-App","huyen-quentin","s ·","h"]);
   const covered = value => rows.some(row=>row.includes(value)) || ["en","vi","de"].some(lang=>i18n.translate(value,lang)!==value);
   const missing = [];
-  for (const file of ["App.jsx","ClientAccount.jsx","SoftwareAdmin.jsx","AdminVideos.jsx","PasswordInput.jsx"]) {
+  for (const file of ["App.jsx","ClientAccount.jsx","SoftwareAdmin.jsx","AdminVideos.jsx","PasswordInput.jsx","TVMosaicSettings.jsx","MosaicWall.jsx"]) {
     const ast = parse(read("src/"+file),{sourceType:"module",plugins:["jsx"]});
     function walk(node,parent) {
       if (!node || typeof node !== "object") return;

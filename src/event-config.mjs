@@ -1,3 +1,5 @@
+import { normalizeMosaicConfig, TV_MODES } from "./mosaic-config.mjs";
+
 export const EVENT_TYPES = {
   wedding: {
     id: "wedding", label: "Mariage", icon: "💍", category: "private",
@@ -223,6 +225,7 @@ export function eventDefaults(type = "wedding") {
     modules:{ ...DEFAULT_MODULES[safe] },
     labels:{ ...DEFAULT_LABELS[safe] },
     branding:{ logoUrl:"", coverUrl:"", organisationName:"", showPlatformBranding:true },
+    tvMosaic:normalizeMosaicConfig(),
     location:"",
     organiserName:"",
     scheduleText:"",
@@ -244,6 +247,8 @@ export function normalizeEventConfig(event = {}) {
     modules:{ ...base.modules, ...(event.modules || {}) },
     labels:{ ...base.labels, ...(event.labels || {}) },
     branding:{ ...base.branding, ...(event.branding || {}) },
+    displayMode:TV_MODES.includes(event.displayMode) ? event.displayMode : "mixed",
+    tvMosaic:normalizeMosaicConfig(event.tvMosaic),
   };
 }
 

@@ -2,6 +2,9 @@ import { guestLoginError } from "./auth-errors.mjs";
 import PasswordInput from "./PasswordInput.jsx";
 import AdminVideos from "./AdminVideos.jsx";
 import ModuleSettings from "./ModuleSettings.jsx";
+import MosaicWall from "./MosaicWall.jsx";
+import TVMosaicSettings from "./TVMosaicSettings.jsx";
+import { normalizeMosaicConfig, TV_MODES } from "./mosaic-config.mjs";
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { EVENT_TYPES, THEME_PRESETS, eventDefaults, normalizeEventConfig, cssVarsForEvent, presetForType } from "./event-config.mjs";
 
@@ -143,6 +146,7 @@ let mockPhotos = [
   { id: "d6", url: "https://picsum.photos/seed/wed6/900/700", author: "Emma", message: "", status: "pending", createdAt: new Date(Date.now() - 60000).toISOString(), likes: 0 },
 ];
 let mockListeners = [];
+let mockEventListeners = [];
 function makeUniqueId(prefix = "id") {
   const value = globalThis.crypto?.randomUUID?.() || `${Date.now()}_${Math.random().toString(36).slice(2)}`;
   return `${prefix}_${value}`;
@@ -165,7 +169,7 @@ const MockDB = {
   likePhoto: (id) => { mockPhotos = mockPhotos.map(p => p.id === id ? { ...p, likes: getLikeCount(p.likes) + 1 } : p); mockListeners.forEach(cb => cb([...mockPhotos])); },
   onPhotos: (cb) => { mockListeners.push(cb); cb([...mockPhotos]); return () => { mockListeners = mockListeners.filter(l => l !== cb); }; },
   getEvent: () => ({ ...mockEvent }),
-  updateEvent: (u) => { mockEvent = { ...mockEvent, ...u }; },
+  updateEvent: (u) => { mockEvent = normalizeEventConfig({ ...mockEvent, ...u }); mockEventListeners.forEach(listener => listener({ ...mockEvent })); },
 };
 
 const DB = {
@@ -287,6 +291,19 @@ const DB = {
       .filter(photo => photo.url && photo.type !== "photoLike" && photo.type !== "tvSettings");
   },
   getEvent: () => _firebaseReady ? ({ ...currentEvent }) : MockDB.getEvent(),
+  onEvent: (callback) => {
+    if (!_firebaseReady) {
+      mockEventListeners.push(callback);
+      callback(MockDB.getEvent());
+      return () => { mockEventListeners = mockEventListeners.filter(listener => listener !== callback); };
+    }
+    const { doc, onSnapshot } = window.__fb;
+    // Event-scoped subscription; existing owner/admin write rules apply to the
+    // customization as well as the rest of the event configuration.
+    return onSnapshot(doc(_db, "events", EVENT_ID), snapshot => {
+      if (snapshot.exists()) callback(normalizeEventConfig({ ...snapshot.data(), id: EVENT_ID }));
+    }, error => console.warn("TV event settings:", error.code));
+  },
   updateEvent: async (u) => {
     if (!_firebaseReady) {
       MockDB.updateEvent(u);
@@ -328,7 +345,7 @@ const DB = {
     if (!_firebaseReady || !file) throw new Error("Stockage indisponible");
     const { ref, uploadBytes, getDownloadURL } = window.__fb;
     const extension = (file.name.split(".").pop() || "jpg").replace(/[^a-z0-9]/gi, "").toLowerCase() || "jpg";
-    const safeKind = kind === "logo" ? "logo" : "cover";
+    const safeKind = ["logo", "cover", "mosaic"].includes(kind) ? kind : "cover";
     const path = `events/${EVENT_ID}/branding/${safeKind}_${Date.now()}.${extension}`;
     const assetRef = ref(_storage, path);
     await uploadBytes(assetRef, file, { contentType: file.type || "image/jpeg", customMetadata: { eventId: EVENT_ID, kind: safeKind } });
@@ -1353,14 +1370,28 @@ function useExhaustivePhotoPage(photos, pageSize, intervalMs = TV_ROTATION_MS) {
 
 function LiveTV({ setView }) {
   const [photos, setPhotos] = useState([]);
-  const [mode, setMode] = useState("mixed");
+  const [event, setEvent] = useState(() => normalizeEventConfig(DB.getEvent()));
+  const [mode, setMode] = useState(() => normalizeEventConfig(DB.getEvent()).displayMode);
+  const [screenCount, setScreenCount] = useState(null);
+  const [fullscreenError, setFullscreenError] = useState("");
   const [slideIdx, setSlideIdx] = useState(0);
   const [playlist, setPlaylist] = useState([]);
   const [showControls, setShowControls] = useState(true);
   const [speed, setSpeed] = useState(5000);
   const [newPhoto, setNewPhoto] = useState(null); // notification nouvelle photo
-  const ctTimer = useRef(), prevCount = useRef(0);
-  const event = DB.getEvent();
+  const ctTimer = useRef(), photoTimer = useRef(), prevCount = useRef(0), tvRoot = useRef(null);
+  const mosaic = normalizeMosaicConfig({ ...event.tvMosaic, ...(screenCount == null ? {} : { count: screenCount }) });
+
+  useEffect(() => DB.onEvent(setEvent), []);
+  useEffect(() => { setMode(event.displayMode); setScreenCount(null); }, [event.displayMode, JSON.stringify(event.tvMosaic)]);
+  const fullscreen = async () => {
+    try {
+      setFullscreenError("");
+      if (document.fullscreenElement) await document.exitFullscreen();
+      else if (tvRoot.current?.requestFullscreen) await tvRoot.current.requestFullscreen();
+      else setFullscreenError("Utilisez le mode plein écran de votre navigateur.");
+    } catch { setFullscreenError("Utilisez le mode plein écran de votre navigateur."); }
+  };
 
   useEffect(() => {
     return DB.onPhotos(all => {
@@ -1368,7 +1399,8 @@ function LiveTV({ setView }) {
       // Notification si nouvelle photo
       if (prevCount.current > 0 && approved.length > prevCount.current) {
         setNewPhoto(approved[0]);
-        setTimeout(() => setNewPhoto(null), 5000);
+        clearTimeout(photoTimer.current);
+        photoTimer.current = setTimeout(() => setNewPhoto(null), 5000);
       }
       prevCount.current = approved.length;
       setPhotos(approved);
@@ -1403,17 +1435,24 @@ function LiveTV({ setView }) {
     resetControls();
     window.addEventListener("mousemove", resetControls);
     window.addEventListener("touchstart", resetControls);
-    return () => { window.removeEventListener("mousemove", resetControls); window.removeEventListener("touchstart", resetControls); };
+    window.addEventListener("keydown", resetControls);
+    return () => { clearTimeout(ctTimer.current); clearTimeout(photoTimer.current); window.removeEventListener("mousemove", resetControls); window.removeEventListener("touchstart", resetControls); window.removeEventListener("keydown", resetControls); };
   }, [resetControls]);
 
   const currentSlide = playlist[slideIdx % Math.max(playlist.length, 1)];
 
   return (
-    <div style={{ width: "100vw", height: "100vh", overflow: "hidden", background: "#0d0805", position: "relative" }}>
+    <div ref={tvRoot} data-tv-mode={mode} style={{ width: "100vw", height: "100dvh", overflow: "hidden", background: "#0d0805", position: "fixed", inset: 0 }}>
 
       {mode === "wall"      && <WallMode      photos={photos} />}
       {mode === "slideshow" && <SlideshowMode photo={currentSlide} index={slideIdx} speed={speed} total={playlist.length} />}
       {mode === "mixed"     && <MixedMode     photos={photos} />}
+      {mode === "mosaic" && <div className="mosaic-tv-shell">
+        <div className="mosaic-tv-stage"><MosaicWall photos={photos} config={mosaic} name={event.name} branding={event.branding} /></div>
+        <footer className="mosaic-tv-footer"><div><p className="mosaic-tv-title" translate="no">{event.name}</p><div className="mosaic-tv-meta"><span className="tv-live-badge"><i /> Live</span><span>{photos.length} <span>photos approuvées</span></span><span>·</span><span>{mosaic.count} <span>cases</span></span>{photos.length === 0 && <span>En attente des premières photos…</span>}</div></div>
+          {mosaic.showQr && <div className="mosaic-tv-join"><p>Scannez pour ajouter votre photo à la mosaïque</p><div className="mosaic-tv-qr"><QRCode value={`${APP_URL}#upload`} size={68} /></div></div>}
+        </footer>
+      </div>}
 
       {/* Notification nouvelle photo */}
       {newPhoto && (
@@ -1431,7 +1470,7 @@ function LiveTV({ setView }) {
         </div>
       )}
 
-      {photos.length === 0 && (
+      {photos.length === 0 && mode !== "mosaic" && (
         <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", color: "rgba(255,255,255,.4)", gap: 16 }}>
           <div style={{ fontSize: 80, opacity: .3 }}>💍</div>
           <p style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: "2.2rem", fontWeight: 300 }}><span translate="no">{event.name}</span></p>
@@ -1458,25 +1497,28 @@ function LiveTV({ setView }) {
           display: "flex", gap: 7, alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end",
           maxWidth: "calc(100vw - 24px)",
         }}>
-          {["wall","slideshow","mixed"].map(m => (
+          {TV_MODES.map(m => (
             <button key={m} onClick={() => setMode(m)} style={{
               padding: "5px 16px", borderRadius: 50, fontSize: ".8rem", fontFamily: "'Jost',sans-serif",
               background: mode === m ? "rgba(255,255,255,.92)" : "rgba(255,255,255,.13)",
               color: mode === m ? "#1a1008" : "rgba(255,255,255,.8)",
               border: "none", transition: "all .2s", backdropFilter: "blur(10px)",
-            }}>{{ wall: "🧱 Mur", slideshow: "🎞 Diapo", mixed: "⊞ Mixte" }[m]}</button>
+            }} aria-pressed={mode === m}>{{ wall: "🧱 Mur", slideshow: "🎞 Diapo", mixed: "⊞ Mixte", mosaic: "▧ Mosaïque" }[m]}</button>
           ))}
+          {mode === "mosaic" && <label className="tv-mosaic-capacity"><span>Cases</span><input aria-label="Nombre de cases sur cet écran" title="Réglage de cet écran uniquement" type="number" min={25} max={2500} value={screenCount ?? mosaic.count} onChange={e => setScreenCount(e.target.value)} onBlur={() => setScreenCount(mosaic.count)} /></label>}
           {mode === "slideshow" && (
             <select value={speed} onChange={e => setSpeed(+e.target.value)} style={{ background: "rgba(255,255,255,.13)", color: "white", border: "none", borderRadius: 50, padding: "5px 12px", fontSize: ".8rem", backdropFilter: "blur(10px)" }}>
               {[[2000,"2s"],[4000,"4s"],[6000,"6s"],[10000,"10s"],[15000,"15s"]].map(([v,l]) => <option key={v} value={v} style={{ color: "#333" }}>{l}</option>)}
             </select>
           )}
+          <button type="button" className="tv-fullscreen" onClick={fullscreen}>⛶ <span>Plein écran</span></button>
+          {fullscreenError && <span role="status" style={{ color:"#fff", fontSize:12 }}>{fullscreenError}</span>}
         </div>
       </div>
 
       {/* Bouton accueil TV (toujours visible discrètement en bas gauche) */}
       <button onClick={() => setView(VIEWS.HOME)} style={{
-        position: "fixed", bottom: 20, left: 20, zIndex: 200,
+        position: "fixed", bottom: mode === "mosaic" ? 110 : 20, left: 20, zIndex: 200,
         background: "rgba(255,255,255,.12)", color: "rgba(255,255,255,.7)",
         border: "1px solid rgba(255,255,255,.15)", borderRadius: 50,
         padding: "7px 16px", fontSize: ".78rem", fontFamily: "'Jost',sans-serif",
@@ -1487,9 +1529,9 @@ function LiveTV({ setView }) {
       </button>
 
       {/* Date en bas droite */}
-      <div style={{ position: "fixed", bottom: 18, right: 20, zIndex: 100, opacity: showControls ? .55 : .2, transition: "opacity .4s", color: "rgba(255,255,255,.7)", fontSize: ".72rem", fontFamily: "'Jost',sans-serif", letterSpacing: 1 }}>
+      {mode !== "mosaic" && <div style={{ position: "fixed", bottom: 18, right: 20, zIndex: 100, opacity: showControls ? .55 : .2, transition: "opacity .4s", color: "rgba(255,255,255,.7)", fontSize: ".72rem", fontFamily: "'Jost',sans-serif", letterSpacing: 1 }}>
         {event.date}
-      </div>
+      </div>}
     </div>
   );
 }
@@ -1723,7 +1765,7 @@ function AdminPage({ auth, user, setAuth, setEventExists, setView }) {
         {tab === "photos" && <AdminPhotos photos={photos} onUpdate={async (id, u) => { await DB.updatePhoto(id, u); showToast("Photo mise à jour"); }} onDelete={async id => { await DB.deletePhoto(id); showToast("Supprimée"); }} />}
         {tab === "videos" && <AdminVideos eventId={EVENT_ID} db={_db} storage={_storage} firebase={window.__fb} />}
         {tab === "stats" && <AdminStats photos={photos} />}
-        {tab === "settings" && <AdminSettings event={event} onUpdate={updateEvent} />}
+        {tab === "settings" && <AdminSettings event={event} photos={photos} onUpdate={updateEvent} />}
         {tab === "export" && <AdminExport photos={photos} event={event} />}
       </div>
 
@@ -1855,7 +1897,7 @@ function AdminStats({ photos }) {
   );
 }
 
-function AdminSettings({ event, onUpdate }) {
+function AdminSettings({ event, onUpdate, photos = [] }) {
   const normalized = normalizeEventConfig(event);
   const [form, setForm] = useState(() => ({
     name:normalized.name || "",
@@ -1873,6 +1915,7 @@ function AdminSettings({ event, onUpdate }) {
     practicalInfoText:normalized.practicalInfoText || "",
     moderationMode:normalized.moderationMode || "immediate",
     displayMode:normalized.displayMode || "mixed",
+    tvMosaic:{...normalized.tvMosaic},
     privateAccessEmailsText:Array.isArray(normalized.privateAccessEmails)?normalized.privateAccessEmails.join(", "):"",
     privateAccessId:normalized.privateAccessId || "",
     privateAccessPassword:"",
@@ -1883,6 +1926,9 @@ function AdminSettings({ event, onUpdate }) {
     },
   }));
   const [uploadingAsset,setUploadingAsset] = useState("");
+  const [uploadingMosaic,setUploadingMosaic] = useState(false);
+  const [savingSettings,setSavingSettings] = useState(false);
+  const [settingsError,setSettingsError] = useState("");
   const [savingPrivateAccess,setSavingPrivateAccess] = useState(false);
   const [privateAccessMessage,setPrivateAccessMessage] = useState("");
   const [loadingPrivateAccess,setLoadingPrivateAccess] = useState(PRIVATE_EVENT_IDS.has(EVENT_ID));
@@ -1941,7 +1987,9 @@ function AdminSettings({ event, onUpdate }) {
     }finally{setSavingPrivateAccess(false);}
   };
 
-  const save=()=>onUpdate({
+  const save=async()=>{
+    setSavingSettings(true); setSettingsError("");
+    try { await onUpdate({
     name:form.name.trim(),
     date:form.date,
     location:form.location.trim(),
@@ -1958,6 +2006,7 @@ function AdminSettings({ event, onUpdate }) {
     practicalInfoText:form.practicalInfoText,
     moderationMode:form.moderationMode,
     displayMode:form.displayMode,
+    tvMosaic:normalizeMosaicConfig(form.tvMosaic),
     settings:{
       ...form.settings,
       primary:form.theme.primary,
@@ -1969,7 +2018,9 @@ function AdminSettings({ event, onUpdate }) {
       showLive:!!form.modules.live,
     },
     coverMessage:form.labels.heroSubtitle,
-  });
+    }); } catch { setSettingsError("Impossible de sauvegarder les paramètres. Réessayez."); }
+    finally { setSavingSettings(false); }
+  };
 
   const cardStyle={background:"var(--white)",borderRadius:"var(--event-radius)",padding:"1.5rem",boxShadow:"0 2px 12px var(--shadow)",border:"1px solid var(--blush)"};
   const fieldStyle={width:"100%",padding:"10px 13px",borderRadius:10,border:"1.5px solid var(--blush)",background:"var(--cream)",fontSize:".9rem",color:"var(--text)"};
@@ -2022,6 +2073,8 @@ function AdminSettings({ event, onUpdate }) {
         <ModuleSettings modules={form.modules} onChange={(key,enabled)=>setNested("modules",key,enabled)} />
       </div>
 
+      {form.modules.tvDisplay && <div style={cardStyle}><TVMosaicSettings mode={form.displayMode} onModeChange={value=>setField("displayMode",value)} value={form.tvMosaic} onChange={value=>setForm(current=>({...current,tvMosaic:typeof value === "function"?value(current.tvMosaic):value}))} name={form.name} branding={form.branding} photos={photos} onUpload={DB.uploadBrandAsset} onBusyChange={setUploadingMosaic} /></div>}
+
       <div style={cardStyle}>
         <h3 style={{fontFamily:"var(--event-title-font)",fontSize:"1.35rem",color:"var(--burgundy)",marginBottom:12}}>Textes de l’application</h3>
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(230px,1fr))",gap:9}}>
@@ -2036,10 +2089,9 @@ function AdminSettings({ event, onUpdate }) {
       </div>}
 
       <div style={cardStyle}>
-        <h3 style={{fontFamily:"var(--event-title-font)",fontSize:"1.35rem",color:"var(--burgundy)",marginBottom:12}}>Modération & affichage</h3>
+        <h3 style={{fontFamily:"var(--event-title-font)",fontSize:"1.35rem",color:"var(--burgundy)",marginBottom:12}}>Modération</h3>
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(240px,1fr))",gap:14}}>
           <div><label style={labelStyle}>Photos</label>{[["immediate","Immédiate"],["moderated","Validation manuelle"],["delayed","Différée"]].map(([value,label])=><button key={value} onClick={()=>setField("moderationMode",value)} style={{display:"block",width:"100%",padding:"10px",marginTop:5,borderRadius:10,textAlign:"left",border:`1.5px solid ${form.moderationMode===value?"var(--rose)":"var(--blush)"}`,background:form.moderationMode===value?"var(--cream)":"var(--white)",color:"var(--text)"}}>{form.moderationMode===value?"◉":"○"} {label}</button>)}</div>
-          <div><label style={labelStyle}>Mode TV</label>{[["wall","Mur"],["slideshow","Diaporama"],["mixed","Mixte"]].map(([value,label])=><button key={value} onClick={()=>setField("displayMode",value)} style={{display:"block",width:"100%",padding:"10px",marginTop:5,borderRadius:10,textAlign:"left",border:`1.5px solid ${form.displayMode===value?"var(--rose)":"var(--blush)"}`,background:form.displayMode===value?"var(--cream)":"var(--white)",color:"var(--text)"}}>{form.displayMode===value?"◉":"○"} {label}</button>)}</div>
           {form.modules.videoTestimonials&&<div><label style={labelStyle}>Publication des vidéos</label>{[["immediate","Immédiate"],["moderated","Validation manuelle"],["delayed","Différée"]].map(([value,label])=><button key={value} onClick={()=>setNested("settings","videoModerationMode",value)} style={{display:"block",width:"100%",padding:"10px",marginTop:5,borderRadius:10,textAlign:"left",border:`1.5px solid ${form.settings.videoModerationMode===value?"var(--rose)":"var(--blush)"}`,background:form.settings.videoModerationMode===value?"var(--cream)":"var(--white)",color:"var(--text)"}}>{form.settings.videoModerationMode===value?"◉":"○"} {label}</button>)}{form.settings.videoModerationMode==="delayed"&&<div style={{marginTop:8}}><label style={labelStyle}>Délai automatique (minutes)</label><input type="number" min="1" max="1440" style={fieldStyle} value={form.settings.videoDelayMinutes} onChange={e=>setNested("settings","videoDelayMinutes",Math.max(1,Number(e.target.value)||60))}/></div>}</div>}
         </div>
       </div>
@@ -2055,7 +2107,8 @@ function AdminSettings({ event, onUpdate }) {
         <div style={{fontSize:28}}>{typeMeta.icon}</div><div style={{fontFamily:preset.titleFont,fontSize:28,marginTop:5}}>{form.name||"Aperçu"}</div><div style={{fontSize:12,opacity:.75,marginTop:4}}>{[form.date,form.location].filter(Boolean).join(" · ")}</div><div style={{fontSize:13,opacity:.8,marginTop:8}}>{form.labels.heroSubtitle}</div>
       </div>
 
-      <button data-event-settings-save="true" onClick={save} className="btn" style={{width:"100%",padding:14,borderRadius:50,fontSize:".95rem",background:"var(--burgundy)",color:"#fff",fontWeight:600}}>Sauvegarder toutes les modifications</button>
+      {settingsError&&<p role="alert" style={{color:"#b83232",fontSize:13}}>{settingsError}</p>}
+      <button data-event-settings-save="true" disabled={savingSettings||uploadingMosaic||!!uploadingAsset} onClick={save} className="btn" style={{width:"100%",padding:14,borderRadius:50,fontSize:".95rem",background:"var(--burgundy)",color:"#fff",fontWeight:600,opacity:(savingSettings||uploadingMosaic||!!uploadingAsset) ? .5 : 1}}>{savingSettings?"Enregistrement…":"Sauvegarder toutes les modifications"}</button>
     </div>
   );
 }
