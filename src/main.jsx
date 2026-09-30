@@ -1,12 +1,13 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { lazy, Suspense } from 'react'
-import ClientAccount from './ClientAccount.jsx'
-import './account.css'
+import Portal from './Portal.jsx'
+import './portal.css'
 
-const hasWedding = window.__WEDDING_TENANT__?.hasWedding === true
+const hasEvent = window.__WEDDING_TENANT__?.hasWedding === true
 const App = lazy(() => import('./App.jsx'))
-if (hasWedding) {
+
+if (hasEvent) {
   const enhancements = ['app-enhancer', 'youtube-live-settings', 'video-testimonials-v2', 'video-success-flow', 'video-gallery-player', 'photo-zip', 'media-selection', 'live-inline-fix', 'live-mobile-fix', 'live-chat', 'live-presence']
   for (const name of enhancements) {
     const script = document.createElement('script')
@@ -18,6 +19,8 @@ if (hasWedding) {
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    {hasWedding ? <Suspense fallback={<p style={{padding:32,textAlign:'center'}}>Ouverture de votre espace…</p>}><App /></Suspense> : <ClientAccount />}
+    {hasEvent
+      ? <Suspense fallback={<p style={{padding:32,textAlign:'center'}}>Ouverture de votre espace…</p>}><App /></Suspense>
+      : <Portal />}
   </React.StrictMode>
 )
