@@ -1,0 +1,70 @@
+name: Apply audit source patches
+
+on:
+  push:
+    branches: [feat/product-polish-audit]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/product-polish-audit
+      - name: Patch large source files safely
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          test_file = Path('tests/tenant-isolation.test.mjs')
+          text = test_file.read_text()
+          old = '''test("Event-App root is login/signup and never auto-opens Huyen & Quentin",()=>{
+            const main=read("src/main.jsx");
+            const tenant=read("public/tenant-context.js");
+            const index=read("index.html");
+            assert.match(main,/import ClientAccount from '\\.\\/ClientAccount\\.jsx'/);
+            assert.match(main,/: <ClientAccount \\/>/);
+            assert.doesNotMatch(main,/import Portal from/);
+            assert.match(tenant,/const hasWedding = requested !== null/);
+            assert.doesNotMatch(tenant,/LEGACY_DEFAULT_EVENT_ID/);
+            assert.match(index,/<title>Event-App · Vos événements<\\/title>/);
+          });'''
+          new = '''test("EventApp root is a public portal and never auto-opens Huyen & Quentin",()=>{
+            const main=read("src/main.jsx");
+            const tenant=read("public/tenant-context.js");
+            const index=read("index.html");
+            assert.match(main,/import Portal from '\\.\\/Portal\\.jsx'/);
+            assert.match(main,/: <Portal \\/>/);
+            assert.doesNotMatch(main,/import ClientAccount from/);
+            assert.match(tenant,/const hasWedding = requested !== null/);
+            assert.doesNotMatch(tenant,/LEGACY_DEFAULT_EVENT_ID/);
+            assert.match(index,/<title>EventApp · Photos, vidéos et souvenirs de vos événements<\\/title>/);
+          });'''
+          if old not in text:
+              raise SystemExit('Expected tenant isolation test block not found')
+          test_file.write_text(text.replace(old, new))
+
+          admin_file = Path('src/SoftwareAdmin.jsx')
+          admin = admin_file.read_text()
+          replacements = {
+            '`Supprimer définitivement « $<span translate="no">{item.name}</span> » et toutes ses données ? Cette action est irréversible.`': '`Supprimer définitivement « ${item.name} » et toutes ses données ? Cette action est irréversible.`',
+            '`Événement supprimé : $<span translate="no">{item.name}</span>`': '`Événement supprimé : ${item.name}`',
+            '`$<span translate="no">{item.name}</span> : ${item.active?"désactivé":"activé"}`': '`${item.name} : ${item.active?"désactivé":"activé"}`',
+          }
+          for source, target in replacements.items():
+              if source not in admin:
+                  raise SystemExit(f'Expected SoftwareAdmin source not found: {source}')
+              admin = admin.replace(source, target)
+          admin_file.write_text(admin)
+          PY
+      - name: Commit source patches
+        run: |
+          if git diff --quiet; then exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tests/tenant-isolation.test.mjs src/SoftwareAdmin.jsx
+          git commit -m "Align navigation tests and fix admin event notices"
+          git push origin HEAD:feat/product-polish-audit
