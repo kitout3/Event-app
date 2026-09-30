@@ -84,12 +84,17 @@ async function loadCurrentEvent() {
   return _eventExists;
 }
 
-async function initFirebase() {
+let firebaseInitialization;
+function initFirebase() {
+  return firebaseInitialization ||= connectFirebase();
+}
+
+async function connectFirebase() {
   if (!isRealConfig || _firebaseReady) return _firebaseReady;
   try {
     const [
       { initializeApp, getApps },
-      { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, where, orderBy, serverTimestamp, getDoc, setDoc },
+      { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, where, orderBy, serverTimestamp, getDoc, getDocs, setDoc },
       { getStorage, ref, uploadString, uploadBytes, getDownloadURL, deleteObject },
       { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut },
       { getFunctions, httpsCallable }
@@ -106,11 +111,13 @@ async function initFirebase() {
     _auth = getAuth(_firebaseApp);
     _functions = getFunctions(_firebaseApp, "europe-west1");
     window.__fb = {
-      collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, where, orderBy, serverTimestamp, getDoc, setDoc,
+      collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, where, orderBy, serverTimestamp, getDoc, getDocs, setDoc,
       ref, uploadString, uploadBytes, getDownloadURL, deleteObject,
       onAuthStateChanged, signInWithEmailAndPassword, signOut, httpsCallable
     };
     _firebaseReady = true;
+
+    await _auth.authStateReady();
 
     // The private Huyen & Quentin space must authenticate before Firestore
     // reveals even the event document.
@@ -271,6 +278,13 @@ const DB = {
       snap => { likes = normalizeDocs(snap); emitPublic(); }
     );
     return () => { unsubPhotos(); unsubLikes(); };
+  },
+  listApprovedPhotos: async () => {
+    if (!_firebaseReady) return mockPhotos.filter(photo => photo.status === "approved");
+    const { collection, query, where, getDocs } = window.__fb;
+    const snapshot = await getDocs(query(collection(_db, "events", EVENT_ID, "photos"), where("status", "==", "approved")));
+    return snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }))
+      .filter(photo => photo.url && photo.type !== "photoLike" && photo.type !== "tvSettings");
   },
   getEvent: () => _firebaseReady ? ({ ...currentEvent }) : MockDB.getEvent(),
   updateEvent: async (u) => {
@@ -529,12 +543,15 @@ export default function App() {
 
   useEffect(() => {
     let unsubscribeAuth = null;
+    let cancelled = false;
+    let authRevision = 0;
     const hash = window.location.hash.slice(1).toLowerCase();
     const map = { upload: VIEWS.UPLOAD, gallery: VIEWS.GALLERY, tv: VIEWS.TV, schedule: VIEWS.SCHEDULE, info: VIEWS.INFO, guestbook: VIEWS.GUESTBOOK, admin: VIEWS.ADMIN };
     if (map[hash]) setView(map[hash]);
 
     if (isRealConfig && TENANT.isValid) {
       initFirebase().then(ok => {
+        if (cancelled) return;
         setFbReady(ok);
         if (!ok) {
           setFirebaseError("Impossible de se connecter à Firebase.");
@@ -542,7 +559,11 @@ export default function App() {
         }
         if (!PRIVATE_EVENT_IDS.has(EVENT_ID)) setEventExists(_eventExists);
         unsubscribeAuth = window.__fb.onAuthStateChanged(_auth, async user => {
+          const revision = ++authRevision;
+          const isCurrent = () => !cancelled && revision === authRevision && _auth.currentUser?.uid === user?.uid;
+          if (cancelled) return;
           setAdminUser(user || null);
+          setAdminAuth(false);
           if (PRIVATE_EVENT_IDS.has(EVENT_ID)) {
             if (!user) {
               setPrivateAccessState("login");
@@ -551,22 +572,26 @@ export default function App() {
               setAdminAuth(false);
               return;
             }
+            setPrivateAccessState("checking");
             try {
               await loadCurrentEvent();
+              if (!isCurrent()) return;
               setEventExists(_eventExists);
               const tokenResult = await user.getIdTokenResult();
+              if (!isCurrent()) return;
               const authorized = !!user && (user.uid === currentEvent.ownerUid || user.uid === PLATFORM_OWNER_UID || user.uid === currentEvent.privateAccessUid || tokenResult.claims?.eventAccess === EVENT_ID || (Array.isArray(currentEvent.privateAccessEmails) && currentEvent.privateAccessEmails.includes(String(user.email||"").toLowerCase())));
               if (!authorized) throw new Error("Ce compte n’est pas autorisé à accéder à cet espace.");
               setAdminAuth(user.uid === currentEvent.ownerUid || user.uid === PLATFORM_OWNER_UID);
               setPrivateAccessState("granted");
               setPrivateAccessError("");
             } catch (e) {
+              if (!isCurrent()) return;
               console.warn("Private event access:", e?.code || e?.message);
               setPrivateAccessError("Ce compte n’est pas autorisé à accéder à cet espace.");
               setPrivateAccessState("login");
               setEventExists(false);
               setAdminAuth(false);
-              try { await window.__fb.signOut(_auth); } catch {}
+              // A denied event must not sign out the shared account in other tabs.
             }
             return;
           }
@@ -575,7 +600,7 @@ export default function App() {
         });
       });
     }
-    return () => unsubscribeAuth?.();
+    return () => { cancelled = true; authRevision++; unsubscribeAuth?.(); };
   }, []);
 
   if (!TENANT.isValid) return <><GlobalStyles /><div style={{minHeight:'100vh',display:'grid',placeItems:'center',padding:24}}><div style={{textAlign:'center'}}><h1>Lien d’événement invalide</h1><p>Vérifiez le lien transmis par l’organisateur.</p><a href={import.meta.env.BASE_URL}>Revenir à l’accueil</a></div></div></>;
@@ -636,6 +661,7 @@ function HomePage({ setView }) {
   const modules = event.modules || {};
   const [photos, setPhotos] = useState([]);
   useEffect(() => DB.onPhotos(all => setPhotos(all.filter(p => p.status === "approved"))), []);
+
 
   const latest = photos[0];
   const topLiked = [...photos].sort((a, b) => (b.likes || 0) - (a.likes || 0))[0];
@@ -1038,6 +1064,18 @@ function GalleryPage({ setView }) {
   const event = normalizeEventConfig(DB.getEvent());
 
   useEffect(() => DB.onPhotos(all => setPhotos(all.filter(p => p.status === "approved"))), []);
+  useEffect(() => {
+    const source = {
+      eventId: EVENT_ID,
+      count: photos.length,
+      async getItems() {
+        const all = await DB.listApprovedPhotos();
+        return all.map(photo => ({ kind:"photo", id:photo.id, url:photo.url, name:photo.originalName || `photo-${photo.id}.jpg` }));
+      },
+    };
+    window.__EVENT_PHOTO_EXPORT__ = source;
+    return () => { if (window.__EVENT_PHOTO_EXPORT__ === source) delete window.__EVENT_PHOTO_EXPORT__; };
+  }, [photos]);
   useEffect(() => {
     setLightbox(current => current ? (photos.find(photo => photo.id === current.id) || current) : null);
   }, [photos]);
@@ -1594,7 +1632,6 @@ function AdminPage({ auth, user, setAuth, setEventExists, setView }) {
       const signedUser = credential.user;
       if (!_eventExists) {
         if (signedUser.uid !== PLATFORM_OWNER_UID) {
-          await window.__fb.signOut(_auth);
           throw new Error("Cet espace événement n’existe pas encore.");
         }
         const created = await DB.bootstrapEvent();
@@ -1603,7 +1640,6 @@ function AdminPage({ auth, user, setAuth, setEventExists, setView }) {
       }
       const refreshed = DB.getEvent();
       if (signedUser.uid !== refreshed.ownerUid && signedUser.uid !== PLATFORM_OWNER_UID) {
-        await window.__fb.signOut(_auth);
         throw new Error("Ce compte n’est pas administrateur de cet événement.");
       }
       setEvent(refreshed);

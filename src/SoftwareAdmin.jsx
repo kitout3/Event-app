@@ -57,7 +57,14 @@ export default function SoftwareAdmin(){
   const [saving,setSaving]=useState(false);
   const [creating,setCreating]=useState(false),[notice,setNotice]=useState(""),[deleting,setDeleting]=useState("");
 
-  useEffect(()=>{let unsub;initFirebase().then(()=>{unsub=fb.onAuthStateChanged(auth,u=>{setUser(u);setReady(true);});}).catch(e=>{setError(e.message);setReady(true)});return()=>unsub?.();},[]);
+  useEffect(()=>{
+    let unsub,cancelled=false;
+    initFirebase().then(()=>{
+      if(cancelled)return;
+      unsub=fb.onAuthStateChanged(auth,u=>{setUser(u);setEvents([]);setEditing(null);setReady(true);});
+    }).catch(e=>{if(!cancelled){setError(e.message);setReady(true);}});
+    return()=>{cancelled=true;unsub?.();};
+  },[]);
   const authorized=user?.uid===PLATFORM_OWNER_UID;
 
   const load=useCallback(async()=>{
@@ -66,7 +73,7 @@ export default function SoftwareAdmin(){
     try{
       const call=fb.httpsCallable(functionsApi,"listWeddings");
       const res=await call({});
-      setEvents(res.data?.weddings||[]);
+      if(auth.currentUser?.uid===PLATFORM_OWNER_UID)setEvents(res.data?.weddings||[]);
     }catch(e){setError(e.message||"Impossible de charger les événements");}
     finally{setLoading(false);}
   },[authorized]);
@@ -76,7 +83,7 @@ export default function SoftwareAdmin(){
     setError("");
     try{
       const c=await fb.signInWithEmailAndPassword(auth,email.trim(),password);
-      if(c.user.uid!==PLATFORM_OWNER_UID){await fb.signOut(auth);throw new Error("Ce compte n’est pas administrateur du logiciel.");}
+      if(c.user.uid!==PLATFORM_OWNER_UID){throw new Error("Ce compte n’est pas administrateur du logiciel.");}
     }catch(e){setError(e.message||"Connexion impossible");}
   };
 

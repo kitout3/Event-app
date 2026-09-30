@@ -141,7 +141,7 @@
       if (!isActuallyVisible(element)) return;
       const item = itemFromElement(element); items.set(itemKey(item), item);
     });
-    return [...items.values()].slice(0, MAX_ITEMS);
+    return [...items.values()];
   }
 
   function renderBar() {
@@ -153,19 +153,84 @@
       bar = document.createElement('div'); bar.id = 'media-selection-bar'; bar.className = 'ms-bar';
       bar.innerHTML = `<div class="ms-bar__info"><strong data-count></strong><span class="ms-status" data-status aria-live="polite"></span></div><button class="ms-button ms-secondary" data-clear></button><button class="ms-button ms-secondary" data-all></button><button class="ms-button ms-primary" data-download></button>`;
       bar.querySelector('[data-clear]').onclick = () => { if (busy) return; selected.clear(); save(); render(); };
-      bar.querySelector('[data-all]').onclick = event => downloadItems(visibleItems(activeMediaRoot()), event.currentTarget, false, true);
+      bar.querySelector('[data-all]').onclick = event => activeMediaRoot().id === 'vt-overlay'
+        ? downloadItems(visibleItems(activeMediaRoot()), event.currentTarget, false, true)
+        : downloadAllPhotos(event.currentTarget);
       bar.querySelector('[data-download]').onclick = event => downloadSelection(event.currentTarget);
       (root.id === 'vt-overlay' ? root : document.body).appendChild(bar);
     } else {
       const expectedParent = root.id === 'vt-overlay' ? root : document.body;
       if (bar.parentElement !== expectedParent) expectedParent.appendChild(bar);
     }
-    setText(bar.querySelector('[data-count]'), selected.size ? `${selected.size} ${t('items')}` : `${available.length} média(s)`);
+    const photoSource = window.__EVENT_PHOTO_EXPORT__;
+    const total = root.id !== 'vt-overlay' && photoSource?.eventId === EVENT_ID && Number.isInteger(photoSource.count)
+      ? photoSource.count : available.length;
+    setText(bar.querySelector('[data-count]'), selected.size ? `${selected.size} ${t('items')}` : `${total} média(s)`);
     setText(bar.querySelector('[data-clear]'), t('clear'));
-    setText(bar.querySelector('[data-all]'), t(canShareFilesOnMobile() ? 'mobileSaveAll' : 'downloadAll'));
+    setText(bar.querySelector('[data-all]'), root.id === 'vt-overlay'
+      ? t(canShareFilesOnMobile() ? 'mobileSaveAll' : 'downloadAll')
+      : (window.EventI18n?.translate('Toutes les photos (ZIP)') || 'Toutes les photos (ZIP)'));
+    bar.querySelector('[data-all]').disabled = busy;
     setText(bar.querySelector('[data-download]'), t(canShareFilesOnMobile() ? 'mobileSaveSelection' : 'downloadSelection'));
     bar.querySelector('[data-clear]').disabled = busy || !selected.size;
     bar.querySelector('[data-download]').disabled = busy || !selected.size;
+  }
+
+  let archiveUrl = null;
+  const clearArchive = () => {
+    if (archiveUrl) URL.revokeObjectURL(archiveUrl);
+    archiveUrl = null;
+    document.getElementById('all-photos-zip-link')?.remove();
+  };
+
+  async function downloadAllPhotos(button) {
+    if (busy) return;
+    busy = true;
+    clearArchive();
+    const bar = document.getElementById('media-selection-bar');
+    const status = bar?.querySelector('[data-status]');
+    bar?.querySelectorAll('button').forEach(control => { control.disabled = true; });
+    const name = `${cleanName(window.__WEDDING_EVENT__?.slug || EVENT_ID, 'evenement')}-toutes-les-photos.zip`;
+    let writable;
+    try {
+      // Request the file handle within the original click gesture. The archive
+      // then streams to disk instead of retaining hundreds of photos in RAM.
+      if (typeof window.showSaveFilePicker === 'function') {
+        const handle = await window.showSaveFilePicker({ suggestedName:name, types:[{ description:'ZIP', accept:{'application/zip':['.zip']} }] });
+        writable = await handle.createWritable();
+      }
+      const source = window.__EVENT_PHOTO_EXPORT__;
+      if (source?.eventId !== EVENT_ID || !window.EventPhotoZip) throw new Error('Photo export unavailable');
+      setText(status, t('preparing'));
+      const photos = await source.getItems();
+      if (!photos.length) throw new Error('No published photos');
+      const stream = window.EventPhotoZip.stream(photos, {
+        onProgress: (done, total) => setText(status, `${t('preparing')} ${done}/${total}`),
+      });
+      if (writable) {
+        await stream.pipeTo(writable);
+        writable = null;
+        setText(status, t('complete'));
+      } else {
+        const blob = await new Response(stream, { headers:{'Content-Type':'application/zip'} }).blob();
+        archiveUrl = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.id = 'all-photos-zip-link'; link.className = 'ms-button ms-primary';
+        link.href = archiveUrl; link.download = name;
+        link.textContent = `${window.EventI18n?.translate('Télécharger le ZIP') || 'Télécharger le ZIP'} (${photos.length})`;
+        link.style.cssText = 'display:inline-block;margin-top:8px;text-decoration:none';
+        bar.querySelector('.ms-bar__info').appendChild(link);
+        setText(status, window.EventI18n?.translate('ZIP prêt. Cliquez sur le lien pour l’enregistrer.') || 'ZIP prêt. Cliquez sur le lien pour l’enregistrer.');
+        link.click();
+      }
+    } catch (error) {
+      if (writable) { try { await writable.abort(); } catch {} }
+      if (error?.name === 'AbortError') setText(status, t('cancelled'));
+      else {
+        console.error('All photos ZIP:', error);
+        setText(status, window.EventI18n?.translate('Le ZIP complet n’a pas pu être créé. Réessayez.') || 'Le ZIP complet n’a pas pu être créé. Réessayez.');
+      }
+    } finally { busy = false; if (button.isConnected) render(); }
   }
 
   async function getDownloadWorker() {
@@ -589,7 +654,9 @@
     start();
   }
   window.addEventListener('wedding:media-rendered', render);
+  window.addEventListener('pagehide', clearArchive);
   window.addEventListener('hashchange', () => {
+    clearArchive();
     document.getElementById('media-selection-bar')?.remove();
     requestAnimationFrame(render);
   });

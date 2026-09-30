@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { EVENT_TYPES, THEME_PRESETS, DEFAULT_MODULES, presetForType } from "./event-config.mjs";
 import { BILLING_PLANS, amountForPlan, billingSegmentForEventType, formatEuro } from "./billing-config.mjs";
 import PasswordInput from "./PasswordInput.jsx";
@@ -13,6 +13,7 @@ const FIREBASE_CONFIG={
   messagingSenderId:import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID||runtimeConfig.messagingSenderId,
   appId:import.meta.env.VITE_FIREBASE_APP_ID||runtimeConfig.appId,
 };
+const PLATFORM_OWNER_UID="beQK5FNoVla9lnvnzSfqasK93QR2";
 const APP_BASE=new URL("./",window.location.href).href;
 const EVENT_URL=slug=>APP_BASE+"?w="+encodeURIComponent(slug);
 const ACCOUNT_URL=new URL("account.html",APP_BASE).href;
@@ -51,20 +52,28 @@ export default function ClientAccount(){
   const [guestPassword,setGuestPassword]=useState("");
   const switchAudience=value=>{setAudience(value);setError("");setPassword("");setGuestPassword("");};
 
+  const previousAccountUid=useRef(null);
   const loadEvents=useCallback(async()=>{
-    if(!auth?.currentUser)return;
+    const uid=auth?.currentUser?.uid;
+    if(!uid)return;
     setLoading(true);setError("");
     try{
       const result=await fb.httpsCallable(functionsApi,"listMyEvents")({});
-      setEvents(result.data?.events||[]);
-    }catch(e){setError(e.message||"Impossible de charger vos événements.");}
-    finally{setLoading(false);}
+      if(auth.currentUser?.uid===uid)setEvents(result.data?.events||[]);
+    }catch(e){if(auth.currentUser?.uid===uid)setError(e.message||"Impossible de charger vos événements.");}
+    finally{if(auth.currentUser?.uid===uid)setLoading(false);}
   },[]);
 
   useEffect(()=>{
-    let unsub;
+    let unsub,cancelled=false;
     initFirebase().then(()=>{
+      if(cancelled)return;
       unsub=fb.onAuthStateChanged(auth,async current=>{
+        if(cancelled)return;
+        if(previousAccountUid.current!==current?.uid){
+          previousAccountUid.current=current?.uid;
+          setEvents([]);setNotice("");setError("");setForm(emptyEvent());setStep(1);setShowCreate(initialCreate);setBusy(false);
+        }
         // A shared guest session must never open the organiser dashboard.
         if(current?.uid?.startsWith("event-guest-")){
           setUser(null);setReady(true);setEvents([]);return;
@@ -72,6 +81,7 @@ export default function ClientAccount(){
         setUser(current||null);setReady(true);
         if(current){
           await loadEvents();
+          if(cancelled||auth.currentUser?.uid!==current.uid)return;
           const query=new URLSearchParams(window.location.search);
           const sessionId=query.get("session_id");
           if(query.get("checkout")==="success"&&sessionId){
@@ -89,8 +99,8 @@ export default function ClientAccount(){
           }
         }
       });
-    }).catch(e=>{setError(e.message);setReady(true);});
-    return()=>unsub?.();
+    }).catch(e=>{if(!cancelled){setError(e.message);setReady(true);}});
+    return()=>{cancelled=true;unsub?.();};
   },[loadEvents]);
 
   const submitAuth=async e=>{
@@ -189,15 +199,16 @@ export default function ClientAccount(){
     </div>
   </div>;
 
+  const isPlatformAdmin=user.uid===PLATFORM_OWNER_UID;
   const isSettled=item=>item.billing?.status==="paid"||item.billing?.status==="manual"||(item.active===true&&!item.billing);
   const paidEvents=events.filter(isSettled);
   const pendingEvents=events.filter(item=>!isSettled(item));
 
   return <div className="account-shell">
-    <header className="account-topbar"><a translate="no" className="account-brand" href={APP_BASE}>Event-<em>App</em></a><div className="account-topbar-spacer"/><span style={{fontSize:12,color:"var(--muted)"}}><span translate="no">{user.displayName||user.email}</span></span><button className="account-button light" onClick={()=>fb.signOut(auth)}>Déconnexion</button></header>
+    <header className="account-topbar"><a translate="no" className="account-brand" href={APP_BASE}>Event-<em>App</em></a><div className="account-topbar-spacer"/><span style={{fontSize:12,color:"var(--muted)"}}><span translate="no">{user.displayName||user.email}</span></span>{isPlatformAdmin&&<a className="account-button light" href={new URL("admin.html",APP_BASE).href}>Administration globale</a>}<button className="account-button light" onClick={()=>fb.signOut(auth)}>Déconnexion</button></header>
     <main className="account-main">
       <div className="account-tabs" aria-label="Choisir votre espace"><button className="active" aria-pressed="true">Organisateur</button><button onClick={()=>switchAudience("guest")}>Invité</button></div>
-      <div className="account-hero"><div><p className="account-eyebrow">ESPACE CLIENT</p><h1>Mes événements</h1><p>{`${events.length} événement(s) · ${paidEvents.length} payé(s)`}{pendingEvents.length?<> · {`${pendingEvents.length} paiement(s) à terminer`}</>:null}</p></div><button className="account-button wine" onClick={()=>{setForm(emptyEvent());setStep(1);setShowCreate(true);setTab("events");setError("")}}>+ Créer un événement</button></div>
+      <div className="account-hero"><div><p className="account-eyebrow">ESPACE CLIENT</p><h1>{isPlatformAdmin?"Tous les événements":"Mes événements"}</h1><p>{`${events.length} événement(s) · ${paidEvents.length} payé(s)`}{pendingEvents.length?<> · {`${pendingEvents.length} paiement(s) à terminer`}</>:null}</p></div><button className="account-button wine" onClick={()=>{setForm(emptyEvent());setStep(1);setShowCreate(true);setTab("events");setError("")}}>+ Créer un événement</button></div>
 
       {notice&&<div className="account-notice">{notice}</div>}{error&&<div className="account-error">{error}</div>}
 
@@ -205,10 +216,10 @@ export default function ClientAccount(){
 
       {tab==="events"&&<>
         {showCreate&&<CreateWizard form={form} setForm={setForm} step={step} setStep={setStep} changeType={changeType} segment={segment} amount={selectedAmount} createAndPay={createAndPay} busy={busy} close={()=>setShowCreate(false)}/>}
-        {loading?<div className="empty-state">Chargement…</div>:events.length===0?<div className="empty-state"><strong>Vous n’avez pas encore d’événement.</strong><br/>Créez votre premier espace puis réglez-le pour l’activer.</div>:<div className="account-grid">{events.map(item=><EventCard key={item.id} item={item} pay={()=>startCheckout(item.id)}/>)}</div>}
+        {loading?<div className="empty-state">Chargement…</div>:events.length===0?<div className="empty-state"><strong>Vous n’avez pas encore d’événement.</strong><br/>Créez votre premier espace puis réglez-le pour l’activer.</div>:<div className="account-grid">{events.map(item=><EventCard key={item.id} item={item} isPlatformAdmin={isPlatformAdmin} canPay={!isPlatformAdmin||item.ownerUid===user.uid} pay={()=>startCheckout(item.id)}/>)}</div>}
       </>}
 
-      {tab==="billing"&&<Billing events={events} pay={startCheckout}/>}
+      {tab==="billing"&&<Billing events={events} pay={startCheckout} isPlatformAdmin={isPlatformAdmin} userUid={user.uid}/>}
     </main>
   </div>;
 }
@@ -234,13 +245,13 @@ function CreateWizard({form,setForm,step,setStep,changeType,segment,amount,creat
   </section>;
 }
 
-function EventCard({item,pay}){
+function EventCard({item,pay,isPlatformAdmin=false,canPay=true}){
   const meta=typeMeta(item.eventType),paid=item.billing?.status==="paid"||item.billing?.status==="manual"||(item.active===true&&!item.billing),active=item.active===true;
-  return <article className="event-card"><div className="event-card-head"><div className="event-icon">{meta.icon}</div><div><h3><span translate="no">{item.name}</span></h3><div className="event-meta">{[item.date,item.location].filter(Boolean).join(" · ")||"Date à définir"}</div></div></div><div className="status-row"><span className="pill">{meta.label}</span><span className={"pill "+(paid?"paid":"pending")}>{paid?"Payé":"Paiement à terminer"}</span><span className={"pill "+(active?"paid":"pending")}>{active?"Actif":"Non publié"}</span>{item.billing?.planLabel&&<span className="pill">{item.billing.planLabel}</span>}</div><div className="event-actions">{!paid&&<button className="primary" onClick={pay}>Payer {formatEuro(item.billing?.amount)}</button>}{paid&&<a className="primary" href={EVENT_URL(item.slug)+"#admin"}>Gérer</a>}{active&&<a href={EVENT_URL(item.slug)} target="_blank" rel="noreferrer">Voir l’événement</a>}{item.billing?.invoiceUrl&&<a href={item.billing.invoiceUrl} target="_blank" rel="noreferrer">Facture</a>}</div></article>;
+  return <article className="event-card"><div className="event-card-head"><div className="event-icon">{meta.icon}</div><div><h3><span translate="no">{item.name}</span></h3><div className="event-meta">{[item.date,item.location].filter(Boolean).join(" · ")||"Date à définir"}</div></div></div><div className="status-row"><span className="pill">{meta.label}</span><span className={"pill "+(paid?"paid":"pending")}>{paid?"Payé":"Paiement à terminer"}</span><span className={"pill "+(active?"paid":"pending")}>{active?"Actif":"Non publié"}</span>{item.billing?.planLabel&&<span className="pill">{item.billing.planLabel}</span>}</div><div className="event-actions">{!paid&&canPay&&<button className="primary" onClick={pay}>Payer {formatEuro(item.billing?.amount)}</button>}{(paid||isPlatformAdmin)&&<a className="primary" href={EVENT_URL(item.slug)+"#admin"}>Gérer</a>}{active&&<a href={EVENT_URL(item.slug)} target="_blank" rel="noreferrer">Voir l’événement</a>}{item.billing?.invoiceUrl&&<a href={item.billing.invoiceUrl} target="_blank" rel="noreferrer">Facture</a>}</div></article>;
 }
 
-function Billing({events,pay}){
+function Billing({events,pay,isPlatformAdmin,userUid}){
   const rows=useMemo(()=>[...events].sort((a,b)=>String(b.createdAt||"").localeCompare(String(a.createdAt||""))),[events]);
   if(!rows.length)return <div className="empty-state">Aucune opération pour le moment.</div>;
-  return <table className="billing-table"><thead><tr><th>Événement</th><th>Formule</th><th>Montant</th><th>Statut</th><th>Document</th></tr></thead><tbody>{rows.map(item=><tr key={item.id}><td><strong><span translate="no">{item.name}</span></strong><br/><span style={{color:"var(--muted)",fontSize:11}}>{item.date||"—"}</span></td><td>{item.billing?.planLabel||item.billing?.planId||"—"}</td><td>{formatEuro(item.billing?.amount)}</td><td>{item.billing?.status==="paid"?"Payé":item.billing?.status==="manual"||(!item.billing&&item.active)?"Gestion manuelle":"À payer"}</td><td>{item.billing?.invoiceUrl?<a href={item.billing.invoiceUrl} target="_blank" rel="noreferrer">Ouvrir la facture</a>:!(item.billing?.status==="paid"||item.billing?.status==="manual"||(!item.billing&&item.active))?<button className="account-button light" style={{padding:"7px 10px"}} onClick={()=>pay(item.id)}>Payer</button>:"—"}</td></tr>)}</tbody></table>;
+  return <table className="billing-table"><thead><tr><th>Événement</th><th>Formule</th><th>Montant</th><th>Statut</th><th>Document</th></tr></thead><tbody>{rows.map(item=><tr key={item.id}><td><strong><span translate="no">{item.name}</span></strong><br/><span style={{color:"var(--muted)",fontSize:11}}>{item.date||"—"}</span></td><td>{item.billing?.planLabel||item.billing?.planId||"—"}</td><td>{formatEuro(item.billing?.amount)}</td><td>{item.billing?.status==="paid"?"Payé":item.billing?.status==="manual"||(!item.billing&&item.active)?"Gestion manuelle":"À payer"}</td><td>{item.billing?.invoiceUrl?<a href={item.billing.invoiceUrl} target="_blank" rel="noreferrer">Ouvrir la facture</a>:(!isPlatformAdmin||item.ownerUid===userUid)&&!(item.billing?.status==="paid"||item.billing?.status==="manual"||(!item.billing&&item.active))?<button className="account-button light" style={{padding:"7px 10px"}} onClick={()=>pay(item.id)}>Payer</button>:"—"}</td></tr>)}</tbody></table>;
 }

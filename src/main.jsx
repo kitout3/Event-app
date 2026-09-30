@@ -7,10 +7,10 @@ import './account.css'
 const hasWedding = window.__WEDDING_TENANT__?.hasWedding === true
 const App = lazy(() => import('./App.jsx'))
 if (hasWedding) {
-  const enhancements = ['app-enhancer', 'youtube-live-settings', 'video-testimonials-v2', 'video-success-flow', 'video-gallery-player', 'media-selection', 'live-inline-fix', 'live-mobile-fix', 'live-chat', 'live-presence']
+  const enhancements = ['app-enhancer', 'youtube-live-settings', 'video-testimonials-v2', 'video-success-flow', 'video-gallery-player', 'photo-zip', 'media-selection', 'live-inline-fix', 'live-mobile-fix', 'live-chat', 'live-presence']
   for (const name of enhancements) {
     const script = document.createElement('script')
-    script.src = `${import.meta.env.BASE_URL}${name}.js?v=20260922-rollback-1`
+    script.src = `${import.meta.env.BASE_URL}${name}.js?v=20260930-access-zip-1`
     script.async = false
     document.head.appendChild(script)
   }

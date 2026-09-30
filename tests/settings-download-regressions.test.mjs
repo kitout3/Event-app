@@ -98,7 +98,7 @@ for(const state of ["loading","interactive","complete"]){
     assert.equal(fixture.isObserved(),true);
     fixture.showPhoto();
     assert.equal(fixture.getBar().id,"media-selection-bar");
-    assert.equal(fixture.getBar().querySelector("[data-all]").textContent,"Tout télécharger");
+    assert.equal(fixture.getBar().querySelector("[data-all]").textContent,"Toutes les photos (ZIP)");
     fixture.leaveGallery();
     assert.equal(fixture.getBar(),null);
     fixture.showPhoto();

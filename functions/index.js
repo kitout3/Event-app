@@ -27,6 +27,14 @@ function requiredSecret(name) {
   return value;
 }
 
+function requireOrganizer(request) {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Connectez-vous pour accéder à votre compte.");
+  if (request.auth.uid === PLATFORM_OWNER_UID) return;
+  if (request.auth.uid.startsWith("event-guest-") || request.auth.token?.eventAccess) {
+    throw new HttpsError("permission-denied", "Un accès invité ne permet pas de gérer un compte organisateur.");
+  }
+}
+
 function requestCanAccessPrivateEvent(request, event) {
   const eventId = String(event?.slug || event?.id || "");
   if (!PRIVATE_EVENT_IDS.has(eventId)) return true;
@@ -776,7 +784,7 @@ exports.listWeddings = onCall({ region: "europe-west1" }, async request => {
 
 
 exports.createClientEventDraft = onCall({ region: "europe-west1" }, async request => {
-  if (!request.auth) throw new HttpsError("unauthenticated", "Connectez-vous pour créer un événement.");
+  requireOrganizer(request);
 
   const data = request.data || {};
   const name = String(data.name || "").trim().slice(0, 120);
@@ -859,17 +867,13 @@ exports.createClientEventDraft = onCall({ region: "europe-west1" }, async reques
 });
 
 exports.listMyEvents = onCall({ region: "europe-west1" }, async request => {
-  if (!request.auth) throw new HttpsError("unauthenticated", "Connectez-vous pour accéder à vos événements.");
+  requireOrganizer(request);
   const db = getFirestore();
-  const ownedSnapshot = await db.collection("events").where("ownerUid", "==", request.auth.uid).get();
-  const email = String(request.auth.token?.email || "").trim().toLowerCase();
-  const sharedSnapshot = email
-    ? await db.collection("events").where("privateAccessEmails", "array-contains", email).get()
-    : null;
-  const docsById = new Map();
-  ownedSnapshot.docs.forEach(doc => docsById.set(doc.id, doc));
-  sharedSnapshot?.docs.forEach(doc => docsById.set(doc.id, doc));
-  const events = [...docsById.values()].map(doc => {
+  // Invitation emails grant guest access, never access to another customer's dashboard or billing.
+  const snapshot = request.auth.uid === PLATFORM_OWNER_UID
+    ? await db.collection("events").get()
+    : await db.collection("events").where("ownerUid", "==", request.auth.uid).get();
+  const events = snapshot.docs.map(doc => {
     const data = doc.data() || {};
     const slug = data.slug || doc.id;
     const createdAt = data.createdAt?.toDate?.()?.toISOString?.() || null;
@@ -887,6 +891,7 @@ exports.listMyEvents = onCall({ region: "europe-west1" }, async request => {
       active: data.active === true,
       status: data.status || (data.active === true ? "active" : "draft"),
       billing: data.billing || null,
+      ownerUid: data.ownerUid || null,
       createdAt,
       updatedAt,
       guestUrl: PUBLIC_APP_BASE + "?w=" + encodeURIComponent(slug),
