@@ -308,16 +308,16 @@ test("all event pages keep only the compact language pill fixed with a small ini
 });
 
 
-test("Event-App root is login/signup and never auto-opens Huyen & Quentin",()=>{
+test("EventApp root is a public portal and never auto-opens Huyen & Quentin",()=>{
   const main=read("src/main.jsx");
   const tenant=read("public/tenant-context.js");
   const index=read("index.html");
-  assert.match(main,/import ClientAccount from '\.\/ClientAccount\.jsx'/);
-  assert.match(main,/: <ClientAccount \/>/);
-  assert.doesNotMatch(main,/import Portal from/);
+  assert.match(main,/import Portal from '\.\/Portal\.jsx'/);
+  assert.match(main,/: <Portal \/>/);
+  assert.doesNotMatch(main,/import ClientAccount from/);
   assert.match(tenant,/const hasWedding = requested !== null/);
   assert.doesNotMatch(tenant,/LEGACY_DEFAULT_EVENT_ID/);
-  assert.match(index,/<title>Event-App · Vos événements<\/title>/);
+  assert.match(index,/<title>EventApp · Photos, vidéos et souvenirs de vos événements<\/title>/);
 });
 
 test("Huyen and Quentin event supports private event credentials",()=>{

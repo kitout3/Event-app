@@ -146,11 +146,11 @@ export default function SoftwareAdmin(){
   };
 
   const removeEvent=async(item)=>{
-    if(!window.confirm(`Supprimer définitivement « $<span translate="no">{item.name}</span> » et toutes ses données ? Cette action est irréversible.`))return;
+    if(!window.confirm(`Supprimer définitivement « ${item.name} » et toutes ses données ? Cette action est irréversible.`))return;
     setDeleting(item.id);setError("");setNotice("");
     try{
       await fb.httpsCallable(functionsApi,"deleteWedding")({eventId:item.id});
-      setNotice(`Événement supprimé : $<span translate="no">{item.name}</span>`);await load();
+      setNotice(`Événement supprimé : ${item.name}`);await load();
     }catch(e){setError(e.message||"Suppression impossible");}
     finally{setDeleting("");}
   };
@@ -185,7 +185,7 @@ export default function SoftwareAdmin(){
     setError("");setNotice("");
     try{
       await fb.httpsCallable(functionsApi,"updateWedding")({eventId:item.id,active:!item.active});
-      setNotice(`$<span translate="no">{item.name}</span> : ${item.active?"désactivé":"activé"}`);await load();
+      setNotice(`${item.name} : ${item.active?"désactivé":"activé"}`);await load();
     }catch(e){setError(e.message||"Modification impossible");}
   };
   const resetAccess=async(item)=>{

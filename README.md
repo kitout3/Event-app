@@ -1,17 +1,28 @@
-# Event-App
+# EventApp
 
-Application multi-événements de partage de photos, vidéos et live, avec comptes organisateurs et administration de plateforme séparée.
+Application multi-événements de partage de photos, vidéos et live, avec comptes organisateurs, accès invités et administration de plateforme séparée.
 
-## Dépôt et données
+## Adresses
 
-Le code complet est dans **kitout3/Event-app**. Firebase **mariage-hq** conserve les comptes, les documents et les médias existants ; aucune migration de données n’est nécessaire pour changer l’adresse du site.
-
-- Accueil / compte : `https://kitout3.github.io/Event-app/`.
-- Espace invités : `https://kitout3.github.io/Event-app/?w=<identifiant-de-l-evenement>`.
+- Landing publique : `https://kitout3.github.io/Event-app/`.
+- Compte organisateur / accès invité privé : `https://kitout3.github.io/Event-app/account.html`.
+- Espace invité d’un événement : `https://kitout3.github.io/Event-app/?w=<identifiant-de-l-evenement>`.
 - Administration d’un événement : `https://kitout3.github.io/Event-app/?w=<identifiant-de-l-evenement>#admin`.
-- Administration de la plateforme : `https://kitout3.github.io/Event-app/admin.html`, réservée au propriétaire via Firebase Authentication et les contrôles des Cloud Functions.
-- L’adresse racine affiche désormais l’espace compte Event-App (création de compte ou connexion). Aucun événement n’est sélectionné automatiquement.
-- Un identifiant invalide ne bascule jamais vers un autre mariage. Aucun annuaire public n’est affiché sur l’accueil.
+- Administration globale : `https://kitout3.github.io/Event-app/admin.html`.
+
+La racine est désormais une landing publique EventApp : proposition de valeur, tarif, fonctionnement, accès par lien/code et accès privé. Aucun événement n’est sélectionné automatiquement. Un identifiant invalide ne bascule jamais vers un autre événement et aucun annuaire public n’est affiché.
+
+## Fonctionnalités
+
+- Plusieurs événements par compte organisateur.
+- Photos, galerie, réactions et téléchargement complet en ZIP.
+- Messages vidéo, modération et export.
+- Affichage TV, diaporama et mosaïque progressive.
+- Diffusion en direct.
+- QR code, programme et informations pratiques.
+- Français, anglais, vietnamien et allemand.
+- Paiement unique par événement.
+- Administration globale séparée de l’administration de chaque événement.
 
 ## Développement
 
@@ -24,40 +35,50 @@ npm run build
 
 Node.js 20 ou supérieur. Le résultat du build est dans `dist/`.
 
-La configuration web Firebase déjà publiée est conservée dans `config/firebase.public.json`. Ces identifiants publics ne donnent aucun accès administrateur : les règles Firestore/Storage et l’authentification protègent les données. Ne jamais ajouter de compte de service, de clé privée ou de secret administrateur au code ou aux variables `VITE_`.
+La configuration web Firebase publiée est conservée dans `config/firebase.public.json`. Ces identifiants publics ne donnent aucun accès administrateur : les règles Firestore/Storage et l’authentification protègent les données. Ne jamais ajouter de compte de service, de clé privée ou de secret administrateur au code ou aux variables `VITE_`.
 
-Les variables `VITE_FIREBASE_*` peuvent remplacer les valeurs publiques lors du build. La configuration navigateur est produite automatiquement dans `firebase-config.js` ; une absence de configuration n’active pas de galerie fictive en production.
+Les variables `VITE_FIREBASE_*` peuvent remplacer les valeurs publiques lors du build. La configuration navigateur est produite automatiquement dans `firebase-config.js`.
 
-## Hébergement et adresses
+## Tests
 
-Le chemin de base est `/` pour un domaine personnalisé. Sur GitHub Pages, le workflow `.github/workflows/deploy.yml` utilise `VITE_APP_BASE_PATH=./` afin que le build reste valide après un renommage du dépôt.
+`npm test` vérifie notamment :
 
-Le manifeste `.openai/hosting.json` identifie le site Sites. Le code est également transmis à son dépôt de publication, mais GitHub demeure le dépôt utilisateur. Une modification sur GitHub déclenche GitHub Pages ; une nouvelle version Sites doit être publiée pour actualiser l’adresse Sites. Ne pas confondre ces deux déploiements.
+- l’isolation des comptes organisateurs ;
+- l’accès invité et les événements privés ;
+- l’absence de repli inter-événements ;
+- le ZIP contenant toutes les photos ;
+- les traductions et principales régressions fonctionnelles ;
+- la mosaïque TV.
 
-### Raccorder un domaine personnalisé
+Le workflow `Browser smoke tests` ajoute une validation Playwright sur Chromium desktop et WebKit/iPhone pour la landing, la tarification, les deux parcours d’accès invité et les liens juridiques.
 
-1. Disposer du domaine souhaité et de l’accès à son DNS.
-2. Ajouter le nom d’hôte exact au site publié dans Sites.
-3. Reporter **les enregistrements DNS renvoyés par Sites**, puis attendre la validation et le certificat HTTPS. Ne pas inventer de cible DNS ou de fichier CNAME.
-4. Vérifier le domaine dans Firebase Authentication (domaines autorisés) et les éventuelles restrictions d’origine de la clé API web.
-5. Vérifier le téléchargement de médias depuis cette origine ; si une requête est refusée par CORS, ajouter l’origine exacte à la configuration existante du bucket sans supprimer les origines encore utilisées.
+## SEO et confiance
 
-Aucun domaine payant n’est acheté ou configuré automatiquement. Le nom définitif doit être fourni avant le raccordement.
+La landing possède title, description, canonical et métadonnées Open Graph/Twitter. `robots.txt` et `sitemap.xml` sont publiés depuis `public/` ; les espaces compte et admin restent exclus de l’indexation.
 
-## Fonctionnalités conservées
+Les pages suivantes sont disponibles :
 
-- Photos, galerie, réactions et téléchargement de sélections.
-- Messages vidéo, modération et export.
-- Affichage TV et cérémonie en direct.
-- Français, anglais, vietnamien et allemand.
-- Création, modification, activation, accès et suppression des mariages depuis l’administration existante.
+- `privacy.html` ;
+- `terms.html` ;
+- `legal.html`.
 
-Les liens ouverts depuis l’administration, les QR codes et la navigation des invités restent sur le domaine consulté. Les anciens liens de mariage peuvent être collés dans le nouvel accueil. Les redirections vers le direct et les clics de notifications conservent l’identifiant du mariage.
+Les coordonnées juridiques de l’éditeur ne figurent pas dans le dépôt et ne sont donc pas inventées. `LEGAL_TODO.md` liste les informations vérifiées à renseigner avant commercialisation.
 
-## Validation
+## Hébergement et domaine personnalisé
 
-`npm test` vérifie notamment la sélection des mariages, l’absence de repli inter-mariages, les origines des liens et les protections existantes. Avant la mise en service d’un nouveau domaine, contrôler avec un compte autorisé la connexion administrateur, puis un dépôt et un téléchargement de média. Les tests automatisés ne remplacent pas cette vérification de la configuration Firebase en production.
+Le chemin de base est `/` pour un domaine personnalisé. Sur GitHub Pages, `.github/workflows/deploy.yml` utilise `VITE_APP_BASE_PATH=./` afin que le build reste valide après un renommage du dépôt.
 
-### État de la migration au 19 septembre 2026
+Pour raccorder un domaine personnalisé :
 
-Les builds racine et GitHub Pages et les huit contrôles automatisés passent. La lecture du mariage existant depuis la nouvelle origine est acceptée par Firestore. Le contrôle HTTP d’un média a confirmé que Firebase Storage renvoie actuellement l’autorisation CORS pour `https://kitout3.github.io`, mais pas pour `https://espace-mariage.kitout.chatgpt.site`. Le fichier `cors.json` inclut les deux origines ; cette configuration **reste à appliquer au bucket** avec un compte autorisé, puis à vérifier. Le dernier workflow backend a ignoré son déploiement car le secret du compte de service était absent. La connexion administrateur et les envois de médias n’ont pas été testés avec un compte utilisateur ; aucun mariage ou média de production n’a été créé, modifié ou supprimé pendant la validation. Le contrôle visuel était indisponible dans l’environnement d’aperçu.
+1. disposer du domaine et de l’accès DNS ;
+2. configurer l’hôte auprès de la plateforme de publication retenue ;
+3. reporter uniquement les enregistrements DNS fournis par cette plateforme ;
+4. ajouter le domaine dans les domaines autorisés Firebase Authentication ;
+5. vérifier les restrictions d’origine et le CORS du bucket ;
+6. remplacer l’URL GitHub Pages dans le canonical, `robots.txt` et `sitemap.xml` par le domaine de production.
+
+## Sécurité multi-tenant
+
+Les événements restent indépendants. Les organisateurs n’obtiennent que leurs événements via les Cloud Functions prévues à cet effet. L’administrateur global conserve l’accès plateforme. Les suppressions sensibles d’événements passent par le serveur afin de ne pas contourner le nettoyage des médias et l’historique de facturation.
+
+Les tests automatisés ne remplacent pas une recette de production avec de vrais comptes Firebase, notamment pour l’authentification, le paiement, l’envoi de médias et les téléchargements Android/iOS.
