@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 import MosaicWall, { prepareMosaicAsset } from "./MosaicWall.jsx";
 import { approvedMosaicPhotos, MOSAIC_COUNTS, MOSAIC_FORMATS, normalizeMosaicConfig } from "./mosaic-config.mjs";
 
-export default function TVMosaicSettings({ mode, onModeChange, value, onChange, name, branding, photos, onUpload, onBusyChange }) {
+export default function TVMosaicSettings({ mode, onModeChange, value, onChange, name, branding, photos, eventId, onUpload, onBusyChange }) {
   const config = normalizeMosaicConfig(value);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
@@ -45,11 +45,11 @@ export default function TVMosaicSettings({ mode, onModeChange, value, onChange, 
           {config.type === "photo" && <label className="mosaic-field"><span>Cadrage de la photo</span><select value={config.fit} onChange={event => set("fit", event.target.value)}><option value="cover">Remplir le cadre</option><option value="contain">Afficher l’image entière</option></select></label>}
           <fieldset className="mosaic-fieldset"><legend>3. Rendu & participation</legend><label className="mosaic-field"><span>Intensité du visuel <output>{config.strength} %</output></span><input type="range" min={0} max={90} step={5} value={config.strength} onChange={event => set("strength", Number(event.target.value))} /><small>Faible : photos plus visibles. Forte : visuel plus lisible.</small></label>
             <div className="mosaic-colors"><label><input aria-label="Couleur de fond de la mosaïque" type="color" value={config.background} onChange={event => set("background", event.target.value)} /><span>Fond</span></label>{config.type === "text" && <label><input aria-label="Couleur du texte de la mosaïque" type="color" value={config.textColor} onChange={event => set("textColor", event.target.value)} /><span>Texte</span></label>}</div>
-            <label className="mosaic-check"><input type="checkbox" checked={config.repeat} onChange={event => set("repeat", event.target.checked)} /><span>Répéter les photos pour remplir le mur<small>Sinon, chaque nouvelle photo remplit une case vide.</small></span></label>
+            <p className="mosaic-progressive-note">Une photo par case, sans répétition ni rotation. Le visuel se dévoile uniquement dans les cases remplies.</p>
             <label className="mosaic-check"><input type="checkbox" checked={config.showQr} onChange={event => set("showQr", event.target.checked)} /><span>Afficher le QR code de participation</span></label>
           </fieldset>
         </div>
-        <div className="mosaic-preview-column"><figure className="mosaic-preview"><div className="mosaic-preview-top"><span>Aperçu de votre écran</span><span className="mosaic-preview-dot" /></div><div className="mosaic-preview-stage" style={{ aspectRatio: MOSAIC_FORMATS[config.format] }}><MosaicWall config={config} name={name} branding={branding} photos={photos} preview /></div><figcaption><strong>{config.count.toLocaleString("fr-FR")} <span>cases</span></strong><span>{hasPhotos ? "Aperçu avec les photos approuvées" : "Aperçu illustratif · en attente de vos photos"}</span></figcaption></figure><p className="mosaic-preview-tip">Seules les photos approuvées sont affichées. Au-delà du nombre de cases, toutes les photos passent par rotation.</p><p className="mosaic-save-hint">Sauvegardez les modifications en bas de page pour mettre à jour l’écran TV.</p></div>
+        <div className="mosaic-preview-column"><figure className="mosaic-preview"><div className="mosaic-preview-top"><span>Aperçu de votre écran</span><span className="mosaic-preview-dot" /></div><div className="mosaic-preview-stage" style={{ aspectRatio: MOSAIC_FORMATS[config.format] }}><MosaicWall config={config} name={name} branding={branding} photos={photos} eventId={eventId} preview /></div><figcaption><strong>{config.count.toLocaleString("fr-FR")} <span>cases</span></strong><span>{hasPhotos ? "Aperçu avec les photos approuvées" : "Aucune photo : le visuel reste masqué"}</span></figcaption></figure><p className="mosaic-preview-tip">Les photos conservent leur place. Quand le mur est plein, augmentez le nombre de cases ou consultez « Toutes les photos » sans modifier la mosaïque.</p><p className="mosaic-save-hint">Sauvegardez les modifications en bas de page pour mettre à jour l’écran TV.</p></div>
       </div>
     </div>}
   </section>;

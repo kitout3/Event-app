@@ -23,7 +23,8 @@ export function normalizeMosaicConfig(value = {}) {
     fit: source.fit === "contain" ? "contain" : "cover",
     background: color(source.background, "#f4f0e8"),
     textColor: color(source.textColor, "#153b43"),
-    repeat: source.repeat !== false,
+    // Migrate existing repeating walls to the progressive, static experience.
+    repeat: false,
     showQr: source.showQr !== false,
   };
 }
@@ -55,13 +56,18 @@ export function approvedMosaicPhotos(photos) {
   });
 }
 
-export function mosaicSlots(photos, count, repeat = true, offset = 0) {
+export function reconcileMosaicSlots(previous, photos, count) {
   const capacity = normalizeMosaicConfig({ count }).count;
-  const approved = approvedMosaicPhotos(photos);
+  const approved = approvedMosaicPhotos(photos).sort((a, b) => (Date.parse(a.createdAt) || 0) - (Date.parse(b.createdAt) || 0) || a.id.localeCompare(b.id));
+  const byId = new Map(approved.map(photo => [photo.id, photo]));
+  const assigned = new Set();
   const slots = Array(capacity).fill(null);
-  if (!approved.length) return slots;
-  // Fixed permutation makes the wall fill across the whole image, while keeping
-  // its arrangement deterministic across preview, resize and separate screens.
+  // Keep every surviving photo in its existing cell, even when another photo
+  // is approved late, removed, liked or has its timestamp resolved by Firebase.
+  for (let index = 0; index < capacity; index++) {
+    const id = previous?.[index];
+    if (byId.has(id) && !assigned.has(id)) { slots[index] = id; assigned.add(id); }
+  }
   const positions = Array.from({ length: capacity }, (_, index) => index);
   let seed = 1949;
   for (let index = capacity - 1; index > 0; index--) {
@@ -69,8 +75,36 @@ export function mosaicSlots(photos, count, repeat = true, offset = 0) {
     const swap = seed % (index + 1);
     [positions[index], positions[swap]] = [positions[swap], positions[index]];
   }
-  const start = Math.max(0, Math.floor(Number(offset) || 0)) % approved.length;
-  const filled = repeat ? capacity : Math.min(capacity, approved.length);
-  for (let index = 0; index < filled; index++) slots[positions[index]] = approved[(start + index) % approved.length];
+  const empty = positions.filter(index => slots[index] === null);
+  const arrivals = approved.filter(photo => !assigned.has(photo.id));
+  for (let index = 0; index < Math.min(empty.length, arrivals.length); index++) slots[empty[index]] = arrivals[index].id;
   return slots;
+}
+
+export function mosaicSlots(photos, count, previous = []) {
+  const byId = new Map(approvedMosaicPhotos(photos).map(photo => [photo.id, photo]));
+  return reconcileMosaicSlots(previous, photos, count).map(id => byId.get(id) || null);
+}
+
+export function fitMosaic(viewport, aspect) {
+  const width = Math.min(viewport.width, viewport.height * aspect);
+  return { width, height: width / aspect };
+}
+
+export function clampMosaicCamera(camera, viewport, content, maxScale = 12) {
+  const scale = Math.max(1, Math.min(maxScale, camera.scale));
+  const limitX = Math.max(0, (content.width * scale - viewport.width) / 2);
+  const limitY = Math.max(0, (content.height * scale - viewport.height) / 2);
+  return { scale, x: Math.max(-limitX, Math.min(limitX, camera.x)), y: Math.max(-limitY, Math.min(limitY, camera.y)) };
+}
+
+export function zoomMosaicAt(camera, scale, point, viewport, content, maxScale = 12) {
+  const nextScale = Math.max(1, Math.min(maxScale, scale));
+  const ratio = nextScale / camera.scale;
+  const x = point.x - viewport.width / 2, y = point.y - viewport.height / 2;
+  return clampMosaicCamera({ scale: nextScale, x: x + (camera.x - x) * ratio, y: y + (camera.y - y) * ratio }, viewport, content, maxScale);
+}
+
+export function mosaicPoint(point, camera, viewport, content) {
+  return { x: (point.x - viewport.width / 2 - camera.x) / (content.width * camera.scale) + .5, y: (point.y - viewport.height / 2 - camera.y) / (content.height * camera.scale) + .5 };
 }

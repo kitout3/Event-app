@@ -1448,14 +1448,14 @@ function LiveTV({ setView }) {
       {mode === "slideshow" && <SlideshowMode photo={currentSlide} index={slideIdx} speed={speed} total={playlist.length} />}
       {mode === "mixed"     && <MixedMode     photos={photos} />}
       {mode === "mosaic" && <div className="mosaic-tv-shell">
-        <div className="mosaic-tv-stage"><MosaicWall photos={photos} config={mosaic} name={event.name} branding={event.branding} /></div>
+        <div className="mosaic-tv-stage"><MosaicWall photos={photos} config={mosaic} name={event.name} branding={event.branding} eventId={EVENT_ID} /></div>
         <footer className="mosaic-tv-footer"><div><p className="mosaic-tv-title" translate="no">{event.name}</p><div className="mosaic-tv-meta"><span className="tv-live-badge"><i /> Live</span><span>{photos.length} <span>photos approuvées</span></span><span>·</span><span>{mosaic.count} <span>cases</span></span>{photos.length === 0 && <span>En attente des premières photos…</span>}</div></div>
           {mosaic.showQr && <div className="mosaic-tv-join"><p>Scannez pour ajouter votre photo à la mosaïque</p><div className="mosaic-tv-qr"><QRCode value={`${APP_URL}#upload`} size={68} /></div></div>}
         </footer>
       </div>}
 
       {/* Notification nouvelle photo */}
-      {newPhoto && (
+      {newPhoto && mode !== "mosaic" && (
         <div style={{
           position: "fixed", bottom: 80, left: "50%", transform: "translateX(-50%)",
           background: "rgba(201,122,106,.92)", color: "white", borderRadius: 16, padding: "10px 20px",
@@ -1483,10 +1483,10 @@ function LiveTV({ setView }) {
         position: "fixed", top: 0, left: 0, right: 0, padding: "1.25rem 1.75rem",
         background: "linear-gradient(180deg, rgba(0,0,0,.8) 0%, transparent 100%)",
         display: "flex", alignItems: "center", justifyContent: "space-between",
-        opacity: showControls ? 1 : 0, transition: "opacity .4s ease",
-        zIndex: 100, pointerEvents: showControls ? "auto" : "none",
+        opacity: mode === "mosaic" || showControls ? 1 : 0, transition: "opacity .4s ease",
+        zIndex: 100, pointerEvents: mode === "mosaic" || showControls ? "auto" : "none",
       }}>
-        <div style={{ color: "rgba(255,255,255,.9)", fontFamily: "'Cormorant Garamond',serif" }}>
+        <div style={{ color: "rgba(255,255,255,.9)", fontFamily: "'Cormorant Garamond',serif", visibility: mode === "mosaic" ? "hidden" : "visible" }}>
           <span style={{ fontSize: "1.55rem", fontWeight: 300 }}><span translate="no">{event.name}</span></span>
           <span style={{ marginLeft: 12, fontSize: ".9rem", opacity: .5, fontFamily: "'Jost',sans-serif" }}>
             {`${photos.length} photo${photos.length===1?"":"s"}`}
@@ -1518,12 +1518,12 @@ function LiveTV({ setView }) {
 
       {/* Bouton accueil TV (toujours visible discrètement en bas gauche) */}
       <button onClick={() => setView(VIEWS.HOME)} style={{
-        position: "fixed", bottom: mode === "mosaic" ? 110 : 20, left: 20, zIndex: 200,
+        position: "fixed", top: mode === "mosaic" ? 18 : undefined, bottom: mode === "mosaic" ? "auto" : 20, left: 20, zIndex: 200,
         background: "rgba(255,255,255,.12)", color: "rgba(255,255,255,.7)",
         border: "1px solid rgba(255,255,255,.15)", borderRadius: 50,
         padding: "7px 16px", fontSize: ".78rem", fontFamily: "'Jost',sans-serif",
         backdropFilter: "blur(10px)", transition: "opacity .3s",
-        opacity: showControls ? 1 : 0.3,
+        opacity: mode === "mosaic" || showControls ? 1 : 0.3,
       }}>
         🏠 Accueil
       </button>
@@ -2073,7 +2073,7 @@ function AdminSettings({ event, onUpdate, photos = [] }) {
         <ModuleSettings modules={form.modules} onChange={(key,enabled)=>setNested("modules",key,enabled)} />
       </div>
 
-      {form.modules.tvDisplay && <div style={cardStyle}><TVMosaicSettings mode={form.displayMode} onModeChange={value=>setField("displayMode",value)} value={form.tvMosaic} onChange={value=>setForm(current=>({...current,tvMosaic:typeof value === "function"?value(current.tvMosaic):value}))} name={form.name} branding={form.branding} photos={photos} onUpload={DB.uploadBrandAsset} onBusyChange={setUploadingMosaic} /></div>}
+      {form.modules.tvDisplay && <div style={cardStyle}><TVMosaicSettings mode={form.displayMode} onModeChange={value=>setField("displayMode",value)} value={form.tvMosaic} onChange={value=>setForm(current=>({...current,tvMosaic:typeof value === "function"?value(current.tvMosaic):value}))} name={form.name} branding={form.branding} photos={photos} eventId={EVENT_ID} onUpload={DB.uploadBrandAsset} onBusyChange={setUploadingMosaic} /></div>}
 
       <div style={cardStyle}>
         <h3 style={{fontFamily:"var(--event-title-font)",fontSize:"1.35rem",color:"var(--burgundy)",marginBottom:12}}>Textes de l’application</h3>

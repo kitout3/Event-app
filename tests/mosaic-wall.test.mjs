@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import vm from "node:vm";
 import { parse } from "@babel/parser";
-import { mosaicCells, mosaicSlots, normalizeMosaicConfig, MOSAIC_FORMATS } from "../src/mosaic-config.mjs";
+import { mosaicCells, mosaicSlots, reconcileMosaicSlots, normalizeMosaicConfig, MOSAIC_FORMATS, fitMosaic, zoomMosaicAt, clampMosaicCamera, mosaicPoint } from "../src/mosaic-config.mjs";
 import { eventDefaults, normalizeEventConfig } from "../src/event-config.mjs";
 
 const photos = count => Array.from({ length: count }, (_, index) => ({ id: `p${index}`, status: "approved", thumbnail: `https://example.invalid/${index}.jpg` }));
@@ -44,28 +44,46 @@ test("every supported format has exactly the requested cells with no holes or ov
 test("progressive filling uses approved unique photos and adds arrivals without inventing participants", () => {
   const original = photos(3);
   const excluded = [{ id: "pending", status: "pending", url: "pending" }, { id: "rejected", status: "rejected", url: "rejected" }, original[0], { id: "empty", status: "approved" }];
-  const before = mosaicSlots([...original, ...excluded], 100, false);
+  const before = mosaicSlots([...original, ...excluded], 100);
   assert.equal(before.filter(Boolean).length, 3);
   assert.equal(new Set(before.filter(Boolean).map(photo => photo.id)).size, 3);
-  const after = mosaicSlots([...original, photos(4)[3]], 100, false);
+  const after = mosaicSlots([...original, photos(4)[3]], 100, before.map(photo => photo?.id || null));
   assert.equal(after.filter(Boolean).length, 4);
   before.forEach((photo, index) => { if (photo) assert.equal(after[index].id, photo.id); });
   assert.equal(mosaicSlots([], 400, true).filter(Boolean).length, 0);
-  assert.equal(mosaicSlots(original, 400, true).filter(Boolean).length, 400);
+  assert.equal(mosaicSlots(original, 400).filter(Boolean).length, 3);
+  assert.equal(normalizeMosaicConfig({repeat:true}).repeat, false);
 });
 
-test("rotation visits every approved photo beyond the capacity, without a first-200 limit", () => {
-  const source = photos(537);
-  const seen = new Set();
-  for (const offset of [0, 100, 200, 300, 400, 500]) {
-    const page = mosaicSlots(source, 100, false, offset).filter(Boolean);
-    assert.equal(page.length, 100);
-    assert.equal(new Set(page.map(photo => photo.id)).size, 100);
-    page.forEach(photo => seen.add(photo.id));
-  }
-  assert.equal(seen.size, source.length);
+test("full walls stay static and late approvals or removals do not shift existing photos", () => {
+  const source = photos(100);
+  const initial = reconcileMosaicSlots([], source, 100);
+  const more = [...source, {id:"new-late-photo",status:"approved",url:"new.jpg",createdAt:"2000-01-01"}];
+  assert.deepEqual(reconcileMosaicSlots(initial, more, 100), initial);
   const removed = source.filter(photo => photo.id !== "p4");
-  assert.ok(mosaicSlots(removed, 100).every(photo => photo.id !== "p4"));
+  const next = reconcileMosaicSlots(initial, [...removed, more.at(-1)], 100);
+  initial.forEach((id,index) => assert.equal(next[index],id === "p4" ? "new-late-photo" : id));
+  const subset = reconcileMosaicSlots([], source.slice(0,40), 100);
+  const late = reconcileMosaicSlots(subset,[...source.slice(0,40),more.at(-1)],100);
+  subset.forEach((id,index) => { if(id)assert.equal(late[index],id); });
+  const shuffled = [...more].reverse().map(photo=>({...photo,likes:99,createdAt:"2026-10-01"}));
+  assert.deepEqual(reconcileMosaicSlots(initial,shuffled,100), initial);
+});
+
+test("zoom stays anchored under the pointer and panning reaches all sides of the mosaic", () => {
+  const viewport={width:1200,height:800},content=fitMosaic(viewport,16/9);
+  const camera={scale:2,x:0,y:0},point={x:700,y:430};
+  const before=mosaicPoint(point,camera,viewport,content);
+  const enlarged=zoomMosaicAt(camera,4,point,viewport,content);
+  const after=mosaicPoint(point,enlarged,viewport,content);
+  assert.ok(Math.abs(before.x-after.x)<1e-9 && Math.abs(before.y-after.y)<1e-9);
+  const topLeft=clampMosaicCamera({scale:4,x:1e6,y:1e6},viewport,content);
+  const origin=mosaicPoint({x:0,y:0},topLeft,viewport,content);
+  assert.ok(Math.abs(origin.x)<1e-9 && Math.abs(origin.y)<1e-9);
+  const bottomRight=clampMosaicCamera({scale:4,x:-1e6,y:-1e6},viewport,content);
+  const end=mosaicPoint({x:1200,y:800},bottomRight,viewport,content);
+  assert.ok(Math.abs(end.x-1)<1e-9 && Math.abs(end.y-1)<1e-9);
+  assert.deepEqual(clampMosaicCamera({scale:0,x:10,y:100},viewport,content),{scale:1,x:0,y:0});
 });
 
 test("mosaic subscriptions and image uploads use only the current event paths", async () => {
